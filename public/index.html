@@ -9,15 +9,10 @@
 </head>
 <body>
   <header class="topbar">
-    <div class="topbar-brand">
-      <span class="topbar-eyebrow">BBS Count</span>
-      <strong>Screw Count Calculator</strong>
-    </div>
-
     <div class="topbar-actions">
       <a id="loginLink" class="button-link" href="./login.html">Log in</a>
 
-      <div id="signedInPanel" class="account-panel hidden">
+      <div id="signedInPanel" class="account-panel hidden" hidden>
         <div class="account-copy">
           <span class="account-label">Signed in as</span>
           <strong id="currentUserEmail" class="account-email"></strong>
@@ -29,38 +24,45 @@
 
   <main class="app">
     <section class="hero">
-      <h1>Screw Count Calculator</h1>
-      <p>
-        Enter when the job started, add the number of linear metres completed, and tick any breaks taken.
-        The calculator subtracts selected break time from the worked time automatically.
-      </p>
+      <div class="tab-strip" role="tablist" aria-label="Job type">
+        <button class="tab-button is-active" type="button" data-job-tab="trusses" role="tab" aria-selected="true">Trusses</button>
+        <button class="tab-button" type="button" data-job-tab="walls" role="tab" aria-selected="false">Walls</button>
+      </div>
+
+      <div class="hero-copy">
+        <span id="activeTabLabel" class="hero-eyebrow">Trusses</span>
+        <h1 id="tabTitle">Trusses</h1>
+        <p id="tabDescription">Track linear metres for truss jobs and see your metres per hour.</p>
+      </div>
     </section>
 
     <section class="content">
       <div class="card">
         <h2>Work Details</h2>
 
-        <div class="field">
-          <label for="startTime">Time started</label>
-          <input id="startTime" type="time">
+        <div class="field-grid">
+          <div class="field">
+            <label for="startTime">Time started</label>
+            <input id="startTime" type="time">
+          </div>
+
+          <div class="field">
+            <label for="endTime">Time ended</label>
+            <input id="endTime" type="time">
+          </div>
         </div>
 
         <div class="field">
-          <label for="endTime">Time ended</label>
-          <input id="endTime" type="time">
-        </div>
-
-        <div class="field">
-          <label for="metres">Linear metres to add</label>
-          <input id="metres" type="number" min="0" step="0.01" placeholder="Enter metres to add">
+          <label id="amountLabel" for="amountInput">Linear metres to add</label>
+          <input id="amountInput" type="number" min="0" step="0.01" placeholder="Enter metres to add">
         </div>
 
         <div class="field">
           <div class="button-row">
-            <button id="addMetresButton" type="button">Add metres</button>
+            <button id="addAmountButton" type="button">Add metres</button>
             <button id="endJobButton" type="button" disabled>Job end</button>
           </div>
-          <p class="hint inline-hint">Add each completed section during the day to keep a running total, then save the finished job once you are signed in.</p>
+          <p class="hint inline-hint">Each tab keeps its own running job, so you can switch between trusses and walls without losing your progress.</p>
         </div>
 
         <div class="field">
@@ -91,17 +93,17 @@
         </div>
 
         <div class="stat">
-          <span>Linear Metres</span>
-          <strong id="metresDisplay">0.00 m</strong>
+          <span id="totalUnitsLabel">Linear Metres</span>
+          <strong id="totalUnitsDisplay">0.00 m</strong>
         </div>
 
         <div class="entries">
-          <span class="breaks-title">Added Entries</span>
-          <ol id="metresEntries" class="entry-list"></ol>
+          <span id="entriesTitle" class="breaks-title">Added Entries</span>
+          <ol id="entriesList" class="entry-list"></ol>
         </div>
 
         <div class="stat">
-          <span>Metres Per Hour</span>
+          <span id="rateLabel">Metres Per Hour</span>
           <strong id="rate">0.00 m/h</strong>
         </div>
 
@@ -115,8 +117,8 @@
   <section class="history-panel">
     <div class="history-header">
       <div>
-        <h2>Saved Job History</h2>
-        <p>Multiple jobs on the same day are grouped together into one daily result.</p>
+        <h2 id="historyTitle">Trusses History</h2>
+        <p id="historyDescription">Multiple jobs on the same day are grouped together into one daily result.</p>
       </div>
 
       <div class="history-controls">
@@ -134,12 +136,12 @@
 
     <div class="history-grid">
       <div class="chart-wrap">
-        <h3>Total Linear Metres Per Day</h3>
-        <canvas id="metresChart" height="120"></canvas>
+        <h3 id="totalChartTitle">Total Linear Metres Per Day</h3>
+        <canvas id="totalChart" height="120"></canvas>
       </div>
 
       <div class="chart-wrap">
-        <h3>Metres Per Hour Per Day</h3>
+        <h3 id="rateChartTitle">Metres Per Hour Per Day</h3>
         <canvas id="rateChart" height="120"></canvas>
       </div>
     </div>

@@ -1,7 +1,4 @@
-import {
-  aggregateHistorySeriesByDay,
-  formatMinutes
-} from "./jobs.js";
+import { aggregateHistorySeriesByDay, formatMinutes } from "./jobs.js";
 
 export function getElements() {
   return {
@@ -9,21 +6,33 @@ export function getElements() {
     logoutButton: document.getElementById("logoutButton"),
     signedInPanel: document.getElementById("signedInPanel"),
     currentUserEmail: document.getElementById("currentUserEmail"),
+    tabButtons: Array.from(document.querySelectorAll("[data-job-tab]")),
+    tabTitle: document.getElementById("tabTitle"),
+    tabDescription: document.getElementById("tabDescription"),
+    activeTabLabel: document.getElementById("activeTabLabel"),
     startTimeInput: document.getElementById("startTime"),
     endTimeInput: document.getElementById("endTime"),
-    metresInput: document.getElementById("metres"),
-    addMetresButton: document.getElementById("addMetresButton"),
+    amountLabel: document.getElementById("amountLabel"),
+    amountInput: document.getElementById("amountInput"),
+    addAmountButton: document.getElementById("addAmountButton"),
     endJobButton: document.getElementById("endJobButton"),
     break15Input: document.getElementById("break15"),
     break24Input: document.getElementById("break24"),
     rangeSelect: document.getElementById("rangeSelect"),
     workedTimeOutput: document.getElementById("workedTime"),
     breakTimeOutput: document.getElementById("breakTime"),
-    metresOutput: document.getElementById("metresDisplay"),
-    metresEntriesOutput: document.getElementById("metresEntries"),
+    totalUnitsLabel: document.getElementById("totalUnitsLabel"),
+    totalUnitsOutput: document.getElementById("totalUnitsDisplay"),
+    entriesTitle: document.getElementById("entriesTitle"),
+    entriesOutput: document.getElementById("entriesList"),
+    rateLabel: document.getElementById("rateLabel"),
     rateOutput: document.getElementById("rate"),
     statusMessage: document.getElementById("statusMessage"),
-    metresChartCanvas: document.getElementById("metresChart"),
+    historyTitle: document.getElementById("historyTitle"),
+    historyDescription: document.getElementById("historyDescription"),
+    totalChartTitle: document.getElementById("totalChartTitle"),
+    rateChartTitle: document.getElementById("rateChartTitle"),
+    totalChartCanvas: document.getElementById("totalChart"),
     rateChartCanvas: document.getElementById("rateChart")
   };
 }
@@ -38,6 +47,7 @@ export function renderAuthState(elements, user) {
 
   elements.loginLink.classList.toggle("hidden", isSignedIn);
   elements.signedInPanel.classList.toggle("hidden", !isSignedIn);
+  elements.signedInPanel.hidden = !isSignedIn;
   elements.endJobButton.disabled = !isSignedIn;
   elements.rangeSelect.disabled = !isSignedIn;
 
@@ -49,16 +59,42 @@ export function renderAuthState(elements, user) {
   elements.currentUserEmail.textContent = "";
 }
 
-export function renderMetreEntries(elements, metreEntries, onRemove) {
-  elements.metresEntriesOutput.innerHTML = "";
+export function renderTabState(elements, config, activeTab) {
+  elements.tabTitle.textContent = config.label;
+  elements.activeTabLabel.textContent = config.label;
+  elements.tabDescription.textContent =
+    activeTab === "trusses"
+      ? "Track linear metres for truss jobs and see your metres per hour."
+      : "Track screws for wall jobs and see your screws per hour.";
+  elements.amountLabel.textContent = config.addLabel;
+  elements.amountInput.placeholder = activeTab === "trusses" ? "Enter metres to add" : "Enter screws to add";
+  elements.amountInput.step = activeTab === "trusses" ? "0.01" : "1";
+  elements.addAmountButton.textContent = config.addButtonLabel;
+  elements.totalUnitsLabel.textContent = config.unitLabel;
+  elements.entriesTitle.textContent = "Added Entries";
+  elements.rateLabel.textContent = config.rateLabel;
+  elements.historyTitle.textContent = `${config.label} History`;
+  elements.historyDescription.textContent = "Multiple jobs on the same day are grouped together into one daily result.";
+  elements.totalChartTitle.textContent = config.chartTotalTitle;
+  elements.rateChartTitle.textContent = config.chartRateTitle;
 
-  metreEntries.forEach((entry, index) => {
+  elements.tabButtons.forEach((button) => {
+    const isActive = button.dataset.jobTab === activeTab;
+    button.classList.toggle("is-active", isActive);
+    button.setAttribute("aria-selected", String(isActive));
+  });
+}
+
+export function renderEntries(elements, entries, config, onRemove) {
+  elements.entriesOutput.innerHTML = "";
+
+  entries.forEach((entry, index) => {
     const item = document.createElement("li");
     item.className = "entry-row";
 
     const text = document.createElement("span");
     text.className = "entry-text";
-    text.textContent = `${entry.metres.toFixed(2)} m added at ${entry.timeLabel}`;
+    text.textContent = config.entryText(entry);
 
     const removeButton = document.createElement("button");
     removeButton.type = "button";
@@ -67,26 +103,24 @@ export function renderMetreEntries(elements, metreEntries, onRemove) {
     removeButton.addEventListener("click", () => onRemove(index));
 
     item.append(text, removeButton);
-    elements.metresEntriesOutput.appendChild(item);
+    elements.entriesOutput.appendChild(item);
   });
 }
 
-export function renderCalculator(elements, calculatorViewModel) {
-  elements.metresOutput.textContent = `${calculatorViewModel.metres.toFixed(2)} m`;
+export function renderCalculator(elements, calculatorViewModel, config) {
+  const decimals = config.key === "trusses" ? 2 : 0;
+  elements.totalUnitsOutput.textContent = `${calculatorViewModel.totalAmount.toFixed(decimals)} ${config.shortUnit}`;
   elements.breakTimeOutput.textContent = `${calculatorViewModel.breakMinutes}m`;
 
   if (!calculatorViewModel.hasStartTime) {
     elements.workedTimeOutput.textContent = "0h 0m";
-    elements.rateOutput.textContent = "0.00 m/h";
-    setStatus(
-      elements,
-      "Choose a start time to begin calculating. You can leave time ended empty for a live count."
-    );
+    elements.rateOutput.textContent = `0.00 ${config.rateShortUnit}`;
+    setStatus(elements, config.emptyStatus);
     return;
   }
 
   elements.workedTimeOutput.textContent = formatMinutes(calculatorViewModel.netWorkedMinutes);
-  elements.rateOutput.textContent = `${calculatorViewModel.rate.toFixed(2)} m/h`;
+  elements.rateOutput.textContent = `${calculatorViewModel.rate.toFixed(2)} ${config.rateShortUnit}`;
 
   if (calculatorViewModel.breaksExceedWorkedTime) {
     setStatus(
@@ -105,35 +139,32 @@ export function renderCalculator(elements, calculatorViewModel) {
   );
 }
 
-export function renderHistory(elements, historyViewModel, currentChart) {
-  return renderCharts(elements, historyViewModel.jobs, currentChart);
-}
-
-function renderCharts(elements, jobs, currentChart) {
+export function renderHistory(elements, jobs, currentCharts, config) {
   const ChartLibrary = window.Chart;
   const aggregated = aggregateHistorySeriesByDay(jobs);
+  const totalDecimals = config.key === "trusses" ? 2 : 0;
 
-  if (currentChart.metres) {
-    currentChart.metres.destroy();
+  if (currentCharts.total) {
+    currentCharts.total.destroy();
   }
 
-  if (currentChart.rate) {
-    currentChart.rate.destroy();
+  if (currentCharts.rate) {
+    currentCharts.rate.destroy();
   }
 
   if (!ChartLibrary) {
-    return { metres: null, rate: null };
+    return { total: null, rate: null };
   }
 
   return {
-    metres: new ChartLibrary(elements.metresChartCanvas, {
+    total: new ChartLibrary(elements.totalChartCanvas, {
       type: "bar",
       data: {
         labels: aggregated.labels,
         datasets: [
           {
-            label: "Linear metres",
-            data: aggregated.metresValues,
+            label: config.unitLabel,
+            data: aggregated.totalValues,
             backgroundColor: "rgba(181, 83, 47, 0.72)",
             borderColor: "rgba(143, 63, 34, 1)",
             borderWidth: 1.5,
@@ -150,7 +181,7 @@ function renderCharts(elements, jobs, currentChart) {
           },
           tooltip: {
             callbacks: {
-              label: (context) => `${context.parsed.y.toFixed(2)} m`
+              label: (context) => `${context.parsed.y.toFixed(totalDecimals)} ${config.shortUnit}`
             }
           }
         },
@@ -158,7 +189,7 @@ function renderCharts(elements, jobs, currentChart) {
           y: {
             beginAtZero: true,
             ticks: {
-              callback: (value) => `${value} m`
+              callback: (value) => `${Number(value).toFixed(totalDecimals)} ${config.shortUnit}`
             }
           }
         }
@@ -170,7 +201,7 @@ function renderCharts(elements, jobs, currentChart) {
         labels: aggregated.labels,
         datasets: [
           {
-            label: "Metres per hour",
+            label: config.rateLabel,
             data: aggregated.rateValues,
             borderColor: "rgba(111, 96, 75, 1)",
             backgroundColor: "rgba(111, 96, 75, 0.16)",
@@ -190,7 +221,7 @@ function renderCharts(elements, jobs, currentChart) {
           },
           tooltip: {
             callbacks: {
-              label: (context) => `${context.parsed.y.toFixed(2)} m/h`
+              label: (context) => `${context.parsed.y.toFixed(2)} ${config.rateShortUnit}`
             }
           }
         },
@@ -198,7 +229,7 @@ function renderCharts(elements, jobs, currentChart) {
           y: {
             beginAtZero: true,
             ticks: {
-              callback: (value) => `${value} m/h`
+              callback: (value) => `${value} ${config.rateShortUnit}`
             }
           }
         }
@@ -207,6 +238,6 @@ function renderCharts(elements, jobs, currentChart) {
   };
 }
 
-export function clearHistoryOutputs(elements) {
+export function clearHistoryOutputs() {
   return null;
 }

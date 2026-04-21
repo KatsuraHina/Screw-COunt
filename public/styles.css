@@ -37,38 +37,15 @@ body {
   width: min(980px, 100%);
   margin-bottom: 24px;
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 20px;
-  padding: 18px 24px;
-  background: rgba(255, 250, 242, 0.92);
-  border: 1px solid rgba(221, 199, 163, 0.8);
-  border-radius: 28px;
-  box-shadow: var(--shadow);
-  backdrop-filter: blur(10px);
-}
-
-.topbar-brand {
-  display: grid;
-  gap: 4px;
-}
-
-.topbar-brand strong {
-  font-size: 1.05rem;
-}
-
-.topbar-eyebrow {
-  color: var(--muted);
-  font-size: 0.8rem;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-  font-weight: 700;
+  justify-content: flex-end;
 }
 
 .topbar-actions {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
   gap: 14px;
+  width: 100%;
 }
 
 .topbar-actions .button-link,
@@ -86,6 +63,7 @@ body {
   border-radius: 18px;
   border: 1px solid var(--border);
   background: rgba(255, 255, 255, 0.75);
+  box-shadow: var(--shadow);
 }
 
 .account-copy {
@@ -185,15 +163,60 @@ body {
 }
 
 .hero {
-  padding: 32px 32px 20px;
+  padding: 24px 32px 28px;
   background:
     linear-gradient(120deg, rgba(181, 83, 47, 0.14), rgba(242, 228, 200, 0.15)),
     linear-gradient(180deg, rgba(255, 255, 255, 0.65), rgba(255, 255, 255, 0));
   border-bottom: 1px solid rgba(221, 199, 163, 0.7);
 }
 
+.tab-strip {
+  display: inline-grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 22px;
+  padding: 8px;
+  border-radius: 18px;
+  background: rgba(255, 250, 242, 0.74);
+  border: 1px solid rgba(221, 199, 163, 0.8);
+}
+
+.tab-button {
+  width: auto;
+  min-width: 140px;
+  padding: 12px 18px;
+  border-radius: 12px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  box-shadow: none;
+}
+
+.tab-button:hover {
+  box-shadow: none;
+}
+
+.tab-button.is-active {
+  background: linear-gradient(135deg, var(--accent), var(--accent-dark));
+  color: #fffaf2;
+  box-shadow: 0 12px 24px rgba(143, 63, 34, 0.22);
+}
+
+.hero-copy {
+  display: grid;
+  gap: 10px;
+}
+
+.hero-eyebrow {
+  color: var(--muted);
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  font-weight: 700;
+}
+
 .hero h1 {
-  margin: 0 0 10px;
+  margin: 0;
   font-size: clamp(2rem, 5vw, 3.4rem);
   line-height: 0.95;
   letter-spacing: -0.04em;
@@ -224,6 +247,12 @@ body {
 .card h2 {
   margin: 0 0 18px;
   font-size: 1.2rem;
+}
+
+.field-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
 }
 
 .field {
@@ -492,15 +521,16 @@ select {
     display: block;
   }
 
-  .topbar,
   .auth-page-shell,
-  .content {
+  .content,
+  .field-grid {
     grid-template-columns: 1fr;
   }
 
-  .topbar {
-    flex-direction: column;
+  .topbar-actions,
+  .account-panel {
     align-items: stretch;
+    flex-direction: column;
   }
 
   .auth-page-copy,
@@ -512,13 +542,13 @@ select {
   }
 
   .button-row,
-  .history-grid {
+  .history-grid,
+  .tab-strip {
     grid-template-columns: 1fr;
   }
 
-  .account-panel {
-    align-items: stretch;
-    flex-direction: column;
+  .tab-button {
+    min-width: 0;
   }
 
   .entry-row {

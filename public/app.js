@@ -6,12 +6,14 @@ import {
   subscribeToAuthChanges
 } from "./firebase-service.js";
 import {
+  JOB_TYPES,
   calculateBreakMinutes,
   calculateWorkedMinutes,
+  createEmptyDraft,
+  createEntry,
   createJobPayload,
-  createMetreEntry,
   getRangeStartDate,
-  getTotalMetres,
+  getTotalAmount,
   normalizeJob
 } from "./jobs.js";
 import {
@@ -19,25 +21,60 @@ import {
   getElements,
   renderAuthState,
   renderCalculator,
+  renderEntries,
   renderHistory,
-  renderMetreEntries,
+  renderTabState,
   setStatus
 } from "./ui.js";
 
 const elements = getElements();
 const state = {
-  metreEntries: [],
+  activeTab: "trusses",
+  drafts: {
+    trusses: createEmptyDraft(),
+    walls: createEmptyDraft()
+  },
   savedJobs: [],
   charts: {
-    metres: null,
+    total: null,
     rate: null
   },
   currentUser: null
 };
 
-function parseMetresInput() {
-  const metres = Number.parseFloat(elements.metresInput.value);
-  return Number.isFinite(metres) ? metres : 0;
+function getActiveConfig() {
+  return JOB_TYPES[state.activeTab];
+}
+
+function getActiveDraft() {
+  return state.drafts[state.activeTab];
+}
+
+function syncDraftFromInputs() {
+  const draft = getActiveDraft();
+  draft.startTime = elements.startTimeInput.value;
+  draft.endTime = elements.endTimeInput.value;
+  draft.pendingAmount = elements.amountInput.value;
+  draft.break15Checked = elements.break15Input.checked;
+  draft.break24Checked = elements.break24Input.checked;
+}
+
+function loadDraftIntoInputs() {
+  const draft = getActiveDraft();
+  elements.startTimeInput.value = draft.startTime;
+  elements.endTimeInput.value = draft.endTime;
+  elements.amountInput.value = draft.pendingAmount;
+  elements.break15Input.checked = draft.break15Checked;
+  elements.break24Input.checked = draft.break24Checked;
+}
+
+function parsePendingAmount() {
+  const amount = Number.parseFloat(elements.amountInput.value);
+  if (!Number.isFinite(amount)) {
+    return 0;
+  }
+
+  return state.activeTab === "walls" ? Math.round(amount) : amount;
 }
 
 function getBreakMinutes() {
@@ -45,19 +82,17 @@ function getBreakMinutes() {
 }
 
 function getCalculatorViewModel() {
-  const rawWorkedMinutes = calculateWorkedMinutes(
-    elements.startTimeInput.value,
-    elements.endTimeInput.value
-  );
+  const draft = getActiveDraft();
+  const rawWorkedMinutes = calculateWorkedMinutes(elements.startTimeInput.value, elements.endTimeInput.value);
   const breakMinutes = getBreakMinutes();
-  const metres = getTotalMetres(state.metreEntries);
+  const totalAmount = getTotalAmount(draft.entries);
 
   if (rawWorkedMinutes === null) {
     return {
       hasStartTime: false,
       hasEndTime: Boolean(elements.endTimeInput.value),
       breakMinutes,
-      metres,
+      totalAmount,
       netWorkedMinutes: 0,
       rate: 0,
       breaksExceedWorkedTime: false
@@ -71,32 +106,35 @@ function getCalculatorViewModel() {
     hasStartTime: true,
     hasEndTime: Boolean(elements.endTimeInput.value),
     breakMinutes,
-    metres,
+    totalAmount,
     netWorkedMinutes,
-    rate: hoursWorked > 0 ? metres / hoursWorked : 0,
+    rate: hoursWorked > 0 ? totalAmount / hoursWorked : 0,
     breaksExceedWorkedTime: rawWorkedMinutes < breakMinutes
   };
 }
 
 function renderCalculatorSection() {
-  renderCalculator(elements, getCalculatorViewModel());
+  renderCalculator(elements, getCalculatorViewModel(), getActiveConfig());
 }
 
 function renderEntriesSection() {
-  renderMetreEntries(elements, state.metreEntries, removeMetreEntry);
+  renderEntries(elements, getActiveDraft().entries, getActiveConfig(), removeEntry);
 }
 
-function getHistoryViewModel() {
+function getHistoryJobs() {
   const rangeStart = getRangeStartDate(Number(elements.rangeSelect.value));
-  const jobs = state.savedJobs.filter((job) => new Date(job.endedAt) >= rangeStart);
-  return { jobs };
+
+  return state.savedJobs.filter((job) => {
+    const inRange = new Date(job.endedAt) >= rangeStart;
+    return inRange && job.jobType === state.activeTab;
+  });
 }
 
 function renderHistorySection() {
   if (!state.currentUser) {
-    if (state.charts.metres) {
-      state.charts.metres.destroy();
-      state.charts.metres = null;
+    if (state.charts.total) {
+      state.charts.total.destroy();
+      state.charts.total = null;
     }
 
     if (state.charts.rate) {
@@ -104,50 +142,51 @@ function renderHistorySection() {
       state.charts.rate = null;
     }
 
-    clearHistoryOutputs(elements);
+    clearHistoryOutputs();
     return;
   }
 
-  state.charts = renderHistory(elements, getHistoryViewModel(), state.charts);
+  state.charts = renderHistory(elements, getHistoryJobs(), state.charts, getActiveConfig());
 }
 
 function renderApp() {
+  renderTabState(elements, getActiveConfig(), state.activeTab);
+  loadDraftIntoInputs();
   renderEntriesSection();
   renderCalculatorSection();
   renderHistorySection();
 }
 
-function resetCurrentJob() {
-  elements.startTimeInput.value = "";
-  elements.endTimeInput.value = "";
-  elements.metresInput.value = "";
-  elements.break15Input.checked = false;
-  elements.break24Input.checked = false;
-  state.metreEntries = [];
+function resetCurrentDraft() {
+  state.drafts[state.activeTab] = createEmptyDraft();
   renderApp();
 }
 
-function removeMetreEntry(index) {
-  state.metreEntries.splice(index, 1);
+function removeEntry(index) {
+  getActiveDraft().entries.splice(index, 1);
   renderApp();
 }
 
-function addMetresEntry() {
-  const metres = parseMetresInput();
+function addEntry() {
+  const amount = parsePendingAmount();
+  const config = getActiveConfig();
 
-  if (metres <= 0) {
-    setStatus(elements, "Enter a metres value greater than zero before adding it.", "warning");
+  if (amount <= 0) {
+    setStatus(elements, config.addWarning, "warning");
     return;
   }
 
-  state.metreEntries.push(createMetreEntry(metres));
-  elements.metresInput.value = "";
+  getActiveDraft().entries.push(createEntry(amount));
+  getActiveDraft().pendingAmount = "";
+  elements.amountInput.value = "";
   renderApp();
 }
 
 function createPendingJob() {
-  const totalMetres = getTotalMetres(state.metreEntries);
+  const draft = getActiveDraft();
+  const totalAmount = getTotalAmount(draft.entries);
   const breakMinutes = getBreakMinutes();
+  const config = getActiveConfig();
 
   if (!state.currentUser) {
     setStatus(elements, "Sign in before saving a job.", "warning");
@@ -159,17 +198,18 @@ function createPendingJob() {
     return null;
   }
 
-  if (totalMetres <= 0) {
-    setStatus(elements, "Add some metres before ending and saving a job.", "warning");
+  if (totalAmount <= 0) {
+    setStatus(elements, config.saveWarning, "warning");
     return null;
   }
 
   return createJobPayload({
+    jobType: state.activeTab,
     startTimeValue: elements.startTimeInput.value,
     endTimeValue: elements.endTimeInput.value,
     breakMinutes,
-    totalMetres,
-    entries: state.metreEntries
+    totalAmount,
+    entries: draft.entries
   });
 }
 
@@ -186,9 +226,9 @@ async function saveJob() {
   try {
     const savedJob = await saveJobRecord(job, state.currentUser);
     state.savedJobs.unshift(normalizeJob(savedJob));
-    resetCurrentJob();
+    resetCurrentDraft();
     renderHistorySection();
-    setStatus(elements, "Job saved successfully. You can start the next one straight away.");
+    setStatus(elements, `${getActiveConfig().label} job saved successfully. You can start the next one straight away.`);
   } catch (error) {
     console.error(error);
     setStatus(elements, formatFirestoreError(error), "warning");
@@ -231,6 +271,16 @@ function handleAuthChanged(user) {
   loadSavedJobs();
 }
 
+function switchTab(nextTab) {
+  if (!JOB_TYPES[nextTab] || nextTab === state.activeTab) {
+    return;
+  }
+
+  syncDraftFromInputs();
+  state.activeTab = nextTab;
+  renderApp();
+}
+
 function bindEvents() {
   [
     elements.startTimeInput,
@@ -238,19 +288,29 @@ function bindEvents() {
     elements.break15Input,
     elements.break24Input
   ].forEach((element) => {
-    element.addEventListener("input", renderCalculatorSection);
-    element.addEventListener("change", renderCalculatorSection);
+    element.addEventListener("input", () => {
+      syncDraftFromInputs();
+      renderCalculatorSection();
+    });
+    element.addEventListener("change", () => {
+      syncDraftFromInputs();
+      renderCalculatorSection();
+    });
   });
 
-  elements.addMetresButton.addEventListener("click", addMetresEntry);
+  elements.amountInput.addEventListener("input", syncDraftFromInputs);
+  elements.addAmountButton.addEventListener("click", addEntry);
   elements.endJobButton.addEventListener("click", saveJob);
   elements.logoutButton.addEventListener("click", handleLogout);
   elements.rangeSelect.addEventListener("change", renderHistorySection);
-  elements.metresInput.addEventListener("keydown", (event) => {
+  elements.amountInput.addEventListener("keydown", (event) => {
     if (event.key === "Enter") {
       event.preventDefault();
-      addMetresEntry();
+      addEntry();
     }
+  });
+  elements.tabButtons.forEach((button) => {
+    button.addEventListener("click", () => switchTab(button.dataset.jobTab));
   });
 }
 
