@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Screw Count Calculator</title>
+  <link rel="stylesheet" href="./styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+  <main class="app">
+    <section class="hero">
+      <h1>Screw Count Calculator</h1>
+      <p>
+        Enter when the job started, add the number of linear metres completed, and tick any breaks taken.
+        The calculator subtracts selected break time from the worked time automatically.
+      </p>
+    </section>
+
+    <section class="content">
+      <div class="card">
+        <h2>Work Details</h2>
+
+        <div class="field">
+          <label for="startTime">Time started</label>
+          <input id="startTime" type="time">
+        </div>
+
+        <div class="field">
+          <label for="endTime">Time ended</label>
+          <input id="endTime" type="time">
+        </div>
+
+        <div class="field">
+          <label for="metres">Linear metres to add</label>
+          <input id="metres" type="number" min="0" step="0.01" placeholder="Enter metres to add">
+        </div>
+
+        <div class="field">
+          <div class="button-row">
+            <button id="addMetresButton" type="button">Add metres</button>
+            <button id="endJobButton" type="button">Job end</button>
+          </div>
+          <p class="hint inline-hint">Add each completed section during the day to keep a running total, then save the finished job.</p>
+        </div>
+
+        <div class="field">
+          <div class="breaks-title">Breaks</div>
+          <div class="breaks">
+            <label class="break-option" for="break15">
+              <input id="break15" type="checkbox">
+              <span>15 minute break</span>
+            </label>
+
+            <label class="break-option" for="break24">
+              <input id="break24" type="checkbox">
+              <span>24 minute break</span>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <aside class="card summary">
+        <div class="stat">
+          <span>Worked Time</span>
+          <strong id="workedTime">0h 0m</strong>
+        </div>
+
+        <div class="stat">
+          <span>Break Time Removed</span>
+          <strong id="breakTime">0m</strong>
+        </div>
+
+        <div class="stat">
+          <span>Linear Metres</span>
+          <strong id="metresDisplay">0.00 m</strong>
+        </div>
+
+        <div class="entries">
+          <span class="breaks-title">Added Entries</span>
+          <ol id="metresEntries" class="entry-list"></ol>
+        </div>
+
+        <div class="stat">
+          <span>Metres Per Hour</span>
+          <strong id="rate">0.00 m/h</strong>
+        </div>
+
+        <p id="statusMessage" class="hint">
+          Choose a start time to begin calculating.
+        </p>
+      </aside>
+    </section>
+  </main>
+
+  <section class="history-panel">
+    <div class="history-header">
+      <div>
+        <h2>Saved Job History</h2>
+        <p>Multiple jobs on the same day are grouped together in the graph totals.</p>
+      </div>
+
+      <div class="history-controls">
+        <label for="rangeSelect">
+          View period
+          <select id="rangeSelect">
+            <option value="7">Last 7 days</option>
+            <option value="30" selected>Last 30 days</option>
+            <option value="90">Last 90 days</option>
+            <option value="365">Last 12 months</option>
+          </select>
+        </label>
+      </div>
+    </div>
+
+    <div class="chart-wrap">
+      <canvas id="jobsChart" height="120"></canvas>
+    </div>
+
+    <div class="chart-meta">
+      <div class="mini-stat">
+        <span>Total Metres</span>
+        <strong id="historyTotalMetres">0.00 m</strong>
+      </div>
+
+      <div class="mini-stat">
+        <span>Jobs Saved</span>
+        <strong id="historyJobCount">0</strong>
+      </div>
+
+      <div class="mini-stat">
+        <span>Average Per Day</span>
+        <strong id="historyAverage">0.00 m</strong>
+      </div>
+    </div>
+
+    <div id="jobHistoryList" class="job-list"></div>
+  </section>
+
+  <script type="module" src="./app.js"></script>
+</body>
+</html>
