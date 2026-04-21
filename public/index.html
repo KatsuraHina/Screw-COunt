@@ -8,6 +8,25 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
+  <header class="topbar">
+    <div class="topbar-brand">
+      <span class="topbar-eyebrow">BBS Count</span>
+      <strong>Screw Count Calculator</strong>
+    </div>
+
+    <div class="topbar-actions">
+      <a id="loginLink" class="button-link" href="./login.html">Log in</a>
+
+      <div id="signedInPanel" class="account-panel hidden">
+        <div class="account-copy">
+          <span class="account-label">Signed in as</span>
+          <strong id="currentUserEmail" class="account-email"></strong>
+        </div>
+        <button id="logoutButton" class="secondary-button" type="button">Log out</button>
+      </div>
+    </div>
+  </header>
+
   <main class="app">
     <section class="hero">
       <h1>Screw Count Calculator</h1>
@@ -39,9 +58,9 @@
         <div class="field">
           <div class="button-row">
             <button id="addMetresButton" type="button">Add metres</button>
-            <button id="endJobButton" type="button">Job end</button>
+            <button id="endJobButton" type="button" disabled>Job end</button>
           </div>
-          <p class="hint inline-hint">Add each completed section during the day to keep a running total, then save the finished job.</p>
+          <p class="hint inline-hint">Add each completed section during the day to keep a running total, then save the finished job once you are signed in.</p>
         </div>
 
         <div class="field">
@@ -103,7 +122,7 @@
       <div class="history-controls">
         <label for="rangeSelect">
           View period
-          <select id="rangeSelect">
+          <select id="rangeSelect" disabled>
             <option value="7">Last 7 days</option>
             <option value="30" selected>Last 30 days</option>
             <option value="90">Last 90 days</option>

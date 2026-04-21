@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Log In | Screw Count Calculator</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body class="auth-page-body">
+  <main class="auth-page-shell">
+    <section class="auth-page-copy">
+      <span class="topbar-eyebrow">BBS Count</span>
+      <h1>Personal Screw Count Access</h1>
+      <p>
+        Sign in or create your account to keep your saved jobs, graph totals, and work history tied to the right person.
+      </p>
+      <a class="back-link" href="./index.html">Back to calculator</a>
+    </section>
+
+    <section class="auth-page-card">
+      <h2>Log In Or Register</h2>
+      <p class="hint auth-intro">Use the same email each time so your saved jobs stay under your account.</p>
+
+      <div class="field">
+        <label for="emailInput">Email</label>
+        <input id="emailInput" type="email" autocomplete="email" placeholder="name@example.com">
+      </div>
+
+      <div class="field">
+        <label for="passwordInput">Password</label>
+        <input id="passwordInput" type="password" autocomplete="current-password" placeholder="Enter password">
+      </div>
+
+      <div class="button-row auth-button-row">
+        <button id="loginButton" type="button">Log in</button>
+        <button id="createAccountButton" class="secondary-button" type="button">Create account</button>
+      </div>
+
+      <p id="authStatusMessage" class="hint">Log in with an existing account, or create a new one to get started.</p>
+    </section>
+  </main>
+
+  <script type="module" src="./login.js"></script>
+</body>
+</html>

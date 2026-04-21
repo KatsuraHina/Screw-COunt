@@ -1,4 +1,10 @@
-import { formatFirestoreError, loadJobRecords, saveJobRecord } from "./firebase-service.js";
+import {
+  formatFirestoreError,
+  loadJobRecords,
+  logoutCurrentUser,
+  saveJobRecord,
+  subscribeToAuthChanges
+} from "./firebase-service.js";
 import {
   calculateBreakMinutes,
   calculateWorkedMinutes,
@@ -9,7 +15,9 @@ import {
   normalizeJob
 } from "./jobs.js";
 import {
+  clearHistoryOutputs,
   getElements,
+  renderAuthState,
   renderCalculator,
   renderHistory,
   renderMetreEntries,
@@ -20,7 +28,8 @@ const elements = getElements();
 const state = {
   metreEntries: [],
   savedJobs: [],
-  chart: null
+  chart: null,
+  currentUser: null
 };
 
 function parseMetresInput() {
@@ -92,6 +101,15 @@ function getHistoryViewModel() {
 }
 
 function renderHistorySection() {
+  if (!state.currentUser) {
+    if (state.chart) {
+      state.chart.destroy();
+      state.chart = null;
+    }
+    clearHistoryOutputs(elements);
+    return;
+  }
+
   state.chart = renderHistory(elements, getHistoryViewModel(), state.chart);
 }
 
@@ -133,6 +151,11 @@ function createPendingJob() {
   const totalMetres = getTotalMetres(state.metreEntries);
   const breakMinutes = getBreakMinutes();
 
+  if (!state.currentUser) {
+    setStatus(elements, "Sign in before saving a job.", "warning");
+    return null;
+  }
+
   if (!elements.startTimeInput.value) {
     setStatus(elements, "Enter a start time before ending and saving a job.", "warning");
     return null;
@@ -163,9 +186,10 @@ async function saveJob() {
   elements.endJobButton.textContent = "Saving...";
 
   try {
-    const savedJob = await saveJobRecord(job);
+    const savedJob = await saveJobRecord(job, state.currentUser);
     state.savedJobs.unshift(normalizeJob(savedJob));
     resetCurrentJob();
+    renderHistorySection();
     setStatus(elements, "Job saved successfully. You can start the next one straight away.");
   } catch (error) {
     console.error(error);
@@ -177,8 +201,14 @@ async function saveJob() {
 }
 
 async function loadSavedJobs() {
+  if (!state.currentUser) {
+    state.savedJobs = [];
+    renderHistorySection();
+    return;
+  }
+
   try {
-    const jobs = await loadJobRecords();
+    const jobs = await loadJobRecords(state.currentUser);
     state.savedJobs = jobs.map(normalizeJob);
     renderHistorySection();
   } catch (error) {
@@ -186,6 +216,21 @@ async function loadSavedJobs() {
     setStatus(elements, formatFirestoreError(error), "warning");
     renderHistorySection();
   }
+}
+
+async function handleLogout() {
+  try {
+    await logoutCurrentUser();
+  } catch (error) {
+    console.error(error);
+    setStatus(elements, "Could not log out right now. Try again.", "warning");
+  }
+}
+
+function handleAuthChanged(user) {
+  state.currentUser = user;
+  renderAuthState(elements, user);
+  loadSavedJobs();
 }
 
 function bindEvents() {
@@ -201,6 +246,7 @@ function bindEvents() {
 
   elements.addMetresButton.addEventListener("click", addMetresEntry);
   elements.endJobButton.addEventListener("click", saveJob);
+  elements.logoutButton.addEventListener("click", handleLogout);
   elements.rangeSelect.addEventListener("change", renderHistorySection);
   elements.metresInput.addEventListener("keydown", (event) => {
     if (event.key === "Enter") {
@@ -216,8 +262,9 @@ function startLiveUpdates() {
 
 function init() {
   bindEvents();
+  renderAuthState(elements, null);
   renderApp();
-  loadSavedJobs();
+  subscribeToAuthChanges(handleAuthChanged);
   startLiveUpdates();
 }
 

@@ -6,6 +6,10 @@ import {
 
 export function getElements() {
   return {
+    loginLink: document.getElementById("loginLink"),
+    logoutButton: document.getElementById("logoutButton"),
+    signedInPanel: document.getElementById("signedInPanel"),
+    currentUserEmail: document.getElementById("currentUserEmail"),
     startTimeInput: document.getElementById("startTime"),
     endTimeInput: document.getElementById("endTime"),
     metresInput: document.getElementById("metres"),
@@ -31,6 +35,22 @@ export function getElements() {
 export function setStatus(elements, message, tone = "hint") {
   elements.statusMessage.textContent = message;
   elements.statusMessage.className = tone === "warning" ? "hint warning" : "hint";
+}
+
+export function renderAuthState(elements, user) {
+  const isSignedIn = Boolean(user);
+
+  elements.loginLink.classList.toggle("hidden", isSignedIn);
+  elements.signedInPanel.classList.toggle("hidden", !isSignedIn);
+  elements.endJobButton.disabled = !isSignedIn;
+  elements.rangeSelect.disabled = !isSignedIn;
+
+  if (isSignedIn) {
+    elements.currentUserEmail.textContent = user.email ?? "Signed-in user";
+    return;
+  }
+
+  elements.currentUserEmail.textContent = "";
 }
 
 export function renderMetreEntries(elements, metreEntries, onRemove) {
@@ -176,4 +196,11 @@ function renderJobList(elements, jobs) {
       `;
       elements.jobHistoryList.appendChild(item);
     });
+}
+
+export function clearHistoryOutputs(elements) {
+  elements.historyTotalMetresOutput.textContent = "0.00 m";
+  elements.historyJobCountOutput.textContent = "0";
+  elements.historyAverageOutput.textContent = "0.00 m";
+  elements.jobHistoryList.innerHTML = "<div class=\"job-item\"><strong>Sign in to see saved jobs.</strong><span>Your graph and history are shown per signed-in person.</span></div>";
 }

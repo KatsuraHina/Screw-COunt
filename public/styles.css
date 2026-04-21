@@ -29,6 +29,151 @@ body {
   padding: 24px;
 }
 
+.hidden {
+  display: none !important;
+}
+
+.topbar {
+  width: min(980px, 100%);
+  margin-bottom: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 18px 24px;
+  background: rgba(255, 250, 242, 0.92);
+  border: 1px solid rgba(221, 199, 163, 0.8);
+  border-radius: 28px;
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(10px);
+}
+
+.topbar-brand {
+  display: grid;
+  gap: 4px;
+}
+
+.topbar-brand strong {
+  font-size: 1.05rem;
+}
+
+.topbar-eyebrow {
+  color: var(--muted);
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-weight: 700;
+}
+
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.topbar-actions .button-link,
+.account-panel .secondary-button {
+  width: auto;
+  min-width: 120px;
+  white-space: nowrap;
+}
+
+.account-panel {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 12px 10px 16px;
+  border-radius: 18px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.75);
+}
+
+.account-copy {
+  display: grid;
+  gap: 2px;
+}
+
+.account-label {
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.82rem;
+}
+
+.account-email {
+  font-size: 0.95rem;
+  word-break: break-word;
+}
+
+.auth-page-body {
+  min-height: 100vh;
+}
+
+.auth-page-shell {
+  width: min(1020px, 100%);
+  display: grid;
+  grid-template-columns: 1.1fr 0.9fr;
+  gap: 28px;
+  align-items: stretch;
+}
+
+.auth-page-copy,
+.auth-page-card {
+  padding: 32px;
+  border-radius: 30px;
+  border: 1px solid rgba(221, 199, 163, 0.8);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(10px);
+}
+
+.auth-page-copy {
+  background:
+    radial-gradient(circle at top left, rgba(181, 83, 47, 0.2), transparent 34%),
+    linear-gradient(145deg, rgba(255, 250, 242, 0.95), rgba(242, 228, 200, 0.85));
+}
+
+.auth-page-copy h1 {
+  margin: 14px 0 12px;
+  font-size: clamp(2rem, 5vw, 3.4rem);
+  line-height: 0.95;
+  letter-spacing: -0.04em;
+}
+
+.auth-page-copy p {
+  margin: 0 0 18px;
+  max-width: 38ch;
+  color: var(--muted);
+  line-height: 1.6;
+  font-size: 1.02rem;
+}
+
+.back-link {
+  color: var(--accent-dark);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.back-link:hover {
+  text-decoration: underline;
+}
+
+.auth-page-card {
+  background: rgba(255, 250, 242, 0.94);
+}
+
+.auth-page-card h2 {
+  margin: 0 0 8px;
+  font-size: 1.7rem;
+}
+
+.auth-intro {
+  margin-bottom: 20px;
+}
+
+.auth-button-row {
+  margin-bottom: 16px;
+}
+
 .app {
   width: min(980px, 100%);
   background: rgba(255, 250, 242, 0.92);
@@ -100,6 +245,8 @@ body {
 }
 
 input[type="time"],
+input[type="email"],
+input[type="password"],
 input[type="number"] {
   width: 100%;
   padding: 14px 16px;
@@ -118,7 +265,8 @@ button:focus {
   outline-offset: 2px;
 }
 
-button {
+button,
+.button-link {
   width: 100%;
   padding: 14px 16px;
   border: 0;
@@ -131,15 +279,23 @@ button {
   cursor: pointer;
   box-shadow: 0 12px 24px rgba(143, 63, 34, 0.22);
   transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
+  text-align: center;
+  text-decoration: none;
 }
 
-button:hover {
+button:hover,
+.button-link:hover {
   transform: translateY(-1px);
   box-shadow: 0 16px 28px rgba(143, 63, 34, 0.25);
 }
 
 button:active {
   transform: translateY(0);
+}
+
+.secondary-button {
+  background: linear-gradient(135deg, #d9c1a1, #c6a67b);
+  color: var(--text);
 }
 
 button:disabled {
@@ -367,10 +523,23 @@ select {
 }
 
 @media (max-width: 760px) {
+  body {
+    display: block;
+  }
+
+  .topbar,
+  .auth-page-shell,
   .content {
     grid-template-columns: 1fr;
   }
 
+  .topbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .auth-page-copy,
+  .auth-page-card,
   .hero,
   .content,
   .history-panel {
@@ -380,6 +549,11 @@ select {
   .button-row,
   .chart-meta {
     grid-template-columns: 1fr;
+  }
+
+  .account-panel {
+    align-items: stretch;
+    flex-direction: column;
   }
 
   .entry-row {
