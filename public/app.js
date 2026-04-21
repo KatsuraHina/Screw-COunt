@@ -28,7 +28,10 @@ const elements = getElements();
 const state = {
   metreEntries: [],
   savedJobs: [],
-  chart: null,
+  charts: {
+    metres: null,
+    rate: null
+  },
   currentUser: null
 };
 
@@ -86,31 +89,26 @@ function renderEntriesSection() {
 function getHistoryViewModel() {
   const rangeStart = getRangeStartDate(Number(elements.rangeSelect.value));
   const jobs = state.savedJobs.filter((job) => new Date(job.endedAt) >= rangeStart);
-  const totalMetres = jobs.reduce((sum, job) => sum + job.totalMetres, 0);
-  const dayTotals = new Map();
-
-  jobs.forEach((job) => {
-    dayTotals.set(job.dayKey, (dayTotals.get(job.dayKey) ?? 0) + job.totalMetres);
-  });
-
-  return {
-    jobs,
-    totalMetres,
-    averagePerDay: dayTotals.size > 0 ? totalMetres / dayTotals.size : 0
-  };
+  return { jobs };
 }
 
 function renderHistorySection() {
   if (!state.currentUser) {
-    if (state.chart) {
-      state.chart.destroy();
-      state.chart = null;
+    if (state.charts.metres) {
+      state.charts.metres.destroy();
+      state.charts.metres = null;
     }
+
+    if (state.charts.rate) {
+      state.charts.rate.destroy();
+      state.charts.rate = null;
+    }
+
     clearHistoryOutputs(elements);
     return;
   }
 
-  state.chart = renderHistory(elements, getHistoryViewModel(), state.chart);
+  state.charts = renderHistory(elements, getHistoryViewModel(), state.charts);
 }
 
 function renderApp() {

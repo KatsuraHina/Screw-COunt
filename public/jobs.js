@@ -152,6 +152,34 @@ export function aggregateJobsByDay(jobs) {
   };
 }
 
+export function aggregateHistorySeriesByDay(jobs) {
+  const dailyTotals = new Map();
+
+  jobs.forEach((job) => {
+    const current = dailyTotals.get(job.dayKey) ?? {
+      totalMetres: 0,
+      totalWorkedMinutes: 0
+    };
+
+    current.totalMetres += job.totalMetres;
+    current.totalWorkedMinutes += job.netWorkedMinutes;
+    dailyTotals.set(job.dayKey, current);
+  });
+
+  const sortedKeys = Array.from(dailyTotals.keys()).sort((a, b) => a.localeCompare(b));
+
+  return {
+    labels: sortedKeys.map(formatDateLabel),
+    metresValues: sortedKeys.map((key) => Number(dailyTotals.get(key).totalMetres.toFixed(2))),
+    rateValues: sortedKeys.map((key) => {
+      const day = dailyTotals.get(key);
+      const hoursWorked = day.totalWorkedMinutes / 60;
+      const rate = hoursWorked > 0 ? day.totalMetres / hoursWorked : 0;
+      return Number(rate.toFixed(2));
+    })
+  };
+}
+
 export function normalizeJob(job) {
   const endedAt = typeof job.endedAt === "string" ? job.endedAt : new Date().toISOString();
 

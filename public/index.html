@@ -116,7 +116,7 @@
     <div class="history-header">
       <div>
         <h2>Saved Job History</h2>
-        <p>Multiple jobs on the same day are grouped together in the graph totals.</p>
+        <p>Multiple jobs on the same day are grouped together into one daily result.</p>
       </div>
 
       <div class="history-controls">
@@ -132,28 +132,17 @@
       </div>
     </div>
 
-    <div class="chart-wrap">
-      <canvas id="jobsChart" height="120"></canvas>
-    </div>
-
-    <div class="chart-meta">
-      <div class="mini-stat">
-        <span>Total Metres</span>
-        <strong id="historyTotalMetres">0.00 m</strong>
+    <div class="history-grid">
+      <div class="chart-wrap">
+        <h3>Total Linear Metres Per Day</h3>
+        <canvas id="metresChart" height="120"></canvas>
       </div>
 
-      <div class="mini-stat">
-        <span>Jobs Saved</span>
-        <strong id="historyJobCount">0</strong>
-      </div>
-
-      <div class="mini-stat">
-        <span>Average Per Day</span>
-        <strong id="historyAverage">0.00 m</strong>
+      <div class="chart-wrap">
+        <h3>Metres Per Hour Per Day</h3>
+        <canvas id="rateChart" height="120"></canvas>
       </div>
     </div>
-
-    <div id="jobHistoryList" class="job-list"></div>
   </section>
 
   <script type="module" src="./app.js"></script>

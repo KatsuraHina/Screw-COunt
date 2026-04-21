@@ -1,6 +1,5 @@
 import {
-  aggregateJobsByDay,
-  formatDateTime,
+  aggregateHistorySeriesByDay,
   formatMinutes
 } from "./jobs.js";
 
@@ -24,11 +23,8 @@ export function getElements() {
     metresEntriesOutput: document.getElementById("metresEntries"),
     rateOutput: document.getElementById("rate"),
     statusMessage: document.getElementById("statusMessage"),
-    historyTotalMetresOutput: document.getElementById("historyTotalMetres"),
-    historyJobCountOutput: document.getElementById("historyJobCount"),
-    historyAverageOutput: document.getElementById("historyAverage"),
-    jobHistoryList: document.getElementById("jobHistoryList"),
-    jobsChartCanvas: document.getElementById("jobsChart")
+    metresChartCanvas: document.getElementById("metresChart"),
+    rateChartCanvas: document.getElementById("rateChart")
   };
 }
 
@@ -110,97 +106,107 @@ export function renderCalculator(elements, calculatorViewModel) {
 }
 
 export function renderHistory(elements, historyViewModel, currentChart) {
-  elements.historyTotalMetresOutput.textContent = `${historyViewModel.totalMetres.toFixed(2)} m`;
-  elements.historyJobCountOutput.textContent = String(historyViewModel.jobs.length);
-  elements.historyAverageOutput.textContent = `${historyViewModel.averagePerDay.toFixed(2)} m`;
-
-  renderJobList(elements, historyViewModel.jobs);
-  return renderChart(elements, historyViewModel.jobs, currentChart);
+  return renderCharts(elements, historyViewModel.jobs, currentChart);
 }
 
-function renderChart(elements, jobs, currentChart) {
+function renderCharts(elements, jobs, currentChart) {
   const ChartLibrary = window.Chart;
-  const aggregated = aggregateJobsByDay(jobs);
+  const aggregated = aggregateHistorySeriesByDay(jobs);
 
-  if (currentChart) {
-    currentChart.destroy();
+  if (currentChart.metres) {
+    currentChart.metres.destroy();
+  }
+
+  if (currentChart.rate) {
+    currentChart.rate.destroy();
   }
 
   if (!ChartLibrary) {
-    return null;
+    return { metres: null, rate: null };
   }
 
-  return new ChartLibrary(elements.jobsChartCanvas, {
-    type: "bar",
-    data: {
-      labels: aggregated.labels,
-      datasets: [
-        {
-          label: "Metres completed",
-          data: aggregated.values,
-          backgroundColor: "rgba(181, 83, 47, 0.72)",
-          borderColor: "rgba(143, 63, 34, 1)",
-          borderWidth: 1.5,
-          borderRadius: 10
-        }
-      ]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: true,
-      scales: {
-        y: {
-          beginAtZero: true,
-          ticks: {
-            callback: (value) => `${value} m`
+  return {
+    metres: new ChartLibrary(elements.metresChartCanvas, {
+      type: "bar",
+      data: {
+        labels: aggregated.labels,
+        datasets: [
+          {
+            label: "Linear metres",
+            data: aggregated.metresValues,
+            backgroundColor: "rgba(181, 83, 47, 0.72)",
+            borderColor: "rgba(143, 63, 34, 1)",
+            borderWidth: 1.5,
+            borderRadius: 10
           }
-        }
+        ]
       },
-      plugins: {
-        legend: {
-          display: false
+      options: {
+        responsive: true,
+        maintainAspectRatio: true,
+        plugins: {
+          legend: {
+            display: false
+          },
+          tooltip: {
+            callbacks: {
+              label: (context) => `${context.parsed.y.toFixed(2)} m`
+            }
+          }
         },
-        tooltip: {
-          callbacks: {
-            label: (context) => `${context.parsed.y.toFixed(2)} m`
+        scales: {
+          y: {
+            beginAtZero: true,
+            ticks: {
+              callback: (value) => `${value} m`
+            }
           }
         }
       }
-    }
-  });
-}
-
-function renderJobList(elements, jobs) {
-  elements.jobHistoryList.innerHTML = "";
-
-  if (jobs.length === 0) {
-    const emptyState = document.createElement("div");
-    emptyState.className = "job-item";
-    emptyState.innerHTML = "<strong>No saved jobs in this period yet.</strong><span>Save a finished job and it will appear here and in the graph.</span>";
-    elements.jobHistoryList.appendChild(emptyState);
-    return;
-  }
-
-  jobs
-    .slice()
-    .sort((a, b) => new Date(b.endedAt) - new Date(a.endedAt))
-    .forEach((job) => {
-      const item = document.createElement("div");
-      item.className = "job-item";
-      item.innerHTML = `
-        <strong>${job.totalMetres.toFixed(2)} m on ${formatDateTime(new Date(job.endedAt))}</strong>
-        <span>
-          Worked ${formatMinutes(job.netWorkedMinutes)} after ${job.breakMinutes}m breaks.
-          Rate: ${job.rate.toFixed(2)} m/h.
-        </span>
-      `;
-      elements.jobHistoryList.appendChild(item);
-    });
+    }),
+    rate: new ChartLibrary(elements.rateChartCanvas, {
+      type: "line",
+      data: {
+        labels: aggregated.labels,
+        datasets: [
+          {
+            label: "Metres per hour",
+            data: aggregated.rateValues,
+            borderColor: "rgba(111, 96, 75, 1)",
+            backgroundColor: "rgba(111, 96, 75, 0.16)",
+            fill: true,
+            tension: 0.25,
+            pointRadius: 4,
+            pointHoverRadius: 5
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: true,
+        plugins: {
+          legend: {
+            display: false
+          },
+          tooltip: {
+            callbacks: {
+              label: (context) => `${context.parsed.y.toFixed(2)} m/h`
+            }
+          }
+        },
+        scales: {
+          y: {
+            beginAtZero: true,
+            ticks: {
+              callback: (value) => `${value} m/h`
+            }
+          }
+        }
+      }
+    })
+  };
 }
 
 export function clearHistoryOutputs(elements) {
-  elements.historyTotalMetresOutput.textContent = "0.00 m";
-  elements.historyJobCountOutput.textContent = "0";
-  elements.historyAverageOutput.textContent = "0.00 m";
-  elements.jobHistoryList.innerHTML = "<div class=\"job-item\"><strong>Sign in to see saved jobs.</strong><span>Your graph and history are shown per signed-in person.</span></div>";
+  return null;
 }
