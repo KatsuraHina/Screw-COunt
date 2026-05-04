@@ -1,0 +1,32 @@
+[debug] [2026-05-04T17:59:34.103Z] ----------------------------------------------------------------------
+[debug] [2026-05-04T17:59:34.105Z] Command:       C:\Program Files\nodejs\node.exe C:\Users\micka\AppData\Roaming\npm\node_modules\firebase-tools\lib\bin\firebase.js deploy
+[debug] [2026-05-04T17:59:34.105Z] CLI Version:   15.15.0
+[debug] [2026-05-04T17:59:34.105Z] Platform:      win32
+[debug] [2026-05-04T17:59:34.105Z] Node Version:  v24.11.1
+[debug] [2026-05-04T17:59:34.105Z] Time:          Tue May 05 2026 01:59:34 GMT+0800 (Australian Western Standard Time)
+[debug] [2026-05-04T17:59:34.105Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2026-05-04T17:59:35.821Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-05-04T17:59:35.821Z] > authorizing via signed-in user (mickaelo.genshin@gmail.com)
+[debug] [2026-05-04T17:59:35.821Z] [iam] checking project bbs-count-2 for permissions ["datastore.indexes.create","datastore.indexes.delete","datastore.indexes.list","datastore.indexes.update","firebase.projects.get","firebasehosting.sites.update"]
+[debug] [2026-05-04T17:59:35.822Z] Checked if tokens are valid: true, expires at: 1777920278236
+[debug] [2026-05-04T17:59:35.822Z] Checked if tokens are valid: true, expires at: 1777920278236
+[debug] [2026-05-04T17:59:35.823Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/bbs-count-2:testIamPermissions [none]
+[debug] [2026-05-04T17:59:35.823Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/bbs-count-2:testIamPermissions  x-goog-user-project=bbs-count-2
+[debug] [2026-05-04T17:59:35.823Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/bbs-count-2:testIamPermissions {"permissions":["datastore.indexes.create","datastore.indexes.delete","datastore.indexes.list","datastore.indexes.update","firebase.projects.get","firebasehosting.sites.update"]}
+[debug] [2026-05-04T17:59:36.436Z] <<< [apiv2][status] POST https://cloudresourcemanager.googleapis.com/v1/projects/bbs-count-2:testIamPermissions 200
+[debug] [2026-05-04T17:59:36.436Z] <<< [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/bbs-count-2:testIamPermissions {"permissions":["datastore.indexes.create","datastore.indexes.delete","datastore.indexes.list","datastore.indexes.update","firebase.projects.get","firebasehosting.sites.update"]}
+[debug] [2026-05-04T17:59:36.437Z] Checked if tokens are valid: true, expires at: 1777920278236
+[debug] [2026-05-04T17:59:36.437Z] Checked if tokens are valid: true, expires at: 1777920278236
+[debug] [2026-05-04T17:59:36.437Z] >>> [apiv2][query] GET https://firebase.googleapis.com/v1beta1/projects/bbs-count-2 [none]
+[debug] [2026-05-04T17:59:37.173Z] <<< [apiv2][status] GET https://firebase.googleapis.com/v1beta1/projects/bbs-count-2 200
+[debug] [2026-05-04T17:59:37.173Z] <<< [apiv2][body] GET https://firebase.googleapis.com/v1beta1/projects/bbs-count-2 {"projectId":"bbs-count-2","projectNumber":"18136099748","displayName":"bbs-count","name":"projects/bbs-count-2","resources":{"hostingSite":"bbs-count-2"},"state":"ACTIVE","etag":"1_075e37aa-8313-4cb8-88b1-ead8509de17e"}
+[info] 
+[info] === Deploying to 'bbs-count-2'...
+[info] 
+[info] i  deploying firestore, hosting 
+[info] i  firestore: ensuring required API firestore.googleapis.com is enabled... 
+[info] i  firestore: ensuring required API firestore.googleapis.com is enabled... 
+[debug] [2026-05-04T17:59:37.177Z] Checked if tokens are valid: true, expires at: 1777920278236
+[debug] [2026-05-04T17:59:37.177Z] Checked if tokens are valid: true, expires at: 1777920278236
+[debug] [2026-05-04T17:59:37.177Z] >>> [apiv2][query] GET https://firestore.googleapis.com/v1/projects/bbs-count-2/databases/(default) [none]

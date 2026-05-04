@@ -478,15 +478,33 @@ button:disabled {
   margin-top: 4px;
 }
 
-.entry-list {
+.entries-scroll {
   max-height: 220px;
-  margin: 0;
-  padding: 0 6px 0 20px;
   overflow-y: auto;
   overscroll-behavior: contain;
+  padding-right: 6px;
+  scrollbar-color: rgba(181, 83, 47, 0.58) rgba(242, 228, 200, 0.7);
+}
+
+.entries-scroll::-webkit-scrollbar {
+  width: 10px;
+}
+
+.entries-scroll::-webkit-scrollbar-track {
+  background: rgba(242, 228, 200, 0.7);
+  border-radius: 999px;
+}
+
+.entries-scroll::-webkit-scrollbar-thumb {
+  background: rgba(181, 83, 47, 0.58);
+  border-radius: 999px;
+}
+
+.entry-list {
+  margin: 0;
+  padding-left: 20px;
   color: var(--muted);
   line-height: 1.5;
-  scrollbar-color: rgba(181, 83, 47, 0.58) rgba(242, 228, 200, 0.7);
 }
 
 .entry-empty {
