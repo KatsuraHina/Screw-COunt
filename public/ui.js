@@ -146,6 +146,18 @@ export function renderHistory(elements, jobs, currentCharts, config) {
   const ChartLibrary = window.Chart;
   const aggregated = aggregateHistorySeriesByDay(jobs);
   const totalDecimals = config.key === "trusses" ? 2 : 0;
+  const axisTickStyle = {
+    color: "#2d2417",
+    font: {
+      size: 13,
+      weight: "600"
+    },
+    padding: 8
+  };
+  const gridStyle = {
+    color: "rgba(111, 96, 75, 0.14)",
+    drawBorder: false
+  };
 
   if (currentCharts.total) {
     currentCharts.total.destroy();
@@ -168,16 +180,22 @@ export function renderHistory(elements, jobs, currentCharts, config) {
           {
             label: config.unitLabel,
             data: aggregated.totalValues,
-            backgroundColor: "rgba(181, 83, 47, 0.72)",
+            backgroundColor: "rgba(181, 83, 47, 0.88)",
             borderColor: "rgba(143, 63, 34, 1)",
-            borderWidth: 1.5,
-            borderRadius: 10
+            borderWidth: 1,
+            borderRadius: 12,
+            borderSkipped: false
           }
         ]
       },
       options: {
         responsive: true,
         maintainAspectRatio: true,
+        layout: {
+          padding: {
+            top: 2
+          }
+        },
         plugins: {
           legend: {
             display: false
@@ -191,9 +209,17 @@ export function renderHistory(elements, jobs, currentCharts, config) {
         scales: {
           y: {
             beginAtZero: true,
+            grid: gridStyle,
             ticks: {
+              ...axisTickStyle,
               callback: (value) => `${Number(value).toFixed(totalDecimals)} ${config.shortUnit}`
             }
+          },
+          x: {
+            grid: {
+              display: false
+            },
+            ticks: axisTickStyle
           }
         }
       }
@@ -206,18 +232,26 @@ export function renderHistory(elements, jobs, currentCharts, config) {
           {
             label: config.rateLabel,
             data: aggregated.rateValues,
-            borderColor: "rgba(111, 96, 75, 1)",
-            backgroundColor: "rgba(111, 96, 75, 0.16)",
+            borderColor: "rgba(181, 83, 47, 1)",
+            backgroundColor: "rgba(181, 83, 47, 0.14)",
             fill: true,
-            tension: 0.25,
+            tension: 0.32,
             pointRadius: 4,
-            pointHoverRadius: 5
+            pointHoverRadius: 5,
+            pointBackgroundColor: "rgba(255, 250, 242, 1)",
+            pointBorderColor: "rgba(143, 63, 34, 1)",
+            pointBorderWidth: 2
           }
         ]
       },
       options: {
         responsive: true,
         maintainAspectRatio: true,
+        layout: {
+          padding: {
+            top: 2
+          }
+        },
         plugins: {
           legend: {
             display: false
@@ -231,9 +265,17 @@ export function renderHistory(elements, jobs, currentCharts, config) {
         scales: {
           y: {
             beginAtZero: true,
+            grid: gridStyle,
             ticks: {
+              ...axisTickStyle,
               callback: (value) => `${value} ${config.rateShortUnit}`
             }
+          },
+          x: {
+            grid: {
+              display: false
+            },
+            ticks: axisTickStyle
           }
         }
       }
