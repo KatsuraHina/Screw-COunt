@@ -39,7 +39,8 @@ const state = {
     total: null,
     rate: null
   },
-  currentUser: null
+  currentUser: null,
+  feedbackTimer: null
 };
 
 function getActiveConfig() {
@@ -75,6 +76,23 @@ function parsePendingAmount() {
   }
 
   return state.activeTab === "walls" ? Math.round(amount) : amount;
+}
+
+function formatAddedAmount(amount, config) {
+  const value = config.key === "trusses" ? Number(amount.toFixed(2)) : Math.round(amount);
+  return `${value} ${config.shortUnit}`;
+}
+
+function showAddFeedback(amount, config) {
+  window.clearTimeout(state.feedbackTimer);
+  elements.totalUnitsStat.classList.remove("stat-feedback");
+  void elements.totalUnitsStat.offsetWidth;
+  elements.totalUnitsStat.classList.add("stat-feedback");
+  setStatus(elements, `Added ${formatAddedAmount(amount, config)}.`, "success");
+
+  state.feedbackTimer = window.setTimeout(() => {
+    elements.totalUnitsStat.classList.remove("stat-feedback");
+  }, 900);
 }
 
 function getBreakMinutes() {
@@ -180,6 +198,7 @@ function addEntry() {
   getActiveDraft().pendingAmount = "";
   elements.amountInput.value = "";
   renderApp();
+  showAddFeedback(amount, config);
 }
 
 function createPendingJob() {

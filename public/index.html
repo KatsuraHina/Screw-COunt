@@ -48,19 +48,19 @@
 
         <div class="field-grid">
           <div class="field">
-            <label for="startTime">Time started</label>
+            <label for="startTime">Start time</label>
             <input id="startTime" type="time">
           </div>
 
           <div class="field">
-            <label for="endTime">Time ended</label>
+            <label for="endTime">End time</label>
             <input id="endTime" type="time">
           </div>
         </div>
 
         <div class="field">
-          <label id="amountLabel" for="amountInput">Linear metres to add</label>
-          <input id="amountInput" type="number" min="0" step="0.01" placeholder="Enter metres to add">
+          <label id="amountLabel" for="amountInput">Linear metres</label>
+          <input id="amountInput" type="number" min="0" step="0.01" placeholder="Enter metres">
         </div>
 
         <div class="field">
@@ -93,7 +93,7 @@
           <strong id="rate">0.00 m/h</strong>
         </div>
 
-        <div class="stat">
+        <div id="totalUnitsStat" class="stat">
           <span id="totalUnitsLabel">Linear metres</span>
           <strong id="totalUnitsDisplay">0.00 m</strong>
         </div>
@@ -143,12 +143,12 @@
 
     <div class="history-grid">
       <div class="chart-wrap">
-        <h3 id="totalChartTitle">Total Linear Metres Per Day</h3>
+        <h3 id="totalChartTitle">Total metres per day</h3>
         <canvas id="totalChart" height="120"></canvas>
       </div>
 
       <div class="chart-wrap">
-        <h3 id="rateChartTitle">Metres Per Hour Per Day</h3>
+        <h3 id="rateChartTitle">Metres/hour per day</h3>
         <canvas id="rateChart" height="120"></canvas>
       </div>
     </div>

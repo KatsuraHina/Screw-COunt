@@ -21,6 +21,7 @@ export function getElements() {
     rangeSelect: document.getElementById("rangeSelect"),
     workedTimeOutput: document.getElementById("workedTime"),
     breakTimeOutput: document.getElementById("breakTime"),
+    totalUnitsStat: document.getElementById("totalUnitsStat"),
     totalUnitsLabel: document.getElementById("totalUnitsLabel"),
     totalUnitsOutput: document.getElementById("totalUnitsDisplay"),
     entriesTitle: document.getElementById("entriesTitle"),
@@ -40,7 +41,7 @@ export function getElements() {
 
 export function setStatus(elements, message, tone = "hint") {
   elements.statusMessage.textContent = message;
-  elements.statusMessage.className = tone === "warning" ? "hint warning" : "hint";
+  elements.statusMessage.className = tone === "warning" || tone === "success" ? `hint ${tone}` : "hint";
 }
 
 export function renderAuthState(elements, user) {
@@ -68,7 +69,7 @@ export function renderTabState(elements, config, activeTab) {
       ? "Track linear metres for truss jobs and see your metres per hour."
       : "Track screws for wall jobs and see your screws per hour.";
   elements.amountLabel.textContent = config.addLabel;
-  elements.amountInput.placeholder = activeTab === "trusses" ? "Enter metres to add" : "Enter screws to add";
+  elements.amountInput.placeholder = activeTab === "trusses" ? "Enter metres" : "Enter screws";
   elements.amountInput.step = activeTab === "trusses" ? "0.01" : "1";
   elements.addAmountButton.textContent = config.addButtonLabel;
   elements.totalUnitsLabel.textContent = config.unitLabel;

@@ -9,7 +9,7 @@ export const JOB_TYPES = {
     shortUnit: "m",
     rateLabel: "Metres per hour",
     rateShortUnit: "m/h",
-    addLabel: "Linear metres to add",
+    addLabel: "Linear metres",
     addButtonLabel: "Add metres",
     emptyStatus:
       "Choose a start time to begin calculating. You can leave time ended empty for a live count.",
@@ -17,8 +17,8 @@ export const JOB_TYPES = {
     addWarning: "Enter a metres value greater than zero before adding it.",
     saveWarning: "Add some metres before ending and saving a job.",
     entryText: (entry) => `${entry.amount.toFixed(2)} m - ${entry.timeLabel}`,
-    chartTotalTitle: "Total Linear Metres Per Day",
-    chartRateTitle: "Metres Per Hour Per Day"
+    chartTotalTitle: "Total metres per day",
+    chartRateTitle: "Metres/hour per day"
   },
   walls: {
     key: "walls",
@@ -27,7 +27,7 @@ export const JOB_TYPES = {
     shortUnit: "screws",
     rateLabel: "Screws per hour",
     rateShortUnit: "screws/h",
-    addLabel: "Screws to add",
+    addLabel: "Screws",
     addButtonLabel: "Add screws",
     emptyStatus:
       "Choose a start time to begin calculating. You can leave time ended empty for a live count.",
@@ -35,8 +35,8 @@ export const JOB_TYPES = {
     addWarning: "Enter a screw count greater than zero before adding it.",
     saveWarning: "Add some screws before ending and saving a job.",
     entryText: (entry) => `${entry.amount.toFixed(0)} screws - ${entry.timeLabel}`,
-    chartTotalTitle: "Total Screws Per Day",
-    chartRateTitle: "Screws Per Hour Per Day"
+    chartTotalTitle: "Total screws per day",
+    chartRateTitle: "Screws/hour per day"
   }
 };
 

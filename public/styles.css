@@ -430,6 +430,27 @@ button:disabled {
   font-size: clamp(2rem, 4vw, 3.2rem);
 }
 
+.stat-feedback {
+  animation: statPulse 0.9s ease;
+}
+
+@keyframes statPulse {
+  0% {
+    border-color: rgba(181, 83, 47, 0.95);
+    box-shadow: 0 0 0 0 rgba(181, 83, 47, 0.28);
+  }
+
+  55% {
+    border-color: rgba(181, 83, 47, 0.85);
+    box-shadow: 0 0 0 6px rgba(181, 83, 47, 0.12);
+  }
+
+  100% {
+    border-color: rgba(221, 199, 163, 0.95);
+    box-shadow: none;
+  }
+}
+
 .hint {
   margin: 0;
   color: var(--muted);
@@ -446,6 +467,11 @@ button:disabled {
   font-weight: 700;
 }
 
+.success {
+  color: var(--accent-dark);
+  font-weight: 700;
+}
+
 .entries {
   display: grid;
   gap: 10px;
@@ -453,10 +479,14 @@ button:disabled {
 }
 
 .entry-list {
+  max-height: 220px;
   margin: 0;
-  padding-left: 20px;
+  padding: 0 6px 0 20px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   color: var(--muted);
   line-height: 1.5;
+  scrollbar-color: rgba(181, 83, 47, 0.58) rgba(242, 228, 200, 0.7);
 }
 
 .entry-empty {
