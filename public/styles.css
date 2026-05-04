@@ -393,6 +393,22 @@ button:disabled {
   line-height: 1.1;
 }
 
+.stat-primary {
+  padding: 22px;
+  background: linear-gradient(135deg, var(--accent), var(--accent-dark));
+  border-color: transparent;
+  color: #fffaf2;
+  box-shadow: 0 16px 30px rgba(143, 63, 34, 0.2);
+}
+
+.stat-primary span {
+  color: rgba(255, 250, 242, 0.78);
+}
+
+.stat-primary strong {
+  font-size: clamp(2rem, 4vw, 3.2rem);
+}
+
 .hint {
   margin: 0;
   color: var(--muted);
