@@ -234,7 +234,7 @@ async function saveJob() {
     setStatus(elements, formatFirestoreError(error), "warning");
   } finally {
     elements.endJobButton.disabled = false;
-    elements.endJobButton.textContent = "Job end";
+    elements.endJobButton.textContent = "End job";
   }
 }
 

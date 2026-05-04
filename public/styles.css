@@ -327,6 +327,17 @@ button:active {
   color: var(--text);
 }
 
+.secondary-outline-button {
+  border: 1px solid var(--accent);
+  background: #fffaf2;
+  color: var(--accent-dark);
+  box-shadow: none;
+}
+
+.secondary-outline-button:hover {
+  box-shadow: 0 10px 22px rgba(143, 63, 34, 0.14);
+}
+
 button:disabled {
   cursor: wait;
   opacity: 0.75;
