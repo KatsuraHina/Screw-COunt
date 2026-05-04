@@ -24,6 +24,7 @@ export function getElements() {
     totalUnitsLabel: document.getElementById("totalUnitsLabel"),
     totalUnitsOutput: document.getElementById("totalUnitsDisplay"),
     entriesTitle: document.getElementById("entriesTitle"),
+    entriesEmpty: document.getElementById("entriesEmpty"),
     entriesOutput: document.getElementById("entriesList"),
     rateLabel: document.getElementById("rateLabel"),
     rateOutput: document.getElementById("rate"),
@@ -72,6 +73,7 @@ export function renderTabState(elements, config, activeTab) {
   elements.addAmountButton.textContent = config.addButtonLabel;
   elements.totalUnitsLabel.textContent = config.unitLabel;
   elements.entriesTitle.textContent = "Added Entries";
+  elements.entriesEmpty.textContent = config.emptyEntriesText;
   elements.rateLabel.textContent = config.rateLabel;
   elements.historyTitle.textContent = `${config.label} History`;
   elements.historyDescription.textContent = "Multiple jobs on the same day are grouped together into one daily result.";
@@ -87,6 +89,7 @@ export function renderTabState(elements, config, activeTab) {
 
 export function renderEntries(elements, entries, config, onRemove) {
   elements.entriesOutput.innerHTML = "";
+  elements.entriesEmpty.hidden = entries.length > 0;
 
   entries.forEach((entry, index) => {
     const item = document.createElement("li");

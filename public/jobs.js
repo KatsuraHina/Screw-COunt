@@ -13,9 +13,10 @@ export const JOB_TYPES = {
     addButtonLabel: "Add metres",
     emptyStatus:
       "Choose a start time to begin calculating. You can leave time ended empty for a live count.",
+    emptyEntriesText: "No metres added yet.",
     addWarning: "Enter a metres value greater than zero before adding it.",
     saveWarning: "Add some metres before ending and saving a job.",
-    entryText: (entry) => `${entry.amount.toFixed(2)} m added at ${entry.timeLabel}`,
+    entryText: (entry) => `${entry.amount.toFixed(2)} m - ${entry.timeLabel}`,
     chartTotalTitle: "Total Linear Metres Per Day",
     chartRateTitle: "Metres Per Hour Per Day"
   },
@@ -30,9 +31,10 @@ export const JOB_TYPES = {
     addButtonLabel: "Add screws",
     emptyStatus:
       "Choose a start time to begin calculating. You can leave time ended empty for a live count.",
+    emptyEntriesText: "No screws added yet.",
     addWarning: "Enter a screw count greater than zero before adding it.",
     saveWarning: "Add some screws before ending and saving a job.",
-    entryText: (entry) => `${entry.amount.toFixed(0)} screws added at ${entry.timeLabel}`,
+    entryText: (entry) => `${entry.amount.toFixed(0)} screws - ${entry.timeLabel}`,
     chartTotalTitle: "Total Screws Per Day",
     chartRateTitle: "Screws Per Hour Per Day"
   }
