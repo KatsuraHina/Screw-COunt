@@ -18,14 +18,6 @@ service cloud.firestore {
       allow update: if false;
     }
 
-    match /workerPairs/{pairId} {
-      allow read: if request.auth != null && resource.data.userId == request.auth.uid;
-      allow create: if request.auth != null
-        && request.resource.data.userId == request.auth.uid;
-      allow delete: if request.auth != null && resource.data.userId == request.auth.uid;
-      allow update: if false;
-    }
-
     match /{document=**} {
       allow read, write: if false;
     }
