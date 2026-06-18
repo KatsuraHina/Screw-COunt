@@ -29,10 +29,14 @@ import {
   renderHistory,
   renderTabState,
   renderWorkerAdminVisibility,
+  renderWorkerHistory,
+  renderWorkerHistorySelect,
   renderWorkerManagement,
   renderWorkerPicker,
+  setActiveTabButtons,
   setStatus,
-  setWorkerStatus
+  setWorkerStatus,
+  toggleWorkersView
 } from "./ui.js";
 
 const elements = getElements();
@@ -48,6 +52,10 @@ const state = {
   charts: {
     total: null,
     rate: null
+  },
+  workerHistory: {
+    selectedWorkerId: "",
+    chart: null
   },
   currentUser: null,
   feedbackTimer: null
@@ -200,11 +208,49 @@ function renderHistorySection() {
 }
 
 function renderApp() {
+  if (state.activeTab === "workers") {
+    toggleWorkersView(elements, true);
+    setActiveTabButtons(elements, state.activeTab);
+    elements.activeTabLabel.textContent = "Workers";
+    elements.tabTitle.textContent = "Worker history";
+    elements.tabDescription.textContent = "Review each worker's logged jobs, hours, and output.";
+    renderWorkerHistoryView();
+    return;
+  }
+
+  toggleWorkersView(elements, false);
   renderTabState(elements, getActiveConfig(), state.activeTab);
   loadDraftIntoInputs();
   renderEntriesSection();
   renderCalculatorSection();
   renderHistorySection();
+}
+
+function renderWorkerHistoryView() {
+  if (!state.isAdmin) {
+    return;
+  }
+
+  const selectedId = renderWorkerHistorySelect(
+    elements,
+    state.workers,
+    state.workerHistory.selectedWorkerId
+  );
+  state.workerHistory.selectedWorkerId = selectedId;
+
+  const worker = state.workers.find((item) => item.id === selectedId);
+  const rangeStart = getRangeStartDate(Number(elements.workerRangeSelect.value));
+  const jobs = state.savedJobs
+    .filter((job) => new Date(job.endedAt) >= rangeStart)
+    .filter((job) => job.assignedWorkerIds.includes(selectedId))
+    .sort((a, b) => new Date(b.endedAt) - new Date(a.endedAt));
+
+  state.workerHistory.chart = renderWorkerHistory(
+    elements,
+    jobs,
+    worker ? worker.name : "",
+    state.workerHistory.chart
+  );
 }
 
 function resetCurrentDraft() {
@@ -308,10 +354,18 @@ async function loadSavedJobs() {
   try {
     const jobs = await loadJobRecords(state.currentUser);
     state.savedJobs = jobs.map(normalizeJob);
-    renderHistorySection();
+    refreshActiveHistory();
   } catch (error) {
     console.error(error);
     setStatus(elements, formatFirestoreError(error), "warning");
+    refreshActiveHistory();
+  }
+}
+
+function refreshActiveHistory() {
+  if (state.activeTab === "workers") {
+    renderWorkerHistoryView();
+  } else {
     renderHistorySection();
   }
 }
@@ -330,6 +384,13 @@ function handleAuthChanged(user) {
   state.isAdmin = isAdminUser(user);
   renderAuthState(elements, user);
   renderWorkerAdminVisibility(elements, state.isAdmin);
+
+  // The Workers tab is admin-only; fall back to the calculator if access is lost.
+  if (!state.isAdmin && state.activeTab === "workers") {
+    state.activeTab = "trusses";
+    renderApp();
+  }
+
   loadSavedJobs();
   loadWorkers();
 }
@@ -343,6 +404,10 @@ function renderWorkersSection() {
     onRemoveWorker: removeWorker
   });
   renderWorkerPickerSection();
+
+  if (state.activeTab === "workers") {
+    renderWorkerHistoryView();
+  }
 }
 
 async function loadWorkers() {
@@ -407,11 +472,23 @@ async function removeWorker(workerId) {
 }
 
 function switchTab(nextTab) {
-  if (!JOB_TYPES[nextTab] || nextTab === state.activeTab) {
+  if (nextTab === state.activeTab) {
     return;
   }
 
-  syncDraftFromInputs();
+  if (nextTab === "workers") {
+    if (!state.isAdmin) {
+      return;
+    }
+  } else if (!JOB_TYPES[nextTab]) {
+    return;
+  }
+
+  // Preserve any in-progress job before leaving a calculator tab.
+  if (JOB_TYPES[state.activeTab]) {
+    syncDraftFromInputs();
+  }
+
   state.activeTab = nextTab;
   renderApp();
 }
@@ -446,6 +523,11 @@ function bindEvents() {
   elements.endJobButton.addEventListener("click", saveJob);
   elements.logoutButton.addEventListener("click", handleLogout);
   elements.rangeSelect.addEventListener("change", renderHistorySection);
+  elements.workerHistorySelect.addEventListener("change", () => {
+    state.workerHistory.selectedWorkerId = elements.workerHistorySelect.value;
+    renderWorkerHistoryView();
+  });
+  elements.workerRangeSelect.addEventListener("change", renderWorkerHistoryView);
   elements.amountInput.addEventListener("keydown", (event) => {
     if (event.key === "Enter") {
       event.preventDefault();

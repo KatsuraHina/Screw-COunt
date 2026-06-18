@@ -746,6 +746,32 @@ select {
   gap: 14px;
 }
 
+.worker-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.worker-summary-grid .stat strong {
+  font-size: clamp(1.3rem, 2.4vw, 1.9rem);
+}
+
+.worker-hours-chart {
+  margin-bottom: 18px;
+}
+
+.worker-jobs h3 {
+  margin: 0 0 12px;
+  font-size: 1.02rem;
+}
+
+.worker-jobs .entry-row {
+  margin-bottom: 0;
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(221, 199, 163, 0.6);
+}
+
 .history-grid .chart-wrap {
   min-height: 100%;
 }
@@ -779,6 +805,10 @@ select {
   .history-grid,
   .tab-strip {
     grid-template-columns: 1fr;
+  }
+
+  .worker-summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .tab-button {

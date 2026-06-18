@@ -1,4 +1,10 @@
-import { aggregateHistorySeriesByDay, formatMinutes } from "./jobs.js";
+import {
+  aggregateHistorySeriesByDay,
+  aggregateWorkerDailyHours,
+  formatDateLabel,
+  formatMinutes,
+  summarizeWorkerJobs
+} from "./jobs.js";
 
 export function getElements() {
   return {
@@ -7,6 +13,19 @@ export function getElements() {
     signedInPanel: document.getElementById("signedInPanel"),
     currentUserEmail: document.getElementById("currentUserEmail"),
     tabButtons: Array.from(document.querySelectorAll("[data-job-tab]")),
+    workersTabButton: document.getElementById("workersTabButton"),
+    contentSection: document.querySelector(".content"),
+    jobHistoryPanel: document.getElementById("jobHistoryPanel"),
+    workerHistoryPanel: document.getElementById("workerHistoryPanel"),
+    workerHistorySelect: document.getElementById("workerHistorySelect"),
+    workerRangeSelect: document.getElementById("workerRangeSelect"),
+    whJobs: document.getElementById("whJobs"),
+    whHours: document.getElementById("whHours"),
+    whMetres: document.getElementById("whMetres"),
+    whScrews: document.getElementById("whScrews"),
+    workerHoursChartCanvas: document.getElementById("workerHoursChart"),
+    workerJobsList: document.getElementById("workerJobsList"),
+    workerJobsEmpty: document.getElementById("workerJobsEmpty"),
     tabTitle: document.getElementById("tabTitle"),
     tabDescription: document.getElementById("tabDescription"),
     activeTabLabel: document.getElementById("activeTabLabel"),
@@ -311,6 +330,49 @@ export function setWorkerStatus(elements, message, tone = "hint") {
 export function renderWorkerAdminVisibility(elements, isAdmin) {
   elements.workerManage.classList.toggle("hidden", !isAdmin);
   elements.workerField.classList.toggle("hidden", !isAdmin);
+  elements.workersTabButton.classList.toggle("hidden", !isAdmin);
+}
+
+// Show the worker-history view (Workers tab) and hide the calculator + job history, or vice versa.
+export function toggleWorkersView(elements, showWorkers) {
+  elements.contentSection.classList.toggle("hidden", showWorkers);
+  elements.jobHistoryPanel.classList.toggle("hidden", showWorkers);
+  elements.workerHistoryPanel.classList.toggle("hidden", !showWorkers);
+  elements.workerHistoryPanel.hidden = !showWorkers;
+}
+
+export function setActiveTabButtons(elements, activeTab) {
+  elements.tabButtons.forEach((button) => {
+    const isActive = button.dataset.jobTab === activeTab;
+    button.classList.toggle("is-active", isActive);
+    button.setAttribute("aria-selected", String(isActive));
+  });
+}
+
+// Populate the worker dropdown in the Workers tab, returning the resolved selection.
+export function renderWorkerHistorySelect(elements, workers, selectedId) {
+  const select = elements.workerHistorySelect;
+  select.innerHTML = "";
+
+  if (workers.length === 0) {
+    const option = document.createElement("option");
+    option.value = "";
+    option.textContent = "No workers yet";
+    select.appendChild(option);
+    select.value = "";
+    return "";
+  }
+
+  workers.forEach((worker) => {
+    const option = document.createElement("option");
+    option.value = worker.id;
+    option.textContent = worker.name;
+    select.appendChild(option);
+  });
+
+  const resolved = workers.some((worker) => worker.id === selectedId) ? selectedId : workers[0].id;
+  select.value = resolved;
+  return resolved;
 }
 
 // Compact "Manage workers" dropdown: the list of workers with a remove button each.
@@ -379,4 +441,108 @@ export function renderWorkerPicker(elements, workers, selectedIds, onChange) {
     selectedNames.length > 0 ? selectedNames.join(", ") : "No workers selected";
 
   return validIds;
+}
+
+function formatJobUnits(job) {
+  return job.jobType === "walls"
+    ? `${Math.round(job.totalUnits)} screws`
+    : `${job.totalUnits.toFixed(2)} m`;
+}
+
+function formatJobRate(job) {
+  return job.jobType === "walls"
+    ? `${job.rate.toFixed(2)} screws/h`
+    : `${job.rate.toFixed(2)} m/h`;
+}
+
+// Render the Workers tab: summary stats, an hours-per-day chart, and a job list
+// for the selected worker. `workerName` is used to label co-workers on each job.
+export function renderWorkerHistory(elements, jobs, workerName, currentChart) {
+  const summary = summarizeWorkerJobs(jobs);
+  elements.whJobs.textContent = String(summary.jobs);
+  elements.whHours.textContent = formatMinutes(summary.netWorkedMinutes);
+  elements.whMetres.textContent = `${summary.metres.toFixed(2)} m`;
+  elements.whScrews.textContent = `${Math.round(summary.screws)} screws`;
+
+  // Job list (already sorted newest-first by the caller)
+  elements.workerJobsList.innerHTML = "";
+  elements.workerJobsEmpty.hidden = jobs.length > 0;
+
+  jobs.forEach((job) => {
+    const item = document.createElement("li");
+    item.className = "entry-row";
+
+    const text = document.createElement("span");
+    text.className = "entry-text";
+    const typeLabel = job.jobType === "walls" ? "Walls" : "Trusses";
+    const coworkers = (job.assignedWorkers || [])
+      .map((worker) => worker.name)
+      .filter((name) => name && name !== workerName);
+    const withText = coworkers.length > 0 ? ` · with ${coworkers.join(" & ")}` : "";
+    text.textContent =
+      `${formatDateLabel(job.dayKey)} · ${typeLabel} · ${formatJobUnits(job)} · ` +
+      `${formatMinutes(job.netWorkedMinutes)} · ${formatJobRate(job)}${withText}`;
+
+    item.appendChild(text);
+    elements.workerJobsList.appendChild(item);
+  });
+
+  // Hours-per-day chart (unit-agnostic, so trusses and walls combine cleanly)
+  const ChartLibrary = window.Chart;
+  const aggregated = aggregateWorkerDailyHours(jobs);
+
+  if (currentChart) {
+    currentChart.destroy();
+  }
+
+  if (!ChartLibrary) {
+    return null;
+  }
+
+  const axisTickStyle = {
+    color: "#2d2417",
+    font: { size: 13, weight: "600" },
+    padding: 8
+  };
+
+  return new ChartLibrary(elements.workerHoursChartCanvas, {
+    type: "bar",
+    data: {
+      labels: aggregated.labels,
+      datasets: [
+        {
+          label: "Hours worked",
+          data: aggregated.hours,
+          backgroundColor: "rgba(181, 83, 47, 0.88)",
+          borderColor: "rgba(143, 63, 34, 1)",
+          borderWidth: 1,
+          borderRadius: 12,
+          borderSkipped: false
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: (context) => `${context.parsed.y.toFixed(2)} h`
+          }
+        }
+      },
+      scales: {
+        y: {
+          beginAtZero: true,
+          grid: { color: "rgba(111, 96, 75, 0.14)", drawBorder: false },
+          ticks: { ...axisTickStyle, callback: (value) => `${value} h` }
+        },
+        x: {
+          grid: { display: false },
+          ticks: axisTickStyle
+        }
+      }
+    }
+  });
 }
