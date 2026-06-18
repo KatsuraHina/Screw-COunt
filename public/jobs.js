@@ -256,6 +256,41 @@ export function normalizeJob(job) {
           amount: Number(entry.amount ?? entry.metres) || 0,
           timeLabel: entry.timeLabel ?? ""
         }))
-      : []
+      : [],
+    assignedWorkerIds: Array.isArray(job.assignedWorkerIds) ? job.assignedWorkerIds : [],
+    assignedWorkers: Array.isArray(job.assignedWorkers) ? job.assignedWorkers : [],
+    assignedToLabel: typeof job.assignedToLabel === "string" ? job.assignedToLabel : ""
   };
+}
+
+export function aggregateWorkerDailyHours(jobs) {
+  const dailyMinutes = new Map();
+
+  jobs.forEach((job) => {
+    const current = dailyMinutes.get(job.dayKey) ?? 0;
+    dailyMinutes.set(job.dayKey, current + job.netWorkedMinutes);
+  });
+
+  const sortedKeys = Array.from(dailyMinutes.keys()).sort((a, b) => a.localeCompare(b));
+
+  return {
+    labels: sortedKeys.map(formatDateLabel),
+    hours: sortedKeys.map((key) => Number((dailyMinutes.get(key) / 60).toFixed(2)))
+  };
+}
+
+export function summarizeWorkerJobs(jobs) {
+  return jobs.reduce(
+    (totals, job) => {
+      totals.jobs += 1;
+      totals.netWorkedMinutes += job.netWorkedMinutes;
+      if (job.jobType === "walls") {
+        totals.screws += job.totalUnits;
+      } else {
+        totals.metres += job.totalUnits;
+      }
+      return totals;
+    },
+    { jobs: 0, netWorkedMinutes: 0, metres: 0, screws: 0 }
+  );
 }

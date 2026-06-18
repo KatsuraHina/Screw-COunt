@@ -33,6 +33,10 @@
           <span class="tab-icon" aria-hidden="true">🧱</span>
           <span>Walls</span>
         </button>
+        <button class="tab-button hidden" id="workersTabButton" type="button" data-job-tab="workers" role="tab" aria-selected="false">
+          <span class="tab-icon" aria-hidden="true">👷</span>
+          <span>Workers</span>
+        </button>
       </div>
 
       <div class="hero-copy">
@@ -153,7 +157,7 @@
     </section>
   </main>
 
-  <section class="history-panel">
+  <section class="history-panel" id="jobHistoryPanel">
     <div class="history-header">
       <div>
         <h2 id="historyTitle">Trusses History</h2>
@@ -182,6 +186,63 @@
       <div class="chart-wrap">
         <h3 id="rateChartTitle">Metres/hour per day</h3>
         <canvas id="rateChart" height="120"></canvas>
+      </div>
+    </div>
+  </section>
+
+  <section class="history-panel worker-history-panel hidden" id="workerHistoryPanel" hidden>
+    <div class="history-header">
+      <div>
+        <h2>Worker history</h2>
+        <p>Review each worker's logged jobs, hours, and output.</p>
+      </div>
+
+      <div class="history-controls">
+        <label for="workerHistorySelect">
+          Worker
+          <select id="workerHistorySelect"></select>
+        </label>
+        <label for="workerRangeSelect">
+          View period
+          <select id="workerRangeSelect">
+            <option value="7">Last 7 days</option>
+            <option value="30" selected>Last 30 days</option>
+            <option value="90">Last 90 days</option>
+            <option value="365">Last 12 months</option>
+          </select>
+        </label>
+      </div>
+    </div>
+
+    <div class="worker-summary-grid">
+      <div class="stat">
+        <span>Jobs</span>
+        <strong id="whJobs">0</strong>
+      </div>
+      <div class="stat">
+        <span>Hours worked</span>
+        <strong id="whHours">0h 0m</strong>
+      </div>
+      <div class="stat">
+        <span>Trusses metres</span>
+        <strong id="whMetres">0.00 m</strong>
+      </div>
+      <div class="stat">
+        <span>Walls screws</span>
+        <strong id="whScrews">0 screws</strong>
+      </div>
+    </div>
+
+    <div class="chart-wrap worker-hours-chart">
+      <h3>Hours worked per day</h3>
+      <canvas id="workerHoursChart" height="120"></canvas>
+    </div>
+
+    <div class="worker-jobs">
+      <h3>Logged jobs</h3>
+      <div class="entries-scroll">
+        <p id="workerJobsEmpty" class="entry-empty">No jobs logged for this worker yet.</p>
+        <ol id="workerJobsList" class="entry-list"></ol>
       </div>
     </div>
   </section>
