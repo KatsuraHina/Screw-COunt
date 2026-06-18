@@ -209,21 +209,26 @@ function renderHistorySection() {
 
 function renderApp() {
   if (state.activeTab === "workers") {
-    toggleWorkersView(elements, true);
+    toggleWorkersView(elements, true, false);
     setActiveTabButtons(elements, state.activeTab);
-    elements.activeTabLabel.textContent = "Workers";
+    elements.activeTabLabel.textContent = "Charts";
     elements.tabTitle.textContent = "Worker history";
     elements.tabDescription.textContent = "Review each worker's logged jobs, hours, and output.";
     renderWorkerHistoryView();
     return;
   }
 
-  toggleWorkersView(elements, false);
+  // The admin doesn't use the per-job trusses/screw charts, so hide that panel for them.
+  const showJobHistory = !state.isAdmin;
+  toggleWorkersView(elements, false, showJobHistory);
   renderTabState(elements, getActiveConfig(), state.activeTab);
   loadDraftIntoInputs();
   renderEntriesSection();
   renderCalculatorSection();
-  renderHistorySection();
+
+  if (showJobHistory) {
+    renderHistorySection();
+  }
 }
 
 function renderWorkerHistoryView() {
@@ -365,7 +370,7 @@ async function loadSavedJobs() {
 function refreshActiveHistory() {
   if (state.activeTab === "workers") {
     renderWorkerHistoryView();
-  } else {
+  } else if (!state.isAdmin) {
     renderHistorySection();
   }
 }
@@ -385,11 +390,13 @@ function handleAuthChanged(user) {
   renderAuthState(elements, user);
   renderWorkerAdminVisibility(elements, state.isAdmin);
 
-  // The Workers tab is admin-only; fall back to the calculator if access is lost.
+  // The Charts tab is admin-only; fall back to the calculator if access is lost.
   if (!state.isAdmin && state.activeTab === "workers") {
     state.activeTab = "trusses";
-    renderApp();
   }
+
+  // Re-render so admin-specific panel visibility (hidden trusses/screw charts) applies.
+  renderApp();
 
   loadSavedJobs();
   loadWorkers();
