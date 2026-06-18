@@ -10,8 +10,22 @@ export function getElements() {
     tabTitle: document.getElementById("tabTitle"),
     tabDescription: document.getElementById("tabDescription"),
     activeTabLabel: document.getElementById("activeTabLabel"),
+    workDateInput: document.getElementById("workDate"),
     startTimeInput: document.getElementById("startTime"),
     endTimeInput: document.getElementById("endTime"),
+    workerField: document.getElementById("workerField"),
+    workerSelect: document.getElementById("workerSelect"),
+    workersPanel: document.getElementById("workersPanel"),
+    workerNameInput: document.getElementById("workerNameInput"),
+    addWorkerButton: document.getElementById("addWorkerButton"),
+    workerList: document.getElementById("workerList"),
+    workerEmpty: document.getElementById("workerEmpty"),
+    pairFirstSelect: document.getElementById("pairFirstSelect"),
+    pairSecondSelect: document.getElementById("pairSecondSelect"),
+    addPairButton: document.getElementById("addPairButton"),
+    pairList: document.getElementById("pairList"),
+    pairEmpty: document.getElementById("pairEmpty"),
+    workerStatus: document.getElementById("workerStatus"),
     amountLabel: document.getElementById("amountLabel"),
     amountInput: document.getElementById("amountInput"),
     addAmountButton: document.getElementById("addAmountButton"),
@@ -286,4 +300,119 @@ export function renderHistory(elements, jobs, currentCharts, config) {
 
 export function clearHistoryOutputs() {
   return null;
+}
+
+export function pairLabel(pair) {
+  return `${pair.firstName} & ${pair.secondName}`;
+}
+
+export function setWorkerStatus(elements, message, tone = "hint") {
+  if (!elements.workerStatus) {
+    return;
+  }
+
+  elements.workerStatus.textContent = message;
+  elements.workerStatus.className = tone === "warning" || tone === "success" ? `hint ${tone}` : "hint";
+}
+
+export function renderWorkerAdminVisibility(elements, isAdmin) {
+  elements.workersPanel.classList.toggle("hidden", !isAdmin);
+  elements.workersPanel.hidden = !isAdmin;
+  elements.workerField.classList.toggle("hidden", !isAdmin);
+}
+
+function addOption(select, value, label) {
+  const option = document.createElement("option");
+  option.value = value;
+  option.textContent = label;
+  select.appendChild(option);
+}
+
+export function renderWorkerManagement(elements, workers, pairs, handlers) {
+  // Worker list
+  elements.workerList.innerHTML = "";
+  elements.workerEmpty.hidden = workers.length > 0;
+
+  workers.forEach((worker) => {
+    const item = document.createElement("li");
+    item.className = "worker-row";
+
+    const name = document.createElement("span");
+    name.className = "worker-name";
+    name.textContent = worker.name;
+
+    const removeButton = document.createElement("button");
+    removeButton.type = "button";
+    removeButton.className = "entry-remove";
+    removeButton.textContent = "Remove";
+    removeButton.addEventListener("click", () => handlers.onRemoveWorker(worker.id));
+
+    item.append(name, removeButton);
+    elements.workerList.appendChild(item);
+  });
+
+  // Pair selects
+  [elements.pairFirstSelect, elements.pairSecondSelect].forEach((select, index) => {
+    const previousValue = select.value;
+    select.innerHTML = "";
+    addOption(select, "", index === 0 ? "First worker" : "Second worker");
+    workers.forEach((worker) => addOption(select, worker.id, worker.name));
+    select.value = workers.some((worker) => worker.id === previousValue) ? previousValue : "";
+  });
+
+  // Pair list
+  elements.pairList.innerHTML = "";
+  elements.pairEmpty.hidden = pairs.length > 0;
+
+  pairs.forEach((pair) => {
+    const item = document.createElement("li");
+    item.className = "worker-row";
+
+    const name = document.createElement("span");
+    name.className = "worker-name";
+    name.textContent = pairLabel(pair);
+
+    const removeButton = document.createElement("button");
+    removeButton.type = "button";
+    removeButton.className = "entry-remove";
+    removeButton.textContent = "Unpair";
+    removeButton.addEventListener("click", () => handlers.onRemovePair(pair.id));
+
+    item.append(name, removeButton);
+    elements.pairList.appendChild(item);
+  });
+}
+
+export function renderWorkerSelector(elements, workers, pairs, selectedValue) {
+  const select = elements.workerSelect;
+  select.innerHTML = "";
+  addOption(select, "", "No worker selected");
+
+  if (workers.length > 0) {
+    const group = document.createElement("optgroup");
+    group.label = "Workers";
+    workers.forEach((worker) => {
+      const option = document.createElement("option");
+      option.value = `w:${worker.id}`;
+      option.textContent = worker.name;
+      group.appendChild(option);
+    });
+    select.appendChild(group);
+  }
+
+  if (pairs.length > 0) {
+    const group = document.createElement("optgroup");
+    group.label = "Pairs";
+    pairs.forEach((pair) => {
+      const option = document.createElement("option");
+      option.value = `p:${pair.id}`;
+      option.textContent = pairLabel(pair);
+      group.appendChild(option);
+    });
+    select.appendChild(group);
+  }
+
+  const hasSelected = Array.from(select.options).some((option) => option.value === selectedValue);
+  select.value = hasSelected ? selectedValue : "";
+  return select.value;
 }

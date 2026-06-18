@@ -9,6 +9,8 @@ import {
 import {
   addDoc,
   collection,
+  deleteDoc,
+  doc,
   getDocs,
   getFirestore,
   query,
@@ -63,6 +65,56 @@ export async function loadJobRecords(user) {
     id: docSnapshot.id,
     ...docSnapshot.data()
   }));
+}
+
+export async function addWorkerRecord(name, user) {
+  const docRef = await addDoc(collection(db, "workers"), {
+    name,
+    userId: user.uid,
+    userEmail: user.email ?? "",
+    createdAt: serverTimestamp()
+  });
+
+  return { id: docRef.id, name };
+}
+
+export async function loadWorkerRecords(user) {
+  const workersQuery = query(collection(db, "workers"), where("userId", "==", user.uid));
+  const snapshot = await getDocs(workersQuery);
+
+  return snapshot.docs.map((docSnapshot) => ({
+    id: docSnapshot.id,
+    ...docSnapshot.data()
+  }));
+}
+
+export async function deleteWorkerRecord(workerId) {
+  await deleteDoc(doc(db, "workers", workerId));
+}
+
+export async function addPairRecord(pair, user) {
+  const docRef = await addDoc(collection(db, "workerPairs"), {
+    ...pair,
+    userId: user.uid,
+    userEmail: user.email ?? "",
+    createdAt: serverTimestamp()
+  });
+
+  return { id: docRef.id, ...pair };
+}
+
+export async function loadPairRecords(user) {
+  const pairsQuery = query(collection(db, "workerPairs"), where("userId", "==", user.uid));
+  const snapshot = await getDocs(pairsQuery);
+
+  return snapshot.docs.map((docSnapshot) => ({
+    id: docSnapshot.id,
+    ...docSnapshot.data()
+  }));
+}
+
+export async function deletePairRecord(pairId) {
+  await deleteDoc(doc(db, "workerPairs", pairId));
 }
 
 export function formatFirestoreError(error) {

@@ -46,6 +46,12 @@
       <div class="card work-details">
         <h2>Work Details</h2>
 
+        <div class="field">
+          <label for="workDate">Work date</label>
+          <input id="workDate" type="date">
+          <p class="hint inline-hint">Pick the day the shift started. For overnight jobs the end time rolls into the next day automatically.</p>
+        </div>
+
         <div class="field-grid">
           <div class="field">
             <label for="startTime">Start time</label>
@@ -56,6 +62,13 @@
             <label for="endTime">End time</label>
             <input id="endTime" type="time">
           </div>
+        </div>
+
+        <div class="field worker-field hidden" id="workerField">
+          <label for="workerSelect">Worker</label>
+          <select id="workerSelect">
+            <option value="">No worker selected</option>
+          </select>
         </div>
 
         <div class="field">
@@ -122,6 +135,38 @@
       </aside>
     </section>
   </main>
+
+  <section class="workers-panel hidden" id="workersPanel" hidden>
+    <div class="workers-header">
+      <h2>Workers</h2>
+      <p>Add the people on your crew, then pair two workers together when they work as a team. Workers can be selected when you log a job.</p>
+    </div>
+
+    <div class="workers-grid">
+      <div class="card worker-card">
+        <h3>Add a worker</h3>
+        <div class="worker-add-row">
+          <input id="workerNameInput" type="text" placeholder="Worker name" autocomplete="off">
+          <button id="addWorkerButton" type="button">Add worker</button>
+        </div>
+        <ul id="workerList" class="worker-list"></ul>
+        <p id="workerEmpty" class="entry-empty">No workers added yet.</p>
+      </div>
+
+      <div class="card worker-card">
+        <h3>Pair workers</h3>
+        <div class="pair-selects">
+          <select id="pairFirstSelect" aria-label="First worker"></select>
+          <select id="pairSecondSelect" aria-label="Second worker"></select>
+        </div>
+        <button id="addPairButton" type="button">Pair together</button>
+        <ul id="pairList" class="worker-list"></ul>
+        <p id="pairEmpty" class="entry-empty">No pairs yet.</p>
+      </div>
+    </div>
+
+    <p id="workerStatus" class="hint"></p>
+  </section>
 
   <section class="history-panel">
     <div class="history-header">
