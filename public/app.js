@@ -20,6 +20,7 @@ import {
   isAdminUser,
   normalizeJob
 } from "./jobs.js";
+import { parseTrussPdf } from "./pdf-import.js";
 import {
   clearHistoryOutputs,
   getElements,
@@ -33,8 +34,11 @@ import {
   renderWorkerHistorySelect,
   renderWorkerManagement,
   renderWorkerPicker,
+  renderTrussList,
   setActiveTabButtons,
   setStatus,
+  setTrussImportVisible,
+  setTrussStatus,
   setWorkerStatus,
   toggleWorkersView
 } from "./ui.js";
@@ -67,6 +71,22 @@ function getActiveConfig() {
 
 function getActiveDraft() {
   return state.drafts[state.activeTab];
+}
+
+// Ticked imported trusses count toward the job as entries (truss number → metres).
+function getTickedTrussEntries() {
+  const draft = getActiveDraft();
+  if (state.activeTab !== "trusses" || !Array.isArray(draft.trussImport)) {
+    return [];
+  }
+
+  return draft.trussImport
+    .filter((truss) => truss.done)
+    .map((truss) => ({ amount: truss.metres, timeLabel: truss.number }));
+}
+
+function getCombinedEntries() {
+  return [...getActiveDraft().entries, ...getTickedTrussEntries()];
 }
 
 function syncDraftFromInputs() {
@@ -136,14 +156,13 @@ function getBreakMinutes() {
 }
 
 function getCalculatorViewModel() {
-  const draft = getActiveDraft();
   const rawWorkedMinutes = calculateWorkedMinutes(
     elements.startTimeInput.value,
     elements.endTimeInput.value,
     elements.workDateInput.value
   );
   const breakMinutes = getBreakMinutes();
-  const totalAmount = getTotalAmount(draft.entries);
+  const totalAmount = getTotalAmount(getCombinedEntries());
 
   if (rawWorkedMinutes === null) {
     return {
@@ -223,12 +242,75 @@ function renderApp() {
   toggleWorkersView(elements, false, showJobHistory);
   renderTabState(elements, getActiveConfig(), state.activeTab);
   loadDraftIntoInputs();
+  renderTrussSection();
   renderEntriesSection();
   renderCalculatorSection();
 
   if (showJobHistory) {
     renderHistorySection();
   }
+}
+
+// The truss PDF importer is admin-only and trusses-only.
+function renderTrussSection() {
+  const showImport = state.isAdmin && state.activeTab === "trusses";
+  setTrussImportVisible(elements, showImport);
+
+  if (showImport) {
+    renderTrussList(elements, getActiveDraft().trussImport ?? [], toggleTruss);
+  }
+}
+
+function toggleTruss(index, done) {
+  const draft = getActiveDraft();
+  if (draft.trussImport && draft.trussImport[index]) {
+    draft.trussImport[index].done = done;
+    renderTrussSection();
+    renderCalculatorSection();
+  }
+}
+
+async function handleTrussFile(file) {
+  if (!file) {
+    return;
+  }
+
+  if (file.type !== "application/pdf" && !/\.pdf$/i.test(file.name)) {
+    setTrussStatus(elements, "Please choose a PDF file.", "warning");
+    return;
+  }
+
+  setTrussStatus(elements, "Reading PDF...");
+
+  try {
+    const trusses = await parseTrussPdf(file);
+
+    if (trusses.length === 0) {
+      setTrussStatus(elements, "No truss rows found in that PDF.", "warning");
+      return;
+    }
+
+    getActiveDraft().trussImport = trusses.map((truss) => ({ ...truss, done: false }));
+    renderTrussSection();
+    renderCalculatorSection();
+    const totalMetres = trusses.reduce((sum, truss) => sum + truss.metres, 0);
+    setTrussStatus(
+      elements,
+      `Loaded ${trusses.length} trusses (${totalMetres.toFixed(2)} m total). Tick the ones completed.`,
+      "success"
+    );
+  } catch (error) {
+    console.error(error);
+    setTrussStatus(elements, error.message || "Could not read that PDF.", "warning");
+  }
+}
+
+function clearTrussImport() {
+  getActiveDraft().trussImport = [];
+  elements.trussFileInput.value = "";
+  renderTrussSection();
+  renderCalculatorSection();
+  setTrussStatus(elements, "");
 }
 
 function renderWorkerHistoryView() {
@@ -286,7 +368,8 @@ function addEntry() {
 
 function createPendingJob() {
   const draft = getActiveDraft();
-  const totalAmount = getTotalAmount(draft.entries);
+  const entries = getCombinedEntries();
+  const totalAmount = getTotalAmount(entries);
   const breakMinutes = getBreakMinutes();
   const config = getActiveConfig();
 
@@ -312,7 +395,7 @@ function createPendingJob() {
     endTimeValue: elements.endTimeInput.value,
     breakMinutes,
     totalAmount,
-    entries: draft.entries,
+    entries,
     assignedWorkers: resolveAssignedWorkers(draft.assignedWorkerIds)
   });
 }
@@ -535,6 +618,36 @@ function bindEvents() {
     renderWorkerHistoryView();
   });
   elements.workerRangeSelect.addEventListener("change", renderWorkerHistoryView);
+
+  // Truss PDF import: click/keyboard to browse, drag-and-drop, and clear.
+  elements.trussDropzone.addEventListener("click", () => elements.trussFileInput.click());
+  elements.trussDropzone.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      elements.trussFileInput.click();
+    }
+  });
+  elements.trussFileInput.addEventListener("change", () => {
+    handleTrussFile(elements.trussFileInput.files[0]);
+  });
+  ["dragenter", "dragover"].forEach((type) => {
+    elements.trussDropzone.addEventListener(type, (event) => {
+      event.preventDefault();
+      elements.trussDropzone.classList.add("is-dragover");
+    });
+  });
+  ["dragleave", "dragend"].forEach((type) => {
+    elements.trussDropzone.addEventListener(type, () => {
+      elements.trussDropzone.classList.remove("is-dragover");
+    });
+  });
+  elements.trussDropzone.addEventListener("drop", (event) => {
+    event.preventDefault();
+    elements.trussDropzone.classList.remove("is-dragover");
+    handleTrussFile(event.dataTransfer.files[0]);
+  });
+  elements.trussClearButton.addEventListener("click", clearTrussImport);
+
   elements.amountInput.addEventListener("keydown", (event) => {
     if (event.key === "Enter") {
       event.preventDefault();

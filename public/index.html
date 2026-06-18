@@ -94,6 +94,25 @@
           </div>
         </div>
 
+        <div class="field truss-import hidden" id="trussImport">
+          <label>Import truss list (PDF)</label>
+          <div class="dropzone" id="trussDropzone" tabindex="0" role="button" aria-label="Import truss PDF">
+            <input id="trussFileInput" type="file" accept="application/pdf" hidden>
+            <p class="dropzone-text">Drag a truss PDF here, or tap to choose.<br>We read the <strong>No.</strong>, <strong>Number</strong> and <strong>Lineal M</strong> columns.</p>
+          </div>
+          <p id="trussImportStatus" class="hint"></p>
+
+          <div class="truss-list-wrap hidden" id="trussListWrap">
+            <div class="truss-list-head">
+              <strong id="trussSelectedSummary">0 of 0 ticked · 0.00 m</strong>
+              <button id="trussClearButton" type="button" class="entry-remove">Clear</button>
+            </div>
+            <div class="entries-scroll">
+              <ul id="trussList" class="truss-list"></ul>
+            </div>
+          </div>
+        </div>
+
         <div class="field">
           <label id="amountLabel" for="amountInput">Linear metres</label>
           <input id="amountInput" type="number" min="0" step="0.01" placeholder="Enter metres">
