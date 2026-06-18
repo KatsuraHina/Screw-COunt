@@ -1,11 +1,8 @@
 import {
-  addPairRecord,
   addWorkerRecord,
-  deletePairRecord,
   deleteWorkerRecord,
   formatFirestoreError,
   loadJobRecords,
-  loadPairRecords,
   loadWorkerRecords,
   logoutCurrentUser,
   saveJobRecord,
@@ -26,7 +23,6 @@ import {
 import {
   clearHistoryOutputs,
   getElements,
-  pairLabel,
   renderAuthState,
   renderCalculator,
   renderEntries,
@@ -34,7 +30,7 @@ import {
   renderTabState,
   renderWorkerAdminVisibility,
   renderWorkerManagement,
-  renderWorkerSelector,
+  renderWorkerPicker,
   setStatus,
   setWorkerStatus
 } from "./ui.js";
@@ -48,7 +44,6 @@ const state = {
   },
   savedJobs: [],
   workers: [],
-  pairs: [],
   isAdmin: false,
   charts: {
     total: null,
@@ -74,7 +69,6 @@ function syncDraftFromInputs() {
   draft.pendingAmount = elements.amountInput.value;
   draft.break15Checked = elements.break15Input.checked;
   draft.break24Checked = elements.break24Input.checked;
-  draft.assignedWorkerValue = elements.workerSelect.value;
 }
 
 function loadDraftIntoInputs() {
@@ -85,12 +79,22 @@ function loadDraftIntoInputs() {
   elements.amountInput.value = draft.pendingAmount;
   elements.break15Input.checked = draft.break15Checked;
   elements.break24Input.checked = draft.break24Checked;
-  draft.assignedWorkerValue = renderWorkerSelector(
+  renderWorkerPickerSection();
+}
+
+function renderWorkerPickerSection() {
+  const draft = getActiveDraft();
+  draft.assignedWorkerIds = renderWorkerPicker(
     elements,
     state.workers,
-    state.pairs,
-    draft.assignedWorkerValue
+    draft.assignedWorkerIds,
+    handleWorkerPickerChange
   );
+}
+
+function handleWorkerPickerChange(nextIds) {
+  getActiveDraft().assignedWorkerIds = nextIds;
+  renderWorkerPickerSection();
 }
 
 function parsePendingAmount() {
@@ -258,28 +262,15 @@ function createPendingJob() {
     breakMinutes,
     totalAmount,
     entries: draft.entries,
-    assignedTo: resolveAssignedTo(elements.workerSelect.value)
+    assignedWorkers: resolveAssignedWorkers(draft.assignedWorkerIds)
   });
 }
 
-function resolveAssignedTo(value) {
-  if (!value) {
-    return null;
-  }
-
-  const [type, id] = value.split(":");
-
-  if (type === "w") {
-    const worker = state.workers.find((item) => item.id === id);
-    return worker ? { type: "worker", id: worker.id, label: worker.name } : null;
-  }
-
-  if (type === "p") {
-    const pair = state.pairs.find((item) => item.id === id);
-    return pair ? { type: "pair", id: pair.id, label: pairLabel(pair) } : null;
-  }
-
-  return null;
+function resolveAssignedWorkers(workerIds) {
+  return workerIds
+    .map((id) => state.workers.find((worker) => worker.id === id))
+    .filter(Boolean)
+    .map((worker) => ({ id: worker.id, name: worker.name }));
 }
 
 async function saveJob() {
@@ -340,7 +331,7 @@ function handleAuthChanged(user) {
   renderAuthState(elements, user);
   renderWorkerAdminVisibility(elements, state.isAdmin);
   loadSavedJobs();
-  loadWorkersAndPairs();
+  loadWorkers();
 }
 
 function renderWorkersSection() {
@@ -348,38 +339,22 @@ function renderWorkersSection() {
     return;
   }
 
-  renderWorkerManagement(elements, state.workers, state.pairs, {
-    onRemoveWorker: removeWorker,
-    onRemovePair: removePair
+  renderWorkerManagement(elements, state.workers, {
+    onRemoveWorker: removeWorker
   });
-  renderWorkerSelectorSection();
+  renderWorkerPickerSection();
 }
 
-function renderWorkerSelectorSection() {
-  const draft = getActiveDraft();
-  draft.assignedWorkerValue = renderWorkerSelector(
-    elements,
-    state.workers,
-    state.pairs,
-    draft.assignedWorkerValue
-  );
-}
-
-async function loadWorkersAndPairs() {
+async function loadWorkers() {
   if (!state.isAdmin || !state.currentUser) {
     state.workers = [];
-    state.pairs = [];
-    renderWorkerSelectorSection();
+    renderWorkerPickerSection();
     return;
   }
 
   try {
-    const [workers, pairs] = await Promise.all([
-      loadWorkerRecords(state.currentUser),
-      loadPairRecords(state.currentUser)
-    ]);
+    const workers = await loadWorkerRecords(state.currentUser);
     state.workers = workers.sort((a, b) => a.name.localeCompare(b.name));
-    state.pairs = pairs.sort((a, b) => pairLabel(a).localeCompare(pairLabel(b)));
     renderWorkersSection();
   } catch (error) {
     console.error(error);
@@ -415,86 +390,16 @@ async function addWorker() {
 
 async function removeWorker(workerId) {
   const worker = state.workers.find((item) => item.id === workerId);
-  const affectedPairs = state.pairs.filter(
-    (pair) => pair.firstId === workerId || pair.secondId === workerId
-  );
 
   try {
     await deleteWorkerRecord(workerId);
-    await Promise.all(affectedPairs.map((pair) => deletePairRecord(pair.id)));
     state.workers = state.workers.filter((item) => item.id !== workerId);
-    state.pairs = state.pairs.filter(
-      (pair) => pair.firstId !== workerId && pair.secondId !== workerId
-    );
+    // Drop the removed worker from every tab's in-progress selection.
+    Object.values(state.drafts).forEach((draft) => {
+      draft.assignedWorkerIds = draft.assignedWorkerIds.filter((id) => id !== workerId);
+    });
     renderWorkersSection();
     setWorkerStatus(elements, worker ? `Removed ${worker.name}.` : "Worker removed.", "success");
-  } catch (error) {
-    console.error(error);
-    setWorkerStatus(elements, formatFirestoreError(error), "warning");
-  }
-}
-
-async function addPair() {
-  const firstId = elements.pairFirstSelect.value;
-  const secondId = elements.pairSecondSelect.value;
-
-  if (!firstId || !secondId) {
-    setWorkerStatus(elements, "Choose two workers to pair together.", "warning");
-    return;
-  }
-
-  if (firstId === secondId) {
-    setWorkerStatus(elements, "Pick two different workers to pair.", "warning");
-    return;
-  }
-
-  const alreadyPaired = state.pairs.some(
-    (pair) =>
-      (pair.firstId === firstId && pair.secondId === secondId) ||
-      (pair.firstId === secondId && pair.secondId === firstId)
-  );
-
-  if (alreadyPaired) {
-    setWorkerStatus(elements, "Those workers are already paired.", "warning");
-    return;
-  }
-
-  const first = state.workers.find((item) => item.id === firstId);
-  const second = state.workers.find((item) => item.id === secondId);
-
-  if (!first || !second) {
-    setWorkerStatus(elements, "Could not find those workers. Refresh and try again.", "warning");
-    return;
-  }
-
-  try {
-    const pair = await addPairRecord(
-      {
-        firstId: first.id,
-        firstName: first.name,
-        secondId: second.id,
-        secondName: second.name
-      },
-      state.currentUser
-    );
-    state.pairs.push(pair);
-    state.pairs.sort((a, b) => pairLabel(a).localeCompare(pairLabel(b)));
-    renderWorkersSection();
-    setWorkerStatus(elements, `Paired ${pairLabel(pair)}.`, "success");
-  } catch (error) {
-    console.error(error);
-    setWorkerStatus(elements, formatFirestoreError(error), "warning");
-  }
-}
-
-async function removePair(pairId) {
-  const pair = state.pairs.find((item) => item.id === pairId);
-
-  try {
-    await deletePairRecord(pairId);
-    state.pairs = state.pairs.filter((item) => item.id !== pairId);
-    renderWorkersSection();
-    setWorkerStatus(elements, pair ? `Unpaired ${pairLabel(pair)}.` : "Pair removed.", "success");
   } catch (error) {
     console.error(error);
     setWorkerStatus(elements, formatFirestoreError(error), "warning");
@@ -530,9 +435,7 @@ function bindEvents() {
   });
 
   elements.amountInput.addEventListener("input", syncDraftFromInputs);
-  elements.workerSelect.addEventListener("change", syncDraftFromInputs);
   elements.addWorkerButton.addEventListener("click", addWorker);
-  elements.addPairButton.addEventListener("click", addPair);
   elements.workerNameInput.addEventListener("keydown", (event) => {
     if (event.key === "Enter") {
       event.preventDefault();

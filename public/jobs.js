@@ -145,7 +145,7 @@ export function createEmptyDraft() {
     pendingAmount: "",
     break15Checked: false,
     break24Checked: false,
-    assignedWorkerValue: "",
+    assignedWorkerIds: [],
     entries: []
   };
 }
@@ -169,7 +169,7 @@ export function createJobPayload({
   breakMinutes,
   totalAmount,
   entries,
-  assignedTo
+  assignedWorkers
 }) {
   const rawWorkedMinutes = calculateWorkedMinutes(startTimeValue, endTimeValue, workDateValue);
 
@@ -179,6 +179,7 @@ export function createJobPayload({
 
   const { start, end } = resolveShiftBounds(startTimeValue, endTimeValue, workDateValue);
   const netWorkedMinutes = Math.max(rawWorkedMinutes - breakMinutes, 0);
+  const workers = Array.isArray(assignedWorkers) ? assignedWorkers : [];
 
   return {
     jobType,
@@ -191,11 +192,11 @@ export function createJobPayload({
     totalUnits: totalAmount,
     rate: netWorkedMinutes > 0 ? totalAmount / (netWorkedMinutes / 60) : 0,
     entries: entries.map((entry) => ({ ...entry })),
-    ...(assignedTo
+    ...(workers.length > 0
       ? {
-          assignedToType: assignedTo.type,
-          assignedToId: assignedTo.id,
-          assignedToLabel: assignedTo.label
+          assignedWorkers: workers.map((worker) => ({ id: worker.id, name: worker.name })),
+          assignedWorkerIds: workers.map((worker) => worker.id),
+          assignedToLabel: workers.map((worker) => worker.name).join(" & ")
         }
       : {})
   };

@@ -92,31 +92,6 @@ export async function deleteWorkerRecord(workerId) {
   await deleteDoc(doc(db, "workers", workerId));
 }
 
-export async function addPairRecord(pair, user) {
-  const docRef = await addDoc(collection(db, "workerPairs"), {
-    ...pair,
-    userId: user.uid,
-    userEmail: user.email ?? "",
-    createdAt: serverTimestamp()
-  });
-
-  return { id: docRef.id, ...pair };
-}
-
-export async function loadPairRecords(user) {
-  const pairsQuery = query(collection(db, "workerPairs"), where("userId", "==", user.uid));
-  const snapshot = await getDocs(pairsQuery);
-
-  return snapshot.docs.map((docSnapshot) => ({
-    id: docSnapshot.id,
-    ...docSnapshot.data()
-  }));
-}
-
-export async function deletePairRecord(pairId) {
-  await deleteDoc(doc(db, "workerPairs", pairId));
-}
-
 export function formatFirestoreError(error) {
   const errorCode = typeof error?.code === "string" ? error.code.replace("firestore/", "") : "";
 

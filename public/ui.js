@@ -14,18 +14,15 @@ export function getElements() {
     startTimeInput: document.getElementById("startTime"),
     endTimeInput: document.getElementById("endTime"),
     workerField: document.getElementById("workerField"),
-    workerSelect: document.getElementById("workerSelect"),
-    workersPanel: document.getElementById("workersPanel"),
+    workerManage: document.getElementById("workerManage"),
     workerNameInput: document.getElementById("workerNameInput"),
     addWorkerButton: document.getElementById("addWorkerButton"),
     workerList: document.getElementById("workerList"),
     workerEmpty: document.getElementById("workerEmpty"),
-    pairFirstSelect: document.getElementById("pairFirstSelect"),
-    pairSecondSelect: document.getElementById("pairSecondSelect"),
-    addPairButton: document.getElementById("addPairButton"),
-    pairList: document.getElementById("pairList"),
-    pairEmpty: document.getElementById("pairEmpty"),
     workerStatus: document.getElementById("workerStatus"),
+    workerPicker: document.getElementById("workerPicker"),
+    workerPickerSummary: document.getElementById("workerPickerSummary"),
+    workerPickerOptions: document.getElementById("workerPickerOptions"),
     amountLabel: document.getElementById("amountLabel"),
     amountInput: document.getElementById("amountInput"),
     addAmountButton: document.getElementById("addAmountButton"),
@@ -302,10 +299,6 @@ export function clearHistoryOutputs() {
   return null;
 }
 
-export function pairLabel(pair) {
-  return `${pair.firstName} & ${pair.secondName}`;
-}
-
 export function setWorkerStatus(elements, message, tone = "hint") {
   if (!elements.workerStatus) {
     return;
@@ -316,20 +309,12 @@ export function setWorkerStatus(elements, message, tone = "hint") {
 }
 
 export function renderWorkerAdminVisibility(elements, isAdmin) {
-  elements.workersPanel.classList.toggle("hidden", !isAdmin);
-  elements.workersPanel.hidden = !isAdmin;
+  elements.workerManage.classList.toggle("hidden", !isAdmin);
   elements.workerField.classList.toggle("hidden", !isAdmin);
 }
 
-function addOption(select, value, label) {
-  const option = document.createElement("option");
-  option.value = value;
-  option.textContent = label;
-  select.appendChild(option);
-}
-
-export function renderWorkerManagement(elements, workers, pairs, handlers) {
-  // Worker list
+// Compact "Manage workers" dropdown: the list of workers with a remove button each.
+export function renderWorkerManagement(elements, workers, handlers) {
   elements.workerList.innerHTML = "";
   elements.workerEmpty.hidden = workers.length > 0;
 
@@ -350,69 +335,48 @@ export function renderWorkerManagement(elements, workers, pairs, handlers) {
     item.append(name, removeButton);
     elements.workerList.appendChild(item);
   });
-
-  // Pair selects
-  [elements.pairFirstSelect, elements.pairSecondSelect].forEach((select, index) => {
-    const previousValue = select.value;
-    select.innerHTML = "";
-    addOption(select, "", index === 0 ? "First worker" : "Second worker");
-    workers.forEach((worker) => addOption(select, worker.id, worker.name));
-    select.value = workers.some((worker) => worker.id === previousValue) ? previousValue : "";
-  });
-
-  // Pair list
-  elements.pairList.innerHTML = "";
-  elements.pairEmpty.hidden = pairs.length > 0;
-
-  pairs.forEach((pair) => {
-    const item = document.createElement("li");
-    item.className = "worker-row";
-
-    const name = document.createElement("span");
-    name.className = "worker-name";
-    name.textContent = pairLabel(pair);
-
-    const removeButton = document.createElement("button");
-    removeButton.type = "button";
-    removeButton.className = "entry-remove";
-    removeButton.textContent = "Unpair";
-    removeButton.addEventListener("click", () => handlers.onRemovePair(pair.id));
-
-    item.append(name, removeButton);
-    elements.pairList.appendChild(item);
-  });
 }
 
-export function renderWorkerSelector(elements, workers, pairs, selectedValue) {
-  const select = elements.workerSelect;
-  select.innerHTML = "";
-  addOption(select, "", "No worker selected");
+// Per-job worker picker: pick one or more workers for this job (ad-hoc pairing).
+// Returns the cleaned list of selected ids (dropping any that no longer exist).
+export function renderWorkerPicker(elements, workers, selectedIds, onChange) {
+  const validIds = selectedIds.filter((id) => workers.some((worker) => worker.id === id));
+  elements.workerPickerOptions.innerHTML = "";
 
-  if (workers.length > 0) {
-    const group = document.createElement("optgroup");
-    group.label = "Workers";
-    workers.forEach((worker) => {
-      const option = document.createElement("option");
-      option.value = `w:${worker.id}`;
-      option.textContent = worker.name;
-      group.appendChild(option);
-    });
-    select.appendChild(group);
+  if (workers.length === 0) {
+    const empty = document.createElement("p");
+    empty.className = "entry-empty";
+    empty.textContent = "Add workers first using Manage workers above.";
+    elements.workerPickerOptions.appendChild(empty);
   }
 
-  if (pairs.length > 0) {
-    const group = document.createElement("optgroup");
-    group.label = "Pairs";
-    pairs.forEach((pair) => {
-      const option = document.createElement("option");
-      option.value = `p:${pair.id}`;
-      option.textContent = pairLabel(pair);
-      group.appendChild(option);
-    });
-    select.appendChild(group);
-  }
+  workers.forEach((worker) => {
+    const option = document.createElement("label");
+    option.className = "worker-option";
 
-  const hasSelected = Array.from(select.options).some((option) => option.value === selectedValue);
-  select.value = hasSelected ? selectedValue : "";
-  return select.value;
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.value = worker.id;
+    checkbox.checked = validIds.includes(worker.id);
+    checkbox.addEventListener("change", () => {
+      const next = checkbox.checked
+        ? [...validIds, worker.id]
+        : validIds.filter((id) => id !== worker.id);
+      onChange(next);
+    });
+
+    const name = document.createElement("span");
+    name.textContent = worker.name;
+
+    option.append(checkbox, name);
+    elements.workerPickerOptions.appendChild(option);
+  });
+
+  const selectedNames = workers
+    .filter((worker) => validIds.includes(worker.id))
+    .map((worker) => worker.name);
+  elements.workerPickerSummary.textContent =
+    selectedNames.length > 0 ? selectedNames.join(", ") : "No workers selected";
+
+  return validIds;
 }

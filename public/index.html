@@ -44,7 +44,31 @@
 
     <section class="content">
       <div class="card work-details">
-        <h2>Work Details</h2>
+        <div class="work-details-head">
+          <h2>Work Details</h2>
+
+          <details class="worker-manage hidden" id="workerManage">
+            <summary>Manage workers</summary>
+            <div class="worker-manage-body">
+              <div class="worker-add-row">
+                <input id="workerNameInput" type="text" placeholder="Add a worker" autocomplete="off">
+                <button id="addWorkerButton" type="button">Add</button>
+              </div>
+              <ul id="workerList" class="worker-list"></ul>
+              <p id="workerEmpty" class="entry-empty">No workers yet.</p>
+              <p id="workerStatus" class="hint"></p>
+            </div>
+          </details>
+        </div>
+
+        <div class="field worker-field hidden" id="workerField">
+          <label>Workers on this job</label>
+          <details class="worker-picker" id="workerPicker">
+            <summary id="workerPickerSummary">No workers selected</summary>
+            <div class="worker-picker-body" id="workerPickerOptions"></div>
+          </details>
+          <p class="hint inline-hint">Pick everyone working this job. Choose two or more when they work together — pairings can change job to job.</p>
+        </div>
 
         <div class="field">
           <label for="workDate">Work date</label>
@@ -62,13 +86,6 @@
             <label for="endTime">End time</label>
             <input id="endTime" type="time">
           </div>
-        </div>
-
-        <div class="field worker-field hidden" id="workerField">
-          <label for="workerSelect">Worker</label>
-          <select id="workerSelect">
-            <option value="">No worker selected</option>
-          </select>
         </div>
 
         <div class="field">
@@ -135,38 +152,6 @@
       </aside>
     </section>
   </main>
-
-  <section class="workers-panel hidden" id="workersPanel" hidden>
-    <div class="workers-header">
-      <h2>Workers</h2>
-      <p>Add the people on your crew, then pair two workers together when they work as a team. Workers can be selected when you log a job.</p>
-    </div>
-
-    <div class="workers-grid">
-      <div class="card worker-card">
-        <h3>Add a worker</h3>
-        <div class="worker-add-row">
-          <input id="workerNameInput" type="text" placeholder="Worker name" autocomplete="off">
-          <button id="addWorkerButton" type="button">Add worker</button>
-        </div>
-        <ul id="workerList" class="worker-list"></ul>
-        <p id="workerEmpty" class="entry-empty">No workers added yet.</p>
-      </div>
-
-      <div class="card worker-card">
-        <h3>Pair workers</h3>
-        <div class="pair-selects">
-          <select id="pairFirstSelect" aria-label="First worker"></select>
-          <select id="pairSecondSelect" aria-label="Second worker"></select>
-        </div>
-        <button id="addPairButton" type="button">Pair together</button>
-        <ul id="pairList" class="worker-list"></ul>
-        <p id="pairEmpty" class="entry-empty">No pairs yet.</p>
-      </div>
-    </div>
-
-    <p id="workerStatus" class="hint"></p>
-  </section>
 
   <section class="history-panel">
     <div class="history-header">
