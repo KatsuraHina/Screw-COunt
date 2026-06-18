@@ -710,6 +710,86 @@ button:disabled {
   font-weight: 700;
 }
 
+.dropzone {
+  border: 2px dashed var(--accent);
+  border-radius: 16px;
+  background: #fffdf8;
+  padding: 22px 18px;
+  text-align: center;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.dropzone:hover,
+.dropzone:focus,
+.dropzone.is-dragover {
+  background: rgba(181, 83, 47, 0.08);
+  border-color: var(--accent-dark);
+  outline: none;
+}
+
+.dropzone-text {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.5;
+  font-size: 0.95rem;
+}
+
+.truss-list-wrap {
+  display: grid;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.truss-list-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.truss-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.truss-option {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: #fff;
+  cursor: pointer;
+}
+
+.truss-option input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent);
+}
+
+.truss-text {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.truss-name {
+  font-weight: 700;
+}
+
+.truss-metres {
+  color: var(--muted);
+  white-space: nowrap;
+}
+
 .history-panel {
   width: min(980px, 100%);
   margin-top: 24px;

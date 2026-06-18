@@ -42,6 +42,14 @@ export function getElements() {
     workerPicker: document.getElementById("workerPicker"),
     workerPickerSummary: document.getElementById("workerPickerSummary"),
     workerPickerOptions: document.getElementById("workerPickerOptions"),
+    trussImport: document.getElementById("trussImport"),
+    trussDropzone: document.getElementById("trussDropzone"),
+    trussFileInput: document.getElementById("trussFileInput"),
+    trussImportStatus: document.getElementById("trussImportStatus"),
+    trussListWrap: document.getElementById("trussListWrap"),
+    trussList: document.getElementById("trussList"),
+    trussSelectedSummary: document.getElementById("trussSelectedSummary"),
+    trussClearButton: document.getElementById("trussClearButton"),
     amountLabel: document.getElementById("amountLabel"),
     amountInput: document.getElementById("amountInput"),
     addAmountButton: document.getElementById("addAmountButton"),
@@ -547,4 +555,52 @@ export function renderWorkerHistory(elements, jobs, workerName, currentChart) {
       }
     }
   });
+}
+
+// Render the imported truss checklist. `onToggle(index, done)` fires when a row
+// is ticked/unticked. The summary shows how many are ticked and their metres.
+export function renderTrussList(elements, trusses, onToggle) {
+  const hasTrusses = trusses.length > 0;
+  elements.trussListWrap.classList.toggle("hidden", !hasTrusses);
+  elements.trussList.innerHTML = "";
+
+  trusses.forEach((truss, index) => {
+    const item = document.createElement("li");
+    item.className = "truss-row";
+
+    const label = document.createElement("label");
+    label.className = "truss-option";
+
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.checked = Boolean(truss.done);
+    checkbox.addEventListener("change", () => onToggle(index, checkbox.checked));
+
+    const text = document.createElement("span");
+    text.className = "truss-text";
+    text.innerHTML =
+      `<span class="truss-name">${truss.no}. ${truss.number}</span>` +
+      `<span class="truss-metres">${truss.metres.toFixed(2)} m</span>`;
+
+    label.append(checkbox, text);
+    item.appendChild(label);
+    elements.trussList.appendChild(item);
+  });
+
+  const tickedCount = trusses.filter((truss) => truss.done).length;
+  const tickedMetres = trusses
+    .filter((truss) => truss.done)
+    .reduce((total, truss) => total + truss.metres, 0);
+  elements.trussSelectedSummary.textContent =
+    `${tickedCount} of ${trusses.length} ticked · ${tickedMetres.toFixed(2)} m`;
+}
+
+export function setTrussStatus(elements, message, tone = "hint") {
+  elements.trussImportStatus.textContent = message;
+  elements.trussImportStatus.className =
+    tone === "warning" || tone === "success" ? `hint ${tone}` : "hint";
+}
+
+export function setTrussImportVisible(elements, visible) {
+  elements.trussImport.classList.toggle("hidden", !visible);
 }
