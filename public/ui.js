@@ -333,12 +333,14 @@ export function renderWorkerAdminVisibility(elements, isAdmin) {
   elements.workersTabButton.classList.toggle("hidden", !isAdmin);
 }
 
-// Show the worker-history view (Workers tab) and hide the calculator + job history, or vice versa.
-export function toggleWorkersView(elements, showWorkers) {
+// Show the worker-history view (Charts tab) and the calculator/job history.
+// `showJobHistory` is controlled separately so the admin can hide the
+// trusses/screw charts entirely.
+export function toggleWorkersView(elements, showWorkers, showJobHistory) {
   elements.contentSection.classList.toggle("hidden", showWorkers);
-  elements.jobHistoryPanel.classList.toggle("hidden", showWorkers);
   elements.workerHistoryPanel.classList.toggle("hidden", !showWorkers);
   elements.workerHistoryPanel.hidden = !showWorkers;
+  elements.jobHistoryPanel.classList.toggle("hidden", !showJobHistory);
 }
 
 export function setActiveTabButtons(elements, activeTab) {
