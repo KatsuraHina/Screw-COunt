@@ -94,6 +94,19 @@
           </div>
         </div>
 
+        <div class="field-grid">
+          <div class="field">
+            <label for="strapStart">Strap start</label>
+            <input id="strapStart" type="time">
+          </div>
+
+          <div class="field">
+            <label for="strapEnd">Strap end</label>
+            <input id="strapEnd" type="time">
+          </div>
+        </div>
+        <p class="hint inline-hint">Strap time is deducted from worked time as time lost during the shift.</p>
+
         <div class="field truss-import hidden" id="trussImport">
           <label id="importLabel">Import truss list (PDF)</label>
           <div class="dropzone" id="trussDropzone" tabindex="0" role="button" aria-label="Import PDF">
@@ -161,6 +174,11 @@
         <div class="stat">
           <span>Breaks deducted</span>
           <strong id="breakTime">0m</strong>
+        </div>
+
+        <div class="stat">
+          <span>Strap time lost</span>
+          <strong id="strapTime">0m</strong>
         </div>
 
         <div class="entries">
@@ -245,18 +263,24 @@
         <strong id="whHours">0h 0m</strong>
       </div>
       <div class="stat">
-        <span>Trusses metres</span>
-        <strong id="whMetres">0.00 m</strong>
+        <span>Avg metres / hour</span>
+        <strong id="whAvgMetres">0.00 m/h</strong>
       </div>
       <div class="stat">
-        <span>Walls screws</span>
-        <strong id="whScrews">0 screws</strong>
+        <span>Avg screws / hour</span>
+        <strong id="whAvgScrews">0 screws/h</strong>
       </div>
     </div>
 
-    <div class="chart-wrap worker-hours-chart">
-      <h3>Hours worked per day</h3>
-      <canvas id="workerHoursChart" height="120"></canvas>
+    <div class="history-grid">
+      <div class="chart-wrap">
+        <h3>Metres / hour per day</h3>
+        <canvas id="workerMetresChart" height="120"></canvas>
+      </div>
+      <div class="chart-wrap">
+        <h3>Screws / hour per day</h3>
+        <canvas id="workerScrewsChart" height="120"></canvas>
+      </div>
     </div>
 
     <div class="worker-jobs">
