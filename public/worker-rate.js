@@ -48,5 +48,5 @@ function updateWorkerRate() {
 
 // app.js re-renders the calculator when times, entries, or selected workers change.
 // This lightweight refresh keeps the displayed live rate per worker.
-window.setInterval(updateWorkerRate, 250);
+window.setInterval(updateWorkerRate, 1000);
 window.addEventListener("load", updateWorkerRate);
