@@ -86,7 +86,6 @@ export async function parseCutListPdf(file) {
   const pdf = await pdfjsLib.getDocument({ data: buffer }).promise;
 
   const trusses = [];
-  const seenNumbers = new Set();
   let headerSeen = false;
 
   for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
@@ -115,8 +114,7 @@ export async function parseCutListPdf(file) {
       }
 
       const record = parseDataRow(text);
-      if (record && !seenNumbers.has(record.number)) {
-        seenNumbers.add(record.number);
+      if (record) {
         trusses.push(record);
       }
     });
