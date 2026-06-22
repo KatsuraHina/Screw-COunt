@@ -1,6 +1,5 @@
 import {
   aggregateHistorySeriesByDay,
-  aggregateWorkerDailyHours,
   formatDateLabel,
   formatMinutes,
   summarizeWorkerJobs
@@ -21,9 +20,10 @@ export function getElements() {
     workerRangeSelect: document.getElementById("workerRangeSelect"),
     whJobs: document.getElementById("whJobs"),
     whHours: document.getElementById("whHours"),
-    whMetres: document.getElementById("whMetres"),
-    whScrews: document.getElementById("whScrews"),
-    workerHoursChartCanvas: document.getElementById("workerHoursChart"),
+    whAvgMetres: document.getElementById("whAvgMetres"),
+    whAvgScrews: document.getElementById("whAvgScrews"),
+    workerMetresChartCanvas: document.getElementById("workerMetresChart"),
+    workerScrewsChartCanvas: document.getElementById("workerScrewsChart"),
     workerJobsList: document.getElementById("workerJobsList"),
     workerJobsEmpty: document.getElementById("workerJobsEmpty"),
     tabTitle: document.getElementById("tabTitle"),
@@ -32,6 +32,8 @@ export function getElements() {
     workDateInput: document.getElementById("workDate"),
     startTimeInput: document.getElementById("startTime"),
     endTimeInput: document.getElementById("endTime"),
+    strapStartInput: document.getElementById("strapStart"),
+    strapEndInput: document.getElementById("strapEnd"),
     workerField: document.getElementById("workerField"),
     workerManage: document.getElementById("workerManage"),
     workerNameInput: document.getElementById("workerNameInput"),
@@ -61,6 +63,7 @@ export function getElements() {
     rangeSelect: document.getElementById("rangeSelect"),
     workedTimeOutput: document.getElementById("workedTime"),
     breakTimeOutput: document.getElementById("breakTime"),
+    strapTimeOutput: document.getElementById("strapTime"),
     totalUnitsStat: document.getElementById("totalUnitsStat"),
     totalUnitsLabel: document.getElementById("totalUnitsLabel"),
     totalUnitsOutput: document.getElementById("totalUnitsDisplay"),
@@ -155,6 +158,7 @@ export function renderCalculator(elements, calculatorViewModel, config) {
   const decimals = config.key === "trusses" ? 2 : 0;
   elements.totalUnitsOutput.textContent = `${calculatorViewModel.totalAmount.toFixed(decimals)} ${config.shortUnit}`;
   elements.breakTimeOutput.textContent = `${calculatorViewModel.breakMinutes}m`;
+  elements.strapTimeOutput.textContent = `${calculatorViewModel.strapMinutes}m`;
 
   if (!calculatorViewModel.hasStartTime) {
     elements.workedTimeOutput.textContent = "0h 0m";
@@ -169,7 +173,7 @@ export function renderCalculator(elements, calculatorViewModel, config) {
   if (calculatorViewModel.breaksExceedWorkedTime) {
     setStatus(
       elements,
-      "Selected breaks are longer than the worked time so the total is held at zero.",
+      "Breaks and strap time are longer than the worked time so it is held at zero.",
       "warning"
     );
     return;
@@ -361,19 +365,16 @@ export function setActiveTabButtons(elements, activeTab) {
   });
 }
 
-// Populate the worker dropdown in the Workers tab, returning the resolved selection.
+// Populate the worker dropdown in the Workers tab, returning the resolved
+// selection. "all" aggregates every worker's jobs together.
 export function renderWorkerHistorySelect(elements, workers, selectedId) {
   const select = elements.workerHistorySelect;
   select.innerHTML = "";
 
-  if (workers.length === 0) {
-    const option = document.createElement("option");
-    option.value = "";
-    option.textContent = "No workers yet";
-    select.appendChild(option);
-    select.value = "";
-    return "";
-  }
+  const allOption = document.createElement("option");
+  allOption.value = "all";
+  allOption.textContent = "All workers";
+  select.appendChild(allOption);
 
   workers.forEach((worker) => {
     const option = document.createElement("option");
@@ -382,7 +383,8 @@ export function renderWorkerHistorySelect(elements, workers, selectedId) {
     select.appendChild(option);
   });
 
-  const resolved = workers.some((worker) => worker.id === selectedId) ? selectedId : workers[0].id;
+  const valid = selectedId === "all" || workers.some((worker) => worker.id === selectedId);
+  const resolved = valid ? selectedId : "all";
   select.value = resolved;
   return resolved;
 }
@@ -467,14 +469,76 @@ function formatJobRate(job) {
     : `${job.rate.toFixed(2)} m/h`;
 }
 
-// Render the Workers tab: summary stats, an hours-per-day chart, and a job list
-// for the selected worker. `workerName` is used to label co-workers on each job.
-export function renderWorkerHistory(elements, jobs, workerName, currentChart) {
+const RATE_AXIS_STYLE = {
+  color: "#2d2417",
+  font: { size: 13, weight: "600" },
+  padding: 8
+};
+
+function renderRateChart(canvas, jobs, unit, currentChart) {
+  const ChartLibrary = window.Chart;
+  if (currentChart) {
+    currentChart.destroy();
+  }
+  if (!ChartLibrary) {
+    return null;
+  }
+
+  const aggregated = aggregateHistorySeriesByDay(jobs);
+
+  return new ChartLibrary(canvas, {
+    type: "line",
+    data: {
+      labels: aggregated.labels,
+      datasets: [
+        {
+          label: `${unit}/hour`,
+          data: aggregated.rateValues,
+          borderColor: "rgba(181, 83, 47, 1)",
+          backgroundColor: "rgba(181, 83, 47, 0.14)",
+          fill: true,
+          tension: 0.32,
+          pointRadius: 4,
+          pointHoverRadius: 5,
+          pointBackgroundColor: "rgba(255, 250, 242, 1)",
+          pointBorderColor: "rgba(143, 63, 34, 1)",
+          pointBorderWidth: 2
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: { label: (context) => `${context.parsed.y.toFixed(2)} ${unit}/h` }
+        }
+      },
+      scales: {
+        y: {
+          beginAtZero: true,
+          grid: { color: "rgba(111, 96, 75, 0.14)", drawBorder: false },
+          ticks: { ...RATE_AXIS_STYLE, callback: (value) => `${value} ${unit}/h` }
+        },
+        x: {
+          grid: { display: false },
+          ticks: RATE_AXIS_STYLE
+        }
+      }
+    }
+  });
+}
+
+// Render the Charts tab: average rate stats, two rate-per-day charts (metres
+// and screws), and the job list. `workerName` labels co-workers on each job
+// (empty for the "All workers" view). `charts` holds the existing chart pair.
+export function renderWorkerHistory(elements, jobs, workerName, charts) {
   const summary = summarizeWorkerJobs(jobs);
   elements.whJobs.textContent = String(summary.jobs);
   elements.whHours.textContent = formatMinutes(summary.netWorkedMinutes);
-  elements.whMetres.textContent = `${summary.metres.toFixed(2)} m`;
-  elements.whScrews.textContent = `${Math.round(summary.screws)} screws`;
+  elements.whAvgMetres.textContent = `${summary.avgMetresPerHour.toFixed(2)} m/h`;
+  elements.whAvgScrews.textContent = `${summary.avgScrewsPerHour.toFixed(2)} screws/h`;
 
   // Job list (already sorted newest-first by the caller)
   elements.workerJobsList.innerHTML = "";
@@ -499,64 +563,14 @@ export function renderWorkerHistory(elements, jobs, workerName, currentChart) {
     elements.workerJobsList.appendChild(item);
   });
 
-  // Hours-per-day chart (unit-agnostic, so trusses and walls combine cleanly)
-  const ChartLibrary = window.Chart;
-  const aggregated = aggregateWorkerDailyHours(jobs);
+  const trussJobs = jobs.filter((job) => job.jobType !== "walls");
+  const wallJobs = jobs.filter((job) => job.jobType === "walls");
+  const existing = charts || {};
 
-  if (currentChart) {
-    currentChart.destroy();
-  }
-
-  if (!ChartLibrary) {
-    return null;
-  }
-
-  const axisTickStyle = {
-    color: "#2d2417",
-    font: { size: 13, weight: "600" },
-    padding: 8
+  return {
+    metres: renderRateChart(elements.workerMetresChartCanvas, trussJobs, "m", existing.metres),
+    screws: renderRateChart(elements.workerScrewsChartCanvas, wallJobs, "screws", existing.screws)
   };
-
-  return new ChartLibrary(elements.workerHoursChartCanvas, {
-    type: "bar",
-    data: {
-      labels: aggregated.labels,
-      datasets: [
-        {
-          label: "Hours worked",
-          data: aggregated.hours,
-          backgroundColor: "rgba(181, 83, 47, 0.88)",
-          borderColor: "rgba(143, 63, 34, 1)",
-          borderWidth: 1,
-          borderRadius: 12,
-          borderSkipped: false
-        }
-      ]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: true,
-      plugins: {
-        legend: { display: false },
-        tooltip: {
-          callbacks: {
-            label: (context) => `${context.parsed.y.toFixed(2)} h`
-          }
-        }
-      },
-      scales: {
-        y: {
-          beginAtZero: true,
-          grid: { color: "rgba(111, 96, 75, 0.14)", drawBorder: false },
-          ticks: { ...axisTickStyle, callback: (value) => `${value} h` }
-        },
-        x: {
-          grid: { display: false },
-          ticks: axisTickStyle
-        }
-      }
-    }
-  });
 }
 
 // Render the imported cut-list checklist. `config` controls how each row's

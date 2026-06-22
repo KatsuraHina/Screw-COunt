@@ -137,11 +137,31 @@ export function calculateWorkedMinutes(startTimeValue, endTimeValue, workDateVal
   return Math.floor((end - start) / 60000);
 }
 
+// Strap time is a span (e.g. banding the finished product) that is lost from the
+// shift. Both a start and end are required; an end before the start rolls over.
+export function calculateStrapMinutes(strapStartValue, strapEndValue, workDateValue) {
+  if (!strapStartValue || !strapEndValue) {
+    return 0;
+  }
+
+  const reference = parseDateValue(workDateValue) ?? startOfReferenceDay(new Date());
+  const start = parseTimeAgainstReference(strapStartValue, reference);
+  const end = parseTimeAgainstReference(strapEndValue, reference);
+
+  if (end < start) {
+    end.setDate(end.getDate() + 1);
+  }
+
+  return Math.max(0, Math.floor((end - start) / 60000));
+}
+
 export function createEmptyDraft() {
   return {
     workDate: formatDateKey(new Date()),
     startTime: "",
     endTime: "",
+    strapStart: "",
+    strapEnd: "",
     pendingAmount: "",
     break15Checked: false,
     break24Checked: false,
@@ -168,6 +188,7 @@ export function createJobPayload({
   startTimeValue,
   endTimeValue,
   breakMinutes,
+  strapMinutes = 0,
   totalAmount,
   entries,
   assignedWorkers
@@ -179,7 +200,7 @@ export function createJobPayload({
   }
 
   const { start, end } = resolveShiftBounds(startTimeValue, endTimeValue, workDateValue);
-  const netWorkedMinutes = Math.max(rawWorkedMinutes - breakMinutes, 0);
+  const netWorkedMinutes = Math.max(rawWorkedMinutes - breakMinutes - strapMinutes, 0);
   const workers = Array.isArray(assignedWorkers) ? assignedWorkers : [];
 
   return {
@@ -188,6 +209,7 @@ export function createJobPayload({
     endedAt: end.toISOString(),
     dayKey: formatDateKey(start),
     breakMinutes,
+    strapMinutes,
     rawWorkedMinutes,
     netWorkedMinutes,
     totalUnits: totalAmount,
@@ -248,6 +270,7 @@ export function normalizeJob(job) {
     endedAt,
     dayKey: typeof job.dayKey === "string" && job.dayKey ? job.dayKey : formatDateKey(new Date(endedAt)),
     breakMinutes: Number(job.breakMinutes) || 0,
+    strapMinutes: Number(job.strapMinutes) || 0,
     rawWorkedMinutes: Number(job.rawWorkedMinutes) || 0,
     netWorkedMinutes: Number(job.netWorkedMinutes) || 0,
     totalUnits: Number(job.totalUnits ?? job.totalMetres) || 0,
@@ -264,34 +287,24 @@ export function normalizeJob(job) {
   };
 }
 
-export function aggregateWorkerDailyHours(jobs) {
-  const dailyMinutes = new Map();
-
-  jobs.forEach((job) => {
-    const current = dailyMinutes.get(job.dayKey) ?? 0;
-    dailyMinutes.set(job.dayKey, current + job.netWorkedMinutes);
-  });
-
-  const sortedKeys = Array.from(dailyMinutes.keys()).sort((a, b) => a.localeCompare(b));
-
-  return {
-    labels: sortedKeys.map(formatDateLabel),
-    hours: sortedKeys.map((key) => Number((dailyMinutes.get(key) / 60).toFixed(2)))
-  };
-}
-
 export function summarizeWorkerJobs(jobs) {
-  return jobs.reduce(
-    (totals, job) => {
-      totals.jobs += 1;
-      totals.netWorkedMinutes += job.netWorkedMinutes;
+  const totals = jobs.reduce(
+    (acc, job) => {
+      acc.jobs += 1;
+      acc.netWorkedMinutes += job.netWorkedMinutes;
       if (job.jobType === "walls") {
-        totals.screws += job.totalUnits;
+        acc.screws += job.totalUnits;
+        acc.wallMinutes += job.netWorkedMinutes;
       } else {
-        totals.metres += job.totalUnits;
+        acc.metres += job.totalUnits;
+        acc.trussMinutes += job.netWorkedMinutes;
       }
-      return totals;
+      return acc;
     },
-    { jobs: 0, netWorkedMinutes: 0, metres: 0, screws: 0 }
+    { jobs: 0, netWorkedMinutes: 0, metres: 0, screws: 0, trussMinutes: 0, wallMinutes: 0 }
   );
+
+  totals.avgMetresPerHour = totals.trussMinutes > 0 ? totals.metres / (totals.trussMinutes / 60) : 0;
+  totals.avgScrewsPerHour = totals.wallMinutes > 0 ? totals.screws / (totals.wallMinutes / 60) : 0;
+  return totals;
 }

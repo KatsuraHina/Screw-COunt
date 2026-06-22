@@ -11,6 +11,7 @@ import {
 import {
   JOB_TYPES,
   calculateBreakMinutes,
+  calculateStrapMinutes,
   calculateWorkedMinutes,
   createEmptyDraft,
   createEntry,
@@ -59,8 +60,8 @@ const state = {
     rate: null
   },
   workerHistory: {
-    selectedWorkerId: "",
-    chart: null
+    selectedWorkerId: "all",
+    charts: { metres: null, screws: null }
   },
   currentUser: null,
   feedbackTimer: null
@@ -116,6 +117,8 @@ function syncDraftFromInputs() {
   draft.workDate = elements.workDateInput.value;
   draft.startTime = elements.startTimeInput.value;
   draft.endTime = elements.endTimeInput.value;
+  draft.strapStart = elements.strapStartInput.value;
+  draft.strapEnd = elements.strapEndInput.value;
   draft.pendingAmount = elements.amountInput.value;
   draft.break15Checked = elements.break15Input.checked;
   draft.break24Checked = elements.break24Input.checked;
@@ -126,6 +129,8 @@ function loadDraftIntoInputs() {
   elements.workDateInput.value = draft.workDate;
   elements.startTimeInput.value = draft.startTime;
   elements.endTimeInput.value = draft.endTime;
+  elements.strapStartInput.value = draft.strapStart;
+  elements.strapEndInput.value = draft.strapEnd;
   elements.amountInput.value = draft.pendingAmount;
   elements.break15Input.checked = draft.break15Checked;
   elements.break24Input.checked = draft.break24Checked;
@@ -177,6 +182,14 @@ function getBreakMinutes() {
   return calculateBreakMinutes(elements.break15Input.checked, elements.break24Input.checked);
 }
 
+function getStrapMinutes() {
+  return calculateStrapMinutes(
+    elements.strapStartInput.value,
+    elements.strapEndInput.value,
+    elements.workDateInput.value
+  );
+}
+
 function getCalculatorViewModel() {
   const rawWorkedMinutes = calculateWorkedMinutes(
     elements.startTimeInput.value,
@@ -184,6 +197,7 @@ function getCalculatorViewModel() {
     elements.workDateInput.value
   );
   const breakMinutes = getBreakMinutes();
+  const strapMinutes = getStrapMinutes();
   const totalAmount = getTotalAmount(getCombinedEntries());
 
   if (rawWorkedMinutes === null) {
@@ -191,6 +205,7 @@ function getCalculatorViewModel() {
       hasStartTime: false,
       hasEndTime: Boolean(elements.endTimeInput.value),
       breakMinutes,
+      strapMinutes,
       totalAmount,
       netWorkedMinutes: 0,
       rate: 0,
@@ -198,17 +213,19 @@ function getCalculatorViewModel() {
     };
   }
 
-  const netWorkedMinutes = Math.max(rawWorkedMinutes - breakMinutes, 0);
+  const lostMinutes = breakMinutes + strapMinutes;
+  const netWorkedMinutes = Math.max(rawWorkedMinutes - lostMinutes, 0);
   const hoursWorked = netWorkedMinutes / 60;
 
   return {
     hasStartTime: true,
     hasEndTime: Boolean(elements.endTimeInput.value),
     breakMinutes,
+    strapMinutes,
     totalAmount,
     netWorkedMinutes,
     rate: hoursWorked > 0 ? totalAmount / hoursWorked : 0,
-    breaksExceedWorkedTime: rawWorkedMinutes < breakMinutes
+    breaksExceedWorkedTime: rawWorkedMinutes < lostMinutes
   };
 }
 
@@ -351,18 +368,21 @@ function renderWorkerHistoryView() {
   );
   state.workerHistory.selectedWorkerId = selectedId;
 
+  const isAll = selectedId === "all";
   const worker = state.workers.find((item) => item.id === selectedId);
   const rangeStart = getRangeStartDate(Number(elements.workerRangeSelect.value));
   const jobs = state.savedJobs
     .filter((job) => new Date(job.endedAt) >= rangeStart)
-    .filter((job) => job.assignedWorkerIds.includes(selectedId))
+    .filter((job) =>
+      isAll ? job.assignedWorkerIds.length > 0 : job.assignedWorkerIds.includes(selectedId)
+    )
     .sort((a, b) => new Date(b.endedAt) - new Date(a.endedAt));
 
-  state.workerHistory.chart = renderWorkerHistory(
+  state.workerHistory.charts = renderWorkerHistory(
     elements,
     jobs,
-    worker ? worker.name : "",
-    state.workerHistory.chart
+    isAll ? "" : worker ? worker.name : "",
+    state.workerHistory.charts
   );
 }
 
@@ -397,6 +417,7 @@ function createPendingJob() {
   const entries = getCombinedEntries();
   const totalAmount = getTotalAmount(entries);
   const breakMinutes = getBreakMinutes();
+  const strapMinutes = getStrapMinutes();
   const config = getActiveConfig();
 
   if (!state.currentUser) {
@@ -420,6 +441,7 @@ function createPendingJob() {
     startTimeValue: elements.startTimeInput.value,
     endTimeValue: elements.endTimeInput.value,
     breakMinutes,
+    strapMinutes,
     totalAmount,
     entries,
     assignedWorkers: resolveAssignedWorkers(draft.assignedWorkerIds)
@@ -614,6 +636,8 @@ function bindEvents() {
     elements.workDateInput,
     elements.startTimeInput,
     elements.endTimeInput,
+    elements.strapStartInput,
+    elements.strapEndInput,
     elements.break15Input,
     elements.break24Input
   ].forEach((element) => {
