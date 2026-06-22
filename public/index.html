@@ -95,16 +95,16 @@
         </div>
 
         <div class="field truss-import hidden" id="trussImport">
-          <label>Import truss list (PDF)</label>
-          <div class="dropzone" id="trussDropzone" tabindex="0" role="button" aria-label="Import truss PDF">
+          <label id="importLabel">Import truss list (PDF)</label>
+          <div class="dropzone" id="trussDropzone" tabindex="0" role="button" aria-label="Import PDF">
             <input id="trussFileInput" type="file" accept="application/pdf" hidden>
-            <p class="dropzone-text">Drag a truss PDF here, or tap to choose.<br>We read the <strong>No.</strong>, <strong>Number</strong> and <strong>Lineal M</strong> columns.</p>
+            <p class="dropzone-text">Drag a PDF here, or tap to choose.<br>We read the <strong>No.</strong>, <strong>Number</strong> and <strong id="importColumn">Lineal M</strong> columns.</p>
           </div>
           <p id="trussImportStatus" class="hint"></p>
 
           <div class="truss-list-wrap hidden" id="trussListWrap">
             <div class="truss-list-head">
-              <strong id="trussSelectedSummary">0 of 0 ticked · 0.00 m</strong>
+              <strong id="trussSelectedSummary">0 of 0 ticked</strong>
               <button id="trussClearButton" type="button" class="entry-remove">Clear</button>
             </div>
             <div class="entries-scroll">

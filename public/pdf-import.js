@@ -51,9 +51,10 @@ function isHeaderRow(text) {
   return /no\./i.test(text) && /number/i.test(text) && /lineal/i.test(text);
 }
 
-// A data row starts with: <row number> <truss number> <lineal metres> ...
+// A data row looks like: <No.> <Number> <Lineal M> <W> <No. of Screws> <P> ...
+// e.g. "1 T017 37.34 32.58 115 0" or "1 W065 60.43 52.99 140 1".
 function parseDataRow(text) {
-  const match = text.match(/^(\d+)\s+(\S+)\s+(\d+(?:\.\d+)?)/);
+  const match = text.match(/^(\d+)\s+(\S+)\s+(\d+(?:\.\d+)?)\s+(\d+(?:\.\d+)?)\s+(\d+)/);
   if (!match) {
     return null;
   }
@@ -61,20 +62,25 @@ function parseDataRow(text) {
   const no = Number.parseInt(match[1], 10);
   const number = match[2];
   const metres = Number.parseFloat(match[3]);
+  const screws = Number.parseInt(match[5], 10);
 
-  if (!Number.isInteger(no) || !Number.isFinite(metres) || metres <= 0) {
+  if (!Number.isInteger(no)) {
     return null;
   }
 
-  // The truss number should contain a digit (e.g. "T017"); skip stray rows.
+  // The truss/panel number should contain a digit (e.g. "T017"); skip stray rows.
   if (!/\d/.test(number) || number.length > 16) {
     return null;
   }
 
-  return { no, number, metres };
+  if (!(metres > 0) && !(screws > 0)) {
+    return null;
+  }
+
+  return { no, number, metres, screws };
 }
 
-export async function parseTrussPdf(file) {
+export async function parseCutListPdf(file) {
   const pdfjsLib = await loadPdfjs();
   const buffer = await file.arrayBuffer();
   const pdf = await pdfjsLib.getDocument({ data: buffer }).promise;

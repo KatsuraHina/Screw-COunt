@@ -146,7 +146,7 @@ export function createEmptyDraft() {
     break15Checked: false,
     break24Checked: false,
     assignedWorkerIds: [],
-    trussImport: [],
+    importRows: [],
     entries: []
   };
 }

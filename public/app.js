@@ -20,7 +20,7 @@ import {
   isAdminUser,
   normalizeJob
 } from "./jobs.js";
-import { parseTrussPdf } from "./pdf-import.js";
+import { parseCutListPdf } from "./pdf-import.js";
 import {
   clearHistoryOutputs,
   getElements,
@@ -34,11 +34,12 @@ import {
   renderWorkerHistorySelect,
   renderWorkerManagement,
   renderWorkerPicker,
-  renderTrussList,
+  renderImportList,
   setActiveTabButtons,
+  setImportLabels,
+  setImportStatus,
+  setImportVisible,
   setStatus,
-  setTrussImportVisible,
-  setTrussStatus,
   setWorkerStatus,
   toggleWorkersView
 } from "./ui.js";
@@ -73,20 +74,41 @@ function getActiveDraft() {
   return state.drafts[state.activeTab];
 }
 
-// Ticked imported trusses count toward the job as entries (truss number → metres).
-function getTickedTrussEntries() {
+// How the imported cut list behaves per tab: trusses count lineal metres,
+// walls count number of screws.
+function getImportConfig() {
+  if (state.activeTab === "walls") {
+    return {
+      value: (row) => row.screws,
+      format: (value) => `${Math.round(value)} screws`,
+      label: "Import panel list (PDF)",
+      column: "No. of Screws"
+    };
+  }
+
+  return {
+    value: (row) => row.metres,
+    format: (value) => `${value.toFixed(2)} m`,
+    label: "Import truss list (PDF)",
+    column: "Lineal M"
+  };
+}
+
+// Ticked imported rows count toward the job as entries (number → metres/screws).
+function getTickedImportEntries() {
   const draft = getActiveDraft();
-  if (state.activeTab !== "trusses" || !Array.isArray(draft.trussImport)) {
+  if (!Array.isArray(draft.importRows)) {
     return [];
   }
 
-  return draft.trussImport
-    .filter((truss) => truss.done)
-    .map((truss) => ({ amount: truss.metres, timeLabel: truss.number }));
+  const config = getImportConfig();
+  return draft.importRows
+    .filter((row) => row.done)
+    .map((row) => ({ amount: config.value(row), timeLabel: row.number }));
 }
 
 function getCombinedEntries() {
-  return [...getActiveDraft().entries, ...getTickedTrussEntries()];
+  return [...getActiveDraft().entries, ...getTickedImportEntries()];
 }
 
 function syncDraftFromInputs() {
@@ -242,7 +264,7 @@ function renderApp() {
   toggleWorkersView(elements, false, showJobHistory);
   renderTabState(elements, getActiveConfig(), state.activeTab);
   loadDraftIntoInputs();
-  renderTrussSection();
+  renderImportSection();
   renderEntriesSection();
   renderCalculatorSection();
 
@@ -251,66 +273,70 @@ function renderApp() {
   }
 }
 
-// The truss PDF importer is admin-only and trusses-only.
-function renderTrussSection() {
-  const showImport = state.isAdmin && state.activeTab === "trusses";
-  setTrussImportVisible(elements, showImport);
+// The PDF importer is admin-only, on both the Trusses and Walls tabs.
+function renderImportSection() {
+  const showImport = state.isAdmin && JOB_TYPES[state.activeTab];
+  setImportVisible(elements, Boolean(showImport));
 
   if (showImport) {
-    renderTrussList(elements, getActiveDraft().trussImport ?? [], toggleTruss);
+    const config = getImportConfig();
+    setImportLabels(elements, config.label, config.column);
+    renderImportList(elements, getActiveDraft().importRows ?? [], config, toggleImportRow);
   }
 }
 
-function toggleTruss(index, done) {
+function toggleImportRow(index, done) {
   const draft = getActiveDraft();
-  if (draft.trussImport && draft.trussImport[index]) {
-    draft.trussImport[index].done = done;
-    renderTrussSection();
+  if (draft.importRows && draft.importRows[index]) {
+    draft.importRows[index].done = done;
+    renderImportSection();
     renderCalculatorSection();
   }
 }
 
-async function handleTrussFile(file) {
+async function handleImportFile(file) {
   if (!file) {
     return;
   }
 
   if (file.type !== "application/pdf" && !/\.pdf$/i.test(file.name)) {
-    setTrussStatus(elements, "Please choose a PDF file.", "warning");
+    setImportStatus(elements, "Please choose a PDF file.", "warning");
     return;
   }
 
-  setTrussStatus(elements, "Reading PDF...");
+  setImportStatus(elements, "Reading PDF...");
 
   try {
-    const trusses = await parseTrussPdf(file);
+    const rows = await parseCutListPdf(file);
 
-    if (trusses.length === 0) {
-      setTrussStatus(elements, "No truss rows found in that PDF.", "warning");
+    if (rows.length === 0) {
+      setImportStatus(elements, "No rows found in that PDF.", "warning");
       return;
     }
 
-    getActiveDraft().trussImport = trusses.map((truss) => ({ ...truss, done: false }));
-    renderTrussSection();
+    const config = getImportConfig();
+    const noun = state.activeTab === "walls" ? "panels" : "trusses";
+    getActiveDraft().importRows = rows.map((row) => ({ ...row, done: false }));
+    renderImportSection();
     renderCalculatorSection();
-    const totalMetres = trusses.reduce((sum, truss) => sum + truss.metres, 0);
-    setTrussStatus(
+    const total = rows.reduce((sum, row) => sum + config.value(row), 0);
+    setImportStatus(
       elements,
-      `Loaded ${trusses.length} trusses (${totalMetres.toFixed(2)} m total). Tick the ones completed.`,
+      `Loaded ${rows.length} ${noun} (${config.format(total)} total). Tick the ones completed.`,
       "success"
     );
   } catch (error) {
     console.error(error);
-    setTrussStatus(elements, error.message || "Could not read that PDF.", "warning");
+    setImportStatus(elements, error.message || "Could not read that PDF.", "warning");
   }
 }
 
-function clearTrussImport() {
-  getActiveDraft().trussImport = [];
+function clearImport() {
+  getActiveDraft().importRows = [];
   elements.trussFileInput.value = "";
-  renderTrussSection();
+  renderImportSection();
   renderCalculatorSection();
-  setTrussStatus(elements, "");
+  setImportStatus(elements, "");
 }
 
 function renderWorkerHistoryView() {
@@ -628,7 +654,7 @@ function bindEvents() {
     }
   });
   elements.trussFileInput.addEventListener("change", () => {
-    handleTrussFile(elements.trussFileInput.files[0]);
+    handleImportFile(elements.trussFileInput.files[0]);
   });
   ["dragenter", "dragover"].forEach((type) => {
     elements.trussDropzone.addEventListener(type, (event) => {
@@ -644,9 +670,9 @@ function bindEvents() {
   elements.trussDropzone.addEventListener("drop", (event) => {
     event.preventDefault();
     elements.trussDropzone.classList.remove("is-dragover");
-    handleTrussFile(event.dataTransfer.files[0]);
+    handleImportFile(event.dataTransfer.files[0]);
   });
-  elements.trussClearButton.addEventListener("click", clearTrussImport);
+  elements.trussClearButton.addEventListener("click", clearImport);
 
   elements.amountInput.addEventListener("keydown", (event) => {
     if (event.key === "Enter") {
