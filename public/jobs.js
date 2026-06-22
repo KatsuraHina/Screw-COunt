@@ -13,8 +13,8 @@ export const JOB_TYPES = {
     label: "Trusses",
     unitLabel: "Linear metres",
     shortUnit: "m",
-    rateLabel: "Metres per hour",
-    rateShortUnit: "m/h",
+    rateLabel: "Metres per worker per hour",
+    rateShortUnit: "m/worker/h",
     addLabel: "Linear metres",
     addButtonLabel: "Add metres",
     emptyStatus:
@@ -24,15 +24,15 @@ export const JOB_TYPES = {
     saveWarning: "Add some metres before ending and saving a job.",
     entryText: (entry) => `${entry.amount.toFixed(2)} m - ${entry.timeLabel}`,
     chartTotalTitle: "Total metres per day",
-    chartRateTitle: "Metres/hour per day"
+    chartRateTitle: "Metres/worker/hour per day"
   },
   walls: {
     key: "walls",
     label: "Walls",
     unitLabel: "Screws",
     shortUnit: "screws",
-    rateLabel: "Screws per hour",
-    rateShortUnit: "screws/h",
+    rateLabel: "Screws per worker per hour",
+    rateShortUnit: "screws/worker/h",
     addLabel: "Screws",
     addButtonLabel: "Add screws",
     emptyStatus:
@@ -42,7 +42,7 @@ export const JOB_TYPES = {
     saveWarning: "Add some screws before ending and saving a job.",
     entryText: (entry) => `${entry.amount.toFixed(0)} screws - ${entry.timeLabel}`,
     chartTotalTitle: "Total screws per day",
-    chartRateTitle: "Screws/hour per day"
+    chartRateTitle: "Screws/worker/hour per day"
   }
 };
 
@@ -182,6 +182,19 @@ export function createEntry(amount) {
   };
 }
 
+function getWorkerCount(job) {
+  const savedCount = Number(job?.workerCount);
+  const selectedIds = Array.isArray(job?.assignedWorkerIds) ? job.assignedWorkerIds.length : 0;
+  const selectedWorkers = Array.isArray(job?.assignedWorkers) ? job.assignedWorkers.length : 0;
+
+  return Math.max(1, Math.floor(savedCount) || 0, selectedIds, selectedWorkers);
+}
+
+function calculatePerWorkerRate(totalUnits, netWorkedMinutes, workerCount) {
+  const hoursWorked = netWorkedMinutes / 60;
+  return hoursWorked > 0 ? totalUnits / hoursWorked / workerCount : 0;
+}
+
 export function createJobPayload({
   jobType,
   workDateValue,
@@ -204,6 +217,7 @@ export function createJobPayload({
   // NOT deducted from worked time. Worked time only removes breaks.
   const netWorkedMinutes = Math.max(rawWorkedMinutes - breakMinutes, 0);
   const workers = Array.isArray(assignedWorkers) ? assignedWorkers : [];
+  const workerCount = Math.max(workers.length, 1);
 
   return {
     jobType,
@@ -215,7 +229,8 @@ export function createJobPayload({
     rawWorkedMinutes,
     netWorkedMinutes,
     totalUnits: totalAmount,
-    rate: netWorkedMinutes > 0 ? totalAmount / (netWorkedMinutes / 60) : 0,
+    workerCount,
+    rate: calculatePerWorkerRate(totalAmount, netWorkedMinutes, workerCount),
     entries: entries.map((entry) => ({ ...entry })),
     ...(workers.length > 0
       ? {
@@ -240,11 +255,11 @@ export function aggregateHistorySeriesByDay(jobs) {
   jobs.forEach((job) => {
     const current = dailyTotals.get(job.dayKey) ?? {
       totalUnits: 0,
-      totalWorkedMinutes: 0
+      totalWorkerMinutes: 0
     };
 
     current.totalUnits += job.totalUnits;
-    current.totalWorkedMinutes += job.netWorkedMinutes;
+    current.totalWorkerMinutes += job.netWorkedMinutes * getWorkerCount(job);
     dailyTotals.set(job.dayKey, current);
   });
 
@@ -255,8 +270,8 @@ export function aggregateHistorySeriesByDay(jobs) {
     totalValues: sortedKeys.map((key) => Number(dailyTotals.get(key).totalUnits.toFixed(2))),
     rateValues: sortedKeys.map((key) => {
       const day = dailyTotals.get(key);
-      const hoursWorked = day.totalWorkedMinutes / 60;
-      const rate = hoursWorked > 0 ? day.totalUnits / hoursWorked : 0;
+      const workerHours = day.totalWorkerMinutes / 60;
+      const rate = workerHours > 0 ? day.totalUnits / workerHours : 0;
       return Number(rate.toFixed(2));
     })
   };
@@ -265,6 +280,16 @@ export function aggregateHistorySeriesByDay(jobs) {
 export function normalizeJob(job) {
   const endedAt = typeof job.endedAt === "string" ? job.endedAt : new Date().toISOString();
   const jobType = job.jobType === "walls" ? "walls" : "trusses";
+  const assignedWorkerIds = Array.isArray(job.assignedWorkerIds) ? job.assignedWorkerIds : [];
+  const assignedWorkers = Array.isArray(job.assignedWorkers) ? job.assignedWorkers : [];
+  const netWorkedMinutes = Number(job.netWorkedMinutes) || 0;
+  const totalUnits = Number(job.totalUnits ?? job.totalMetres) || 0;
+  const workerCount = Math.max(
+    1,
+    Math.floor(Number(job.workerCount)) || 0,
+    assignedWorkerIds.length,
+    assignedWorkers.length
+  );
 
   return {
     ...job,
@@ -274,17 +299,18 @@ export function normalizeJob(job) {
     breakMinutes: Number(job.breakMinutes) || 0,
     strapMinutes: Number(job.strapMinutes) || 0,
     rawWorkedMinutes: Number(job.rawWorkedMinutes) || 0,
-    netWorkedMinutes: Number(job.netWorkedMinutes) || 0,
-    totalUnits: Number(job.totalUnits ?? job.totalMetres) || 0,
-    rate: Number(job.rate) || 0,
+    netWorkedMinutes,
+    totalUnits,
+    workerCount,
+    rate: calculatePerWorkerRate(totalUnits, netWorkedMinutes, workerCount),
     entries: Array.isArray(job.entries)
       ? job.entries.map((entry) => ({
           amount: Number(entry.amount ?? entry.metres) || 0,
           timeLabel: entry.timeLabel ?? ""
         }))
       : [],
-    assignedWorkerIds: Array.isArray(job.assignedWorkerIds) ? job.assignedWorkerIds : [],
-    assignedWorkers: Array.isArray(job.assignedWorkers) ? job.assignedWorkers : [],
+    assignedWorkerIds,
+    assignedWorkers,
     assignedToLabel: typeof job.assignedToLabel === "string" ? job.assignedToLabel : ""
   };
 }
@@ -292,14 +318,15 @@ export function normalizeJob(job) {
 export function summarizeWorkerJobs(jobs) {
   const totals = jobs.reduce(
     (acc, job) => {
+      const allocatedUnits = job.totalUnits / getWorkerCount(job);
       acc.jobs += 1;
       acc.netWorkedMinutes += job.netWorkedMinutes;
       acc.strapMinutes += job.strapMinutes;
       if (job.jobType === "walls") {
-        acc.screws += job.totalUnits;
+        acc.screws += allocatedUnits;
         acc.wallMinutes += job.netWorkedMinutes;
       } else {
-        acc.metres += job.totalUnits;
+        acc.metres += allocatedUnits;
         acc.trussMinutes += job.netWorkedMinutes;
       }
       return acc;
