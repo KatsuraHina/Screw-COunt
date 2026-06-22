@@ -200,7 +200,9 @@ export function createJobPayload({
   }
 
   const { start, end } = resolveShiftBounds(startTimeValue, endTimeValue, workDateValue);
-  const netWorkedMinutes = Math.max(rawWorkedMinutes - breakMinutes - strapMinutes, 0);
+  // Strap & brace happens outside the start/end window, so it is recorded but
+  // NOT deducted from worked time. Worked time only removes breaks.
+  const netWorkedMinutes = Math.max(rawWorkedMinutes - breakMinutes, 0);
   const workers = Array.isArray(assignedWorkers) ? assignedWorkers : [];
 
   return {

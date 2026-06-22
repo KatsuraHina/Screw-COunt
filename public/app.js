@@ -213,7 +213,7 @@ function getCalculatorViewModel() {
     };
   }
 
-  const lostMinutes = breakMinutes + strapMinutes;
+  const lostMinutes = breakMinutes;
   const netWorkedMinutes = Math.max(rawWorkedMinutes - lostMinutes, 0);
   const hoursWorked = netWorkedMinutes / 60;
 
