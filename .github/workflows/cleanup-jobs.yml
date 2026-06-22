@@ -1,0 +1,48 @@
+name: Cleanup jobs
+
+# Manual maintenance task: list (dry run) or delete saved jobs on or after a
+# cutoff day, using the Firebase service account.
+on:
+  workflow_dispatch:
+    inputs:
+      cutoff:
+        description: "Delete jobs on or after this day (YYYY-MM-DD)"
+        required: true
+        default: "2026-06-15"
+      dry_run:
+        description: "Dry run (list only, no deletion)"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cleanup-jobs
+  cancel-in-progress: false
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install firebase-admin
+        run: npm install firebase-admin@12
+
+      - name: Run cleanup
+        run: |
+          printf '%s' "$FIREBASE_SERVICE_ACCOUNT" > "$RUNNER_TEMP/firebase-service-account.json"
+          export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/firebase-service-account.json"
+          node scripts/cleanup-jobs.mjs
+          rm -f "$RUNNER_TEMP/firebase-service-account.json"
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          CUTOFF_DAYKEY: ${{ inputs.cutoff }}
+          DRY_RUN: ${{ inputs.dry_run }}
