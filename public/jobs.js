@@ -204,6 +204,8 @@ export function createJobPayload({
   // NOT deducted from worked time. Worked time only removes breaks.
   const netWorkedMinutes = Math.max(rawWorkedMinutes - breakMinutes, 0);
   const workers = Array.isArray(assignedWorkers) ? assignedWorkers : [];
+  const numWorkers = Math.max(workers.length, 1);
+  const hoursWorked = netWorkedMinutes / 60;
 
   return {
     jobType,
@@ -215,7 +217,7 @@ export function createJobPayload({
     rawWorkedMinutes,
     netWorkedMinutes,
     totalUnits: totalAmount,
-    rate: netWorkedMinutes > 0 ? totalAmount / (netWorkedMinutes / 60) : 0,
+    rate: hoursWorked > 0 ? totalAmount / hoursWorked / numWorkers : 0,
     entries: entries.map((entry) => ({ ...entry })),
     ...(workers.length > 0
       ? {

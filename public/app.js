@@ -216,6 +216,7 @@ function getCalculatorViewModel() {
   const lostMinutes = breakMinutes;
   const netWorkedMinutes = Math.max(rawWorkedMinutes - lostMinutes, 0);
   const hoursWorked = netWorkedMinutes / 60;
+  const numWorkers = Math.max(getActiveDraft().assignedWorkerIds.length, 1);
 
   return {
     hasStartTime: true,
@@ -224,7 +225,7 @@ function getCalculatorViewModel() {
     strapMinutes,
     totalAmount,
     netWorkedMinutes,
-    rate: hoursWorked > 0 ? totalAmount / hoursWorked : 0,
+    rate: hoursWorked > 0 ? totalAmount / hoursWorked / numWorkers : 0,
     breaksExceedWorkedTime: rawWorkedMinutes < lostMinutes
   };
 }
