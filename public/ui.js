@@ -22,6 +22,7 @@ export function getElements() {
     whHours: document.getElementById("whHours"),
     whAvgMetres: document.getElementById("whAvgMetres"),
     whAvgScrews: document.getElementById("whAvgScrews"),
+    whTimeLost: document.getElementById("whTimeLost"),
     workerMetresChartCanvas: document.getElementById("workerMetresChart"),
     workerScrewsChartCanvas: document.getElementById("workerScrewsChart"),
     workerJobsList: document.getElementById("workerJobsList"),
@@ -539,6 +540,7 @@ export function renderWorkerHistory(elements, jobs, workerName, charts) {
   elements.whHours.textContent = formatMinutes(summary.netWorkedMinutes);
   elements.whAvgMetres.textContent = `${summary.avgMetresPerHour.toFixed(2)} m/h`;
   elements.whAvgScrews.textContent = `${summary.avgScrewsPerHour.toFixed(2)} screws/h`;
+  elements.whTimeLost.textContent = formatMinutes(summary.strapMinutes);
 
   // Job list (already sorted newest-first by the caller)
   elements.workerJobsList.innerHTML = "";

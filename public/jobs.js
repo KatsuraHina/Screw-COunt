@@ -292,6 +292,7 @@ export function summarizeWorkerJobs(jobs) {
     (acc, job) => {
       acc.jobs += 1;
       acc.netWorkedMinutes += job.netWorkedMinutes;
+      acc.strapMinutes += job.strapMinutes;
       if (job.jobType === "walls") {
         acc.screws += job.totalUnits;
         acc.wallMinutes += job.netWorkedMinutes;
@@ -301,7 +302,7 @@ export function summarizeWorkerJobs(jobs) {
       }
       return acc;
     },
-    { jobs: 0, netWorkedMinutes: 0, metres: 0, screws: 0, trussMinutes: 0, wallMinutes: 0 }
+    { jobs: 0, netWorkedMinutes: 0, strapMinutes: 0, metres: 0, screws: 0, trussMinutes: 0, wallMinutes: 0 }
   );
 
   totals.avgMetresPerHour = totals.trussMinutes > 0 ? totals.metres / (totals.trussMinutes / 60) : 0;
