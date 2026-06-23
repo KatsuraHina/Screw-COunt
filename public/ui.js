@@ -19,7 +19,6 @@ export function getElements() {
     workerHistorySelect: document.getElementById("workerHistorySelect"),
     workerRangeSelect: document.getElementById("workerRangeSelect"),
     whJobs: document.getElementById("whJobs"),
-    whHours: document.getElementById("whHours"),
     whAvgMetres: document.getElementById("whAvgMetres"),
     whAvgScrews: document.getElementById("whAvgScrews"),
     whTimeLost: document.getElementById("whTimeLost"),
@@ -548,10 +547,9 @@ function renderRateChart(canvas, jobs, unit, currentChart) {
 export function renderWorkerHistory(elements, jobs, workerName, charts) {
   const summary = summarizeWorkerJobs(jobs);
   elements.whJobs.textContent = String(summary.jobs);
-  elements.whHours.textContent = formatMinutes(summary.netWorkedMinutes);
   elements.whAvgMetres.textContent = `${summary.avgMetresPerHour.toFixed(2)} m/h`;
   elements.whAvgScrews.textContent = `${summary.avgScrewsPerHour.toFixed(2)} screws/h`;
-  elements.whTimeLost.textContent = formatMinutes(summary.strapMinutes);
+  elements.whTimeLost.textContent = `${Math.round(summary.avgStrapMinutes)}m`;
 
   // Job list (already sorted newest-first by the caller)
   elements.workerJobsList.innerHTML = "";

@@ -336,5 +336,6 @@ export function summarizeWorkerJobs(jobs) {
 
   totals.avgMetresPerHour = totals.trussMinutes > 0 ? totals.metres / (totals.trussMinutes / 60) : 0;
   totals.avgScrewsPerHour = totals.wallMinutes > 0 ? totals.screws / (totals.wallMinutes / 60) : 0;
+  totals.avgStrapMinutes = totals.jobs > 0 ? totals.strapMinutes / totals.jobs : 0;
   return totals;
 }
