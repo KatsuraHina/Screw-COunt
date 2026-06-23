@@ -395,6 +395,8 @@ button:disabled {
   display: grid;
   gap: 16px;
   align-content: start;
+  /* Let the card shrink within its grid track instead of overflowing. */
+  min-width: 0;
   background:
     linear-gradient(180deg, rgba(242, 228, 200, 0.9), rgba(255, 250, 242, 0.92));
 }
@@ -418,6 +420,9 @@ button:disabled {
 .stat strong {
   font-size: clamp(1.45rem, 3vw, 2.3rem);
   line-height: 1.1;
+  /* Long unit strings wrap instead of spilling out of the card. */
+  display: block;
+  overflow-wrap: break-word;
 }
 
 .stat-primary {

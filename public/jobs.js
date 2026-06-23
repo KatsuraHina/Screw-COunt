@@ -14,7 +14,7 @@ export const JOB_TYPES = {
     unitLabel: "Linear metres",
     shortUnit: "m",
     rateLabel: "Metres per worker per hour",
-    rateShortUnit: "m/worker/h",
+    rateShortUnit: "m/h",
     addLabel: "Linear metres",
     addButtonLabel: "Add metres",
     emptyStatus:
@@ -32,7 +32,7 @@ export const JOB_TYPES = {
     unitLabel: "Screws",
     shortUnit: "screws",
     rateLabel: "Screws per worker per hour",
-    rateShortUnit: "screws/worker/h",
+    rateShortUnit: "screws/h",
     addLabel: "Screws",
     addButtonLabel: "Add screws",
     emptyStatus:

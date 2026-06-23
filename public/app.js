@@ -150,6 +150,8 @@ function renderWorkerPickerSection() {
 function handleWorkerPickerChange(nextIds) {
   getActiveDraft().assignedWorkerIds = nextIds;
   renderWorkerPickerSection();
+  // The rate is per worker, so it changes as workers are added or removed.
+  renderCalculatorSection();
 }
 
 function parsePendingAmount() {
