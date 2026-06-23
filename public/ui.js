@@ -549,7 +549,7 @@ export function renderWorkerHistory(elements, jobs, workerName, charts) {
   elements.whJobs.textContent = String(summary.jobs);
   elements.whAvgMetres.textContent = `${summary.avgMetresPerHour.toFixed(2)} m/h`;
   elements.whAvgScrews.textContent = `${summary.avgScrewsPerHour.toFixed(2)} screws/h`;
-  elements.whTimeLost.textContent = `${Math.round(summary.avgStrapMinutes)}m`;
+  elements.whTimeLost.textContent = formatMinutes(summary.avgStrapMinutes);
 
   // Job list (already sorted newest-first by the caller)
   elements.workerJobsList.innerHTML = "";
@@ -566,9 +566,10 @@ export function renderWorkerHistory(elements, jobs, workerName, charts) {
       .map((worker) => worker.name)
       .filter((name) => name && name !== workerName);
     const withText = coworkers.length > 0 ? ` · with ${coworkers.join(" & ")}` : "";
+    const strapText = job.strapMinutes > 0 ? ` · strap ${job.strapMinutes}m` : "";
     text.textContent =
       `${formatDateLabel(job.dayKey)} · ${typeLabel} · ${formatJobUnits(job)} · ` +
-      `${formatMinutes(job.netWorkedMinutes)} · ${formatJobRate(job)}${withText}`;
+      `${formatMinutes(job.netWorkedMinutes)} · ${formatJobRate(job)}${strapText}${withText}`;
 
     item.appendChild(text);
     elements.workerJobsList.appendChild(item);
