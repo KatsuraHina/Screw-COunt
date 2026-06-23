@@ -242,7 +242,11 @@ body {
 
 .content {
   display: grid;
-  grid-template-columns: 1.2fr 0.9fr;
+  /* minmax(0, …) stops a column from growing past its fr ratio just because a
+     child has wide unbreakable text (e.g. "screws/h" in the summary). Without
+     it the Walls summary was forcing its column wider and shrinking the Work
+     Details card, so Walls and Trusses looked different widths. */
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.9fr);
   gap: 24px;
   padding: 28px;
 }
