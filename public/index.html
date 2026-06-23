@@ -71,7 +71,10 @@
           <label>Workers on this job</label>
           <details class="worker-picker" id="workerPicker">
             <summary id="workerPickerSummary">No workers selected</summary>
-            <div class="worker-picker-body" id="workerPickerOptions"></div>
+            <div class="worker-picker-body">
+              <input id="workerPickerSearch" class="worker-picker-search" type="search" placeholder="Search workers…" autocomplete="off">
+              <div id="workerPickerOptions"></div>
+            </div>
           </details>
           <p class="hint inline-hint">Pick everyone working this job. Choose two or more when they work together — pairings can change job to job.</p>
         </div>

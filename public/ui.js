@@ -44,6 +44,7 @@ export function getElements() {
     workerStatus: document.getElementById("workerStatus"),
     workerPicker: document.getElementById("workerPicker"),
     workerPickerSummary: document.getElementById("workerPickerSummary"),
+    workerPickerSearch: document.getElementById("workerPickerSearch"),
     workerPickerOptions: document.getElementById("workerPickerOptions"),
     trussImport: document.getElementById("trussImport"),
     importLabel: document.getElementById("importLabel"),
@@ -418,6 +419,11 @@ export function renderWorkerManagement(elements, workers, handlers) {
 // Returns the cleaned list of selected ids (dropping any that no longer exist).
 export function renderWorkerPicker(elements, workers, selectedIds, onChange) {
   const validIds = selectedIds.filter((id) => workers.some((worker) => worker.id === id));
+  const query = (elements.workerPickerSearch.value || "").trim().toLowerCase();
+  const visible = query
+    ? workers.filter((worker) => worker.name.toLowerCase().includes(query))
+    : workers;
+
   elements.workerPickerOptions.innerHTML = "";
 
   if (workers.length === 0) {
@@ -425,9 +431,14 @@ export function renderWorkerPicker(elements, workers, selectedIds, onChange) {
     empty.className = "entry-empty";
     empty.textContent = "Add workers first using Manage workers above.";
     elements.workerPickerOptions.appendChild(empty);
+  } else if (visible.length === 0) {
+    const empty = document.createElement("p");
+    empty.className = "entry-empty";
+    empty.textContent = "No workers match your search.";
+    elements.workerPickerOptions.appendChild(empty);
   }
 
-  workers.forEach((worker) => {
+  visible.forEach((worker) => {
     const option = document.createElement("label");
     option.className = "worker-option";
 

@@ -665,8 +665,29 @@ button:disabled {
   display: grid;
   gap: 6px;
   padding: 4px 8px 10px;
-  max-height: 220px;
+}
+
+.worker-picker-search {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-size: 0.95rem;
+  background: #fff;
+  outline: none;
+}
+
+.worker-picker-search:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(181, 83, 47, 0.15);
+}
+
+#workerPickerOptions {
+  max-height: 200px;
   overflow-y: auto;
+  display: grid;
+  gap: 6px;
 }
 
 .worker-option {

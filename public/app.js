@@ -699,6 +699,14 @@ function bindEvents() {
   });
   elements.trussClearButton.addEventListener("click", clearImport);
 
+  // Worker picker search: filter list live, clear search when picker closes.
+  elements.workerPickerSearch.addEventListener("input", renderWorkerPickerSection);
+  elements.workerPicker.addEventListener("toggle", () => {
+    if (!elements.workerPicker.open) {
+      elements.workerPickerSearch.value = "";
+    }
+  });
+
   elements.amountInput.addEventListener("keydown", (event) => {
     if (event.key === "Enter") {
       event.preventDefault();
