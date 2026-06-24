@@ -1,5 +1,6 @@
 import {
   aggregateHistorySeriesByDay,
+  aggregateShiftTotals,
   formatDateLabel,
   formatMinutes,
   summarizeWorkerJobs
@@ -24,6 +25,8 @@ export function getElements() {
     whTimeLost: document.getElementById("whTimeLost"),
     workerMetresChartCanvas: document.getElementById("workerMetresChart"),
     workerScrewsChartCanvas: document.getElementById("workerScrewsChart"),
+    workerMetresShiftChartCanvas: document.getElementById("workerMetresShiftChart"),
+    workerScrewsShiftChartCanvas: document.getElementById("workerScrewsShiftChart"),
     workerJobsList: document.getElementById("workerJobsList"),
     workerJobsEmpty: document.getElementById("workerJobsEmpty"),
     tabTitle: document.getElementById("tabTitle"),
@@ -541,9 +544,63 @@ function renderRateChart(canvas, jobs, unit, currentChart) {
   });
 }
 
-// Render the Charts tab: average rate stats, two rate-per-day charts (metres
-// and screws), and the job list. `workerName` labels co-workers on each job
-// (empty for the "All workers" view). `charts` holds the existing chart pair.
+// Bar chart of total units (metres or screws) produced per shift.
+function renderShiftChart(canvas, jobs, unit, currentChart) {
+  const ChartLibrary = window.Chart;
+  if (currentChart) {
+    currentChart.destroy();
+  }
+  if (!ChartLibrary) {
+    return null;
+  }
+
+  const aggregated = aggregateShiftTotals(jobs);
+  const decimals = unit === "screws" ? 0 : 2;
+
+  return new ChartLibrary(canvas, {
+    type: "bar",
+    data: {
+      labels: aggregated.labels,
+      datasets: [
+        {
+          label: `Total ${unit}`,
+          data: aggregated.values,
+          backgroundColor: "rgba(181, 83, 47, 0.88)",
+          borderColor: "rgba(143, 63, 34, 1)",
+          borderWidth: 1,
+          borderRadius: 12,
+          borderSkipped: false
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: { label: (context) => `${context.parsed.y.toFixed(decimals)} ${unit}` }
+        }
+      },
+      scales: {
+        y: {
+          beginAtZero: true,
+          grid: { color: "rgba(111, 96, 75, 0.14)", drawBorder: false },
+          ticks: { ...RATE_AXIS_STYLE, callback: (value) => `${Number(value).toFixed(decimals)} ${unit}` }
+        },
+        x: {
+          grid: { display: false },
+          ticks: RATE_AXIS_STYLE
+        }
+      }
+    }
+  });
+}
+
+// Render the Charts tab: average rate stats, rate-per-day charts and
+// total-per-shift charts (metres and screws), and the job list. `workerName`
+// labels co-workers on each job (empty for the "All workers" view). `charts`
+// holds the existing charts so they can be destroyed before re-rendering.
 export function renderWorkerHistory(elements, jobs, workerName, charts) {
   const summary = summarizeWorkerJobs(jobs);
   elements.whJobs.textContent = String(summary.jobs);
@@ -581,7 +638,9 @@ export function renderWorkerHistory(elements, jobs, workerName, charts) {
 
   return {
     metres: renderRateChart(elements.workerMetresChartCanvas, trussJobs, "m", existing.metres),
-    screws: renderRateChart(elements.workerScrewsChartCanvas, wallJobs, "screws", existing.screws)
+    screws: renderRateChart(elements.workerScrewsChartCanvas, wallJobs, "screws", existing.screws),
+    metresShift: renderShiftChart(elements.workerMetresShiftChartCanvas, trussJobs, "m", existing.metresShift),
+    screwsShift: renderShiftChart(elements.workerScrewsShiftChartCanvas, wallJobs, "screws", existing.screwsShift)
   };
 }
 

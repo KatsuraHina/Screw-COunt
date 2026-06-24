@@ -242,6 +242,47 @@ export function createJobPayload({
   };
 }
 
+// Work shifts, classified by a job's local start time. The day is fully
+// partitioned so every job lands in exactly one shift. The 1:30pm–2pm gap
+// between the stated morning/afternoon shifts is folded into the afternoon.
+export const SHIFTS = [
+  { key: "morning", label: "Morning", hint: "5:30a–1:30p" },
+  { key: "afternoon", label: "Afternoon", hint: "2p–10p" },
+  { key: "night", label: "Night", hint: "10p–5:30a" }
+];
+
+const NIGHT_START = 22 * 60; // 22:00
+const MORNING_START = 5 * 60 + 30; // 05:30
+const AFTERNOON_START = 13 * 60 + 30; // 13:30 (folds the 1:30–2pm gap into afternoon)
+
+export function getJobShift(job) {
+  const start = new Date(job.startedAt);
+  const minutes = start.getHours() * 60 + start.getMinutes();
+
+  if (minutes >= NIGHT_START || minutes < MORNING_START) {
+    return "night";
+  }
+  if (minutes < AFTERNOON_START) {
+    return "morning";
+  }
+  return "afternoon";
+}
+
+// Total units (metres or screws) produced in each shift across the given jobs.
+export function aggregateShiftTotals(jobs) {
+  const totals = new Map(SHIFTS.map((shift) => [shift.key, 0]));
+
+  jobs.forEach((job) => {
+    const key = getJobShift(job);
+    totals.set(key, totals.get(key) + job.totalUnits);
+  });
+
+  return {
+    labels: SHIFTS.map((shift) => `${shift.label} (${shift.hint})`),
+    values: SHIFTS.map((shift) => Number(totals.get(shift.key).toFixed(2)))
+  };
+}
+
 export function getRangeStartDate(days) {
   const start = new Date();
   start.setHours(0, 0, 0, 0);

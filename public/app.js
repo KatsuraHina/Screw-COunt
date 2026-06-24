@@ -61,7 +61,7 @@ const state = {
   },
   workerHistory: {
     selectedWorkerId: "all",
-    charts: { metres: null, screws: null }
+    charts: { metres: null, screws: null, metresShift: null, screwsShift: null }
   },
   currentUser: null,
   feedbackTimer: null
