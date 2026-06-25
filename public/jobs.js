@@ -289,32 +289,30 @@ export function aggregateShiftTotals(jobs, getValue = (job) => job.totalUnits) {
   };
 }
 
-const SHIFT_ORDER = { morning: 0, afternoon: 1, night: 2 };
-
-// One data point per shift occurrence (day + shift type), ordered
-// chronologically. Within a day, morning < afternoon < night.
-export function aggregateShiftSeriesByOccurrence(jobs, getValue = (job) => job.totalUnits) {
-  const map = new Map();
+// Daily amount per shift: one row per day, with a separate value for each
+// shift (morning/afternoon/night). Lets you read how much each shift produced
+// on each individual day, rather than one accumulated total per shift type.
+export function aggregateShiftSeriesByDay(jobs, getValue = (job) => job.totalUnits) {
+  const dayTotals = new Map();
 
   jobs.forEach((job) => {
     const shift = getJobShift(job);
-    const key = `${job.dayKey}:${shift}`;
-    const existing = map.get(key) ?? { dayKey: job.dayKey, shift, total: 0 };
-    existing.total += Number(getValue(job)) || 0;
-    map.set(key, existing);
+    const day = dayTotals.get(job.dayKey) ?? new Map(SHIFTS.map((s) => [s.key, 0]));
+    day.set(shift, day.get(shift) + (Number(getValue(job)) || 0));
+    dayTotals.set(job.dayKey, day);
   });
 
-  const sorted = Array.from(map.values()).sort((a, b) => {
-    const d = a.dayKey.localeCompare(b.dayKey);
-    return d !== 0 ? d : SHIFT_ORDER[a.shift] - SHIFT_ORDER[b.shift];
-  });
-
-  const shiftLabel = SHIFTS.reduce((acc, s) => { acc[s.key] = s.label; return acc; }, {});
+  const sortedKeys = Array.from(dayTotals.keys()).sort((a, b) => a.localeCompare(b));
 
   return {
-    labels: sorted.map((item) => `${formatDateLabel(item.dayKey)} · ${shiftLabel[item.shift]}`),
-    values: sorted.map((item) => Number(item.total.toFixed(2))),
-    shifts: sorted.map((item) => item.shift)
+    labels: sortedKeys.map(formatDateLabel),
+    shifts: SHIFTS.map((shift) => ({
+      key: shift.key,
+      label: shift.label,
+      values: sortedKeys.map((dayKey) =>
+        Number(dayTotals.get(dayKey).get(shift.key).toFixed(2))
+      )
+    }))
   };
 }
 

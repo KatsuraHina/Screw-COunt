@@ -1,6 +1,6 @@
 import {
   aggregateHistorySeriesByDay,
-  aggregateShiftSeriesByOccurrence,
+  aggregateShiftSeriesByDay,
   formatDateLabel,
   formatMinutes,
   summarizeWorkerJobs
@@ -550,8 +550,9 @@ const SHIFT_BAR_COLORS = {
   night:     { bg: "rgba(99, 102, 241, 0.85)",  border: "rgba(67, 56, 202, 1)" }
 };
 
-// Bar chart of total units (metres or screws) per shift occurrence.
-// Each bar is one day+shift pair, coloured by shift type.
+// Grouped bar chart of the daily amount (metres or screws) per shift. The
+// x-axis is each day; within a day there is one bar per shift so you can see
+// how much each shift produced day by day, not one accumulated total.
 function renderShiftChart(canvas, jobs, unit, currentChart, getValue) {
   const ChartLibrary = window.Chart;
   if (currentChart) {
@@ -561,35 +562,35 @@ function renderShiftChart(canvas, jobs, unit, currentChart, getValue) {
     return null;
   }
 
-  const series = aggregateShiftSeriesByOccurrence(jobs, getValue);
+  const series = aggregateShiftSeriesByDay(jobs, getValue);
   const decimals = unit === "screws" ? 0 : 2;
 
-  const backgroundColors = series.shifts.map((s) => SHIFT_BAR_COLORS[s]?.bg ?? "rgba(181,83,47,0.88)");
-  const borderColors = series.shifts.map((s) => SHIFT_BAR_COLORS[s]?.border ?? "rgba(143,63,34,1)");
+  const datasets = series.shifts.map((shift) => ({
+    label: shift.label,
+    data: shift.values,
+    backgroundColor: SHIFT_BAR_COLORS[shift.key]?.bg ?? "rgba(181,83,47,0.88)",
+    borderColor: SHIFT_BAR_COLORS[shift.key]?.border ?? "rgba(143,63,34,1)",
+    borderWidth: 1,
+    borderRadius: 8,
+    borderSkipped: false
+  }));
 
   return new ChartLibrary(canvas, {
     type: "bar",
     data: {
       labels: series.labels,
-      datasets: [
-        {
-          label: `Total ${unit}`,
-          data: series.values,
-          backgroundColor: backgroundColors,
-          borderColor: borderColors,
-          borderWidth: 1,
-          borderRadius: 12,
-          borderSkipped: false
-        }
-      ]
+      datasets
     },
     options: {
       responsive: true,
       maintainAspectRatio: true,
       plugins: {
-        legend: { display: false },
+        legend: { display: true, labels: { ...RATE_AXIS_STYLE } },
         tooltip: {
-          callbacks: { label: (context) => `${context.parsed.y.toFixed(decimals)} ${unit}` }
+          callbacks: {
+            label: (context) =>
+              `${context.dataset.label}: ${context.parsed.y.toFixed(decimals)} ${unit}`
+          }
         }
       },
       scales: {
