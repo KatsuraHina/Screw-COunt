@@ -1,6 +1,6 @@
 import {
   aggregateHistorySeriesByDay,
-  aggregateShiftTotals,
+  aggregateShiftSeriesByOccurrence,
   formatDateLabel,
   formatMinutes,
   summarizeWorkerJobs
@@ -544,7 +544,14 @@ function renderRateChart(canvas, jobs, unit, currentChart) {
   });
 }
 
-// Bar chart of total units (metres or screws) produced per shift.
+const SHIFT_BAR_COLORS = {
+  morning:   { bg: "rgba(245, 158, 11, 0.85)",  border: "rgba(180, 113, 6, 1)" },
+  afternoon: { bg: "rgba(181, 83, 47, 0.88)",   border: "rgba(143, 63, 34, 1)" },
+  night:     { bg: "rgba(99, 102, 241, 0.85)",  border: "rgba(67, 56, 202, 1)" }
+};
+
+// Bar chart of total units (metres or screws) per shift occurrence.
+// Each bar is one day+shift pair, coloured by shift type.
 function renderShiftChart(canvas, jobs, unit, currentChart, getValue) {
   const ChartLibrary = window.Chart;
   if (currentChart) {
@@ -554,19 +561,22 @@ function renderShiftChart(canvas, jobs, unit, currentChart, getValue) {
     return null;
   }
 
-  const aggregated = aggregateShiftTotals(jobs, getValue);
+  const series = aggregateShiftSeriesByOccurrence(jobs, getValue);
   const decimals = unit === "screws" ? 0 : 2;
+
+  const backgroundColors = series.shifts.map((s) => SHIFT_BAR_COLORS[s]?.bg ?? "rgba(181,83,47,0.88)");
+  const borderColors = series.shifts.map((s) => SHIFT_BAR_COLORS[s]?.border ?? "rgba(143,63,34,1)");
 
   return new ChartLibrary(canvas, {
     type: "bar",
     data: {
-      labels: aggregated.labels,
+      labels: series.labels,
       datasets: [
         {
           label: `Total ${unit}`,
-          data: aggregated.values,
-          backgroundColor: "rgba(181, 83, 47, 0.88)",
-          borderColor: "rgba(143, 63, 34, 1)",
+          data: series.values,
+          backgroundColor: backgroundColors,
+          borderColor: borderColors,
           borderWidth: 1,
           borderRadius: 12,
           borderSkipped: false

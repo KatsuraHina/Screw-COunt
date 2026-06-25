@@ -289,6 +289,35 @@ export function aggregateShiftTotals(jobs, getValue = (job) => job.totalUnits) {
   };
 }
 
+const SHIFT_ORDER = { morning: 0, afternoon: 1, night: 2 };
+
+// One data point per shift occurrence (day + shift type), ordered
+// chronologically. Within a day, morning < afternoon < night.
+export function aggregateShiftSeriesByOccurrence(jobs, getValue = (job) => job.totalUnits) {
+  const map = new Map();
+
+  jobs.forEach((job) => {
+    const shift = getJobShift(job);
+    const key = `${job.dayKey}:${shift}`;
+    const existing = map.get(key) ?? { dayKey: job.dayKey, shift, total: 0 };
+    existing.total += Number(getValue(job)) || 0;
+    map.set(key, existing);
+  });
+
+  const sorted = Array.from(map.values()).sort((a, b) => {
+    const d = a.dayKey.localeCompare(b.dayKey);
+    return d !== 0 ? d : SHIFT_ORDER[a.shift] - SHIFT_ORDER[b.shift];
+  });
+
+  const shiftLabel = SHIFTS.reduce((acc, s) => { acc[s.key] = s.label; return acc; }, {});
+
+  return {
+    labels: sorted.map((item) => `${formatDateLabel(item.dayKey)} · ${shiftLabel[item.shift]}`),
+    values: sorted.map((item) => Number(item.total.toFixed(2))),
+    shifts: sorted.map((item) => item.shift)
+  };
+}
+
 export function getRangeStartDate(days) {
   const start = new Date();
   start.setHours(0, 0, 0, 0);
