@@ -273,6 +273,23 @@ export function getJobShift(job) {
   return "afternoon";
 }
 
+// The day a job's shift belongs to. A night shift spans 10pm–5:30am, so work
+// logged after midnight (before the 5:30a morning start) is the tail of the
+// previous evening's night shift and is attributed to that earlier day. This
+// keeps a single night shift in one day-column instead of splitting it across
+// the midnight boundary.
+export function getShiftDayKey(job) {
+  const start = new Date(job.startedAt);
+  const minutes = start.getHours() * 60 + start.getMinutes();
+
+  if (minutes < MORNING_START) {
+    const previousDay = new Date(start);
+    previousDay.setDate(previousDay.getDate() - 1);
+    return formatDateKey(previousDay);
+  }
+  return formatDateKey(start);
+}
+
 // Total amount produced in each shift across the given jobs. `getValue` selects
 // the metric per job (screws via totalUnits, or lineal metres via metres).
 export function aggregateShiftTotals(jobs, getValue = (job) => job.totalUnits) {
@@ -297,9 +314,10 @@ export function aggregateShiftSeriesByDay(jobs, getValue = (job) => job.totalUni
 
   jobs.forEach((job) => {
     const shift = getJobShift(job);
-    const day = dayTotals.get(job.dayKey) ?? new Map(SHIFTS.map((s) => [s.key, 0]));
+    const dayKey = getShiftDayKey(job);
+    const day = dayTotals.get(dayKey) ?? new Map(SHIFTS.map((s) => [s.key, 0]));
     day.set(shift, day.get(shift) + (Number(getValue(job)) || 0));
-    dayTotals.set(job.dayKey, day);
+    dayTotals.set(dayKey, day);
   });
 
   const sortedKeys = Array.from(dayTotals.keys()).sort((a, b) => a.localeCompare(b));
