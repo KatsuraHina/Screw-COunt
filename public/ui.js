@@ -545,7 +545,7 @@ function renderRateChart(canvas, jobs, unit, currentChart) {
 }
 
 // Bar chart of total units (metres or screws) produced per shift.
-function renderShiftChart(canvas, jobs, unit, currentChart) {
+function renderShiftChart(canvas, jobs, unit, currentChart, getValue) {
   const ChartLibrary = window.Chart;
   if (currentChart) {
     currentChart.destroy();
@@ -554,7 +554,7 @@ function renderShiftChart(canvas, jobs, unit, currentChart) {
     return null;
   }
 
-  const aggregated = aggregateShiftTotals(jobs);
+  const aggregated = aggregateShiftTotals(jobs, getValue);
   const decimals = unit === "screws" ? 0 : 2;
 
   return new ChartLibrary(canvas, {
@@ -639,8 +639,10 @@ export function renderWorkerHistory(elements, jobs, workerName, charts) {
   return {
     metres: renderRateChart(elements.workerMetresChartCanvas, trussJobs, "m", existing.metres),
     screws: renderRateChart(elements.workerScrewsChartCanvas, wallJobs, "screws", existing.screws),
-    metresShift: renderShiftChart(elements.workerMetresShiftChartCanvas, trussJobs, "m", existing.metresShift),
-    screwsShift: renderShiftChart(elements.workerScrewsShiftChartCanvas, wallJobs, "screws", existing.screwsShift)
+    // Total metres includes wall panels' lineal metres, so aggregate over all
+    // jobs by their metres field; screws stay wall-only.
+    metresShift: renderShiftChart(elements.workerMetresShiftChartCanvas, jobs, "m", existing.metresShift, (job) => job.metres),
+    screwsShift: renderShiftChart(elements.workerScrewsShiftChartCanvas, wallJobs, "screws", existing.screwsShift, (job) => job.totalUnits)
   };
 }
 

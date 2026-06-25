@@ -203,6 +203,7 @@ export function createJobPayload({
   breakMinutes,
   strapMinutes = 0,
   totalAmount,
+  importMetres = 0,
   entries,
   assignedWorkers
 }) {
@@ -218,6 +219,9 @@ export function createJobPayload({
   const netWorkedMinutes = Math.max(rawWorkedMinutes - breakMinutes, 0);
   const workers = Array.isArray(assignedWorkers) ? assignedWorkers : [];
   const workerCount = Math.max(workers.length, 1);
+  // Trusses are measured in metres already; walls are measured in screws but
+  // also carry the panels' lineal metres so total-metres reporting is accurate.
+  const metres = jobType === "walls" ? importMetres : totalAmount;
 
   return {
     jobType,
@@ -229,6 +233,7 @@ export function createJobPayload({
     rawWorkedMinutes,
     netWorkedMinutes,
     totalUnits: totalAmount,
+    metres,
     workerCount,
     rate: calculatePerWorkerRate(totalAmount, netWorkedMinutes, workerCount),
     entries: entries.map((entry) => ({ ...entry })),
@@ -268,13 +273,14 @@ export function getJobShift(job) {
   return "afternoon";
 }
 
-// Total units (metres or screws) produced in each shift across the given jobs.
-export function aggregateShiftTotals(jobs) {
+// Total amount produced in each shift across the given jobs. `getValue` selects
+// the metric per job (screws via totalUnits, or lineal metres via metres).
+export function aggregateShiftTotals(jobs, getValue = (job) => job.totalUnits) {
   const totals = new Map(SHIFTS.map((shift) => [shift.key, 0]));
 
   jobs.forEach((job) => {
     const key = getJobShift(job);
-    totals.set(key, totals.get(key) + job.totalUnits);
+    totals.set(key, totals.get(key) + (Number(getValue(job)) || 0));
   });
 
   return {
@@ -325,6 +331,9 @@ export function normalizeJob(job) {
   const assignedWorkers = Array.isArray(job.assignedWorkers) ? job.assignedWorkers : [];
   const netWorkedMinutes = Number(job.netWorkedMinutes) || 0;
   const totalUnits = Number(job.totalUnits ?? job.totalMetres) || 0;
+  // Older jobs predate the metres field: trusses' units are metres, while older
+  // wall jobs simply have no recorded metres.
+  const metres = Number(job.metres) || (jobType === "trusses" ? totalUnits : 0);
   const workerCount = Math.max(
     1,
     Math.floor(Number(job.workerCount)) || 0,
@@ -342,6 +351,7 @@ export function normalizeJob(job) {
     rawWorkedMinutes: Number(job.rawWorkedMinutes) || 0,
     netWorkedMinutes,
     totalUnits,
+    metres,
     workerCount,
     rate: calculatePerWorkerRate(totalUnits, netWorkedMinutes, workerCount),
     entries: Array.isArray(job.entries)

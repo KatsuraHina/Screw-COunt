@@ -112,6 +112,20 @@ function getCombinedEntries() {
   return [...getActiveDraft().entries, ...getTickedImportEntries()];
 }
 
+// Lineal metres from ticked import rows. Walls are measured in screws, but the
+// panel PDF also lists each panel's Lineal M, so we record those metres too and
+// feed them into the total-metres chart for an accurate company-wide total.
+function getTickedImportMetres() {
+  const draft = getActiveDraft();
+  if (!Array.isArray(draft.importRows)) {
+    return 0;
+  }
+
+  return draft.importRows
+    .filter((row) => row.done)
+    .reduce((sum, row) => sum + (Number(row.metres) || 0), 0);
+}
+
 function syncDraftFromInputs() {
   const draft = getActiveDraft();
   draft.workDate = elements.workDateInput.value;
@@ -446,6 +460,7 @@ function createPendingJob() {
     breakMinutes,
     strapMinutes,
     totalAmount,
+    importMetres: getTickedImportMetres(),
     entries,
     assignedWorkers: resolveAssignedWorkers(draft.assignedWorkerIds)
   });
