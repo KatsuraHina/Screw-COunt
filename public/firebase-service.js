@@ -67,6 +67,10 @@ export async function loadJobRecords(user) {
   }));
 }
 
+export async function deleteJobRecord(jobId) {
+  await deleteDoc(doc(db, "jobs", jobId));
+}
+
 export async function addWorkerRecord(name, user) {
   const docRef = await addDoc(collection(db, "workers"), {
     name,

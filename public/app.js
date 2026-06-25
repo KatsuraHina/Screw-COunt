@@ -1,5 +1,6 @@
 import {
   addWorkerRecord,
+  deleteJobRecord,
   deleteWorkerRecord,
   formatFirestoreError,
   loadJobRecords,
@@ -399,8 +400,25 @@ function renderWorkerHistoryView() {
     elements,
     jobs,
     isAll ? "" : worker ? worker.name : "",
-    state.workerHistory.charts
+    state.workerHistory.charts,
+    { onRemoveJob: removeJob }
   );
+}
+
+async function removeJob(jobId) {
+  if (!state.isAdmin) {
+    return;
+  }
+
+  try {
+    await deleteJobRecord(jobId);
+    state.savedJobs = state.savedJobs.filter((job) => job.id !== jobId);
+    renderWorkerHistoryView();
+    renderHistorySection();
+  } catch (error) {
+    console.error(error);
+    window.alert(formatFirestoreError(error));
+  }
 }
 
 function resetCurrentDraft() {

@@ -612,7 +612,8 @@ function renderShiftChart(canvas, jobs, unit, currentChart, getValue) {
 // total-per-shift charts (metres and screws), and the job list. `workerName`
 // labels co-workers on each job (empty for the "All workers" view). `charts`
 // holds the existing charts so they can be destroyed before re-rendering.
-export function renderWorkerHistory(elements, jobs, workerName, charts) {
+// `handlers.onRemoveJob` (admin only) deletes a job from the log.
+export function renderWorkerHistory(elements, jobs, workerName, charts, handlers = {}) {
   const summary = summarizeWorkerJobs(jobs);
   elements.whJobs.textContent = String(summary.jobs);
   elements.whAvgMetres.textContent = `${summary.avgMetresPerHour.toFixed(2)} m/h`;
@@ -635,11 +636,26 @@ export function renderWorkerHistory(elements, jobs, workerName, charts) {
       .filter((name) => name && name !== workerName);
     const withText = coworkers.length > 0 ? ` · with ${coworkers.join(" & ")}` : "";
     const strapText = job.strapMinutes > 0 ? ` · strap ${job.strapMinutes}m` : "";
-    text.textContent =
+    const jobLabel =
       `${formatDateLabel(job.dayKey)} · ${typeLabel} · ${formatJobUnits(job)} · ` +
       `${formatMinutes(job.netWorkedMinutes)} · ${formatJobRate(job)}${strapText}${withText}`;
+    text.textContent = jobLabel;
 
     item.appendChild(text);
+
+    if (typeof handlers.onRemoveJob === "function" && job.id) {
+      const removeButton = document.createElement("button");
+      removeButton.type = "button";
+      removeButton.className = "entry-remove";
+      removeButton.textContent = "Delete";
+      removeButton.addEventListener("click", () => {
+        if (window.confirm(`Delete this job?\n\n${jobLabel}`)) {
+          handlers.onRemoveJob(job.id);
+        }
+      });
+      item.appendChild(removeButton);
+    }
+
     elements.workerJobsList.appendChild(item);
   });
 

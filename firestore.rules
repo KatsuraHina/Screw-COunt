@@ -6,7 +6,8 @@ service cloud.firestore {
       allow create: if request.auth != null
         && request.resource.data.userId == request.auth.uid
         && request.resource.data.userEmail is string;
-      allow update, delete: if false;
+      allow delete: if request.auth != null && resource.data.userId == request.auth.uid;
+      allow update: if false;
     }
 
     match /workers/{workerId} {
