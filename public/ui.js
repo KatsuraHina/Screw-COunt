@@ -516,8 +516,10 @@ function renderRateChart(canvas, jobs, unit, currentChart) {
           fill: true,
           tension: 0.32,
           pointRadius: 4,
-          pointHoverRadius: 5,
+          pointHoverRadius: 7,
+          pointHitRadius: 16,
           pointBackgroundColor: "rgba(255, 250, 242, 1)",
+          pointHoverBackgroundColor: "rgba(181, 83, 47, 1)",
           pointBorderColor: "rgba(143, 63, 34, 1)",
           pointBorderWidth: 2
         }
@@ -526,9 +528,16 @@ function renderRateChart(canvas, jobs, unit, currentChart) {
     options: {
       responsive: true,
       maintainAspectRatio: false,
+      // Hovering anywhere above a day (not just exactly on the dot) shows that
+      // day's value; the dot for that day enlarges and fills to mark it.
+      interaction: { mode: "index", intersect: false },
       plugins: {
         legend: { display: false },
         tooltip: {
+          displayColors: false,
+          padding: 12,
+          titleFont: { size: 14, weight: "700" },
+          bodyFont: { size: 14 },
           callbacks: { label: (context) => `${context.parsed.y.toFixed(2)} ${unit}/h` }
         }
       },
