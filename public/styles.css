@@ -934,17 +934,29 @@ body.charts-view .worker-history-panel {
    right. Collapses to a single column on narrower screens. */
 .worker-dashboard {
   display: grid;
-  gap: 18px;
+  gap: 20px;
   align-items: start;
 }
 
+/* Roomy, breathable charts: two larger charts per row rather than three
+   cramped ones, with a fixed height so they stay tall instead of collapsing
+   when narrow (their builders set maintainAspectRatio: false). */
 .worker-charts .history-grid {
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
+  gap: 20px;
+}
+
+.worker-charts .chart-wrap {
+  padding: 22px 24px;
+}
+
+.worker-charts .chart-wrap canvas {
+  height: 280px !important;
 }
 
 @media (min-width: 1080px) {
   .worker-dashboard {
-    grid-template-columns: minmax(0, 1fr) 340px;
+    grid-template-columns: minmax(0, 1fr) 320px;
   }
 
   .worker-dashboard .worker-jobs {

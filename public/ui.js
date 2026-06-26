@@ -525,7 +525,7 @@ function renderRateChart(canvas, jobs, unit, currentChart) {
     },
     options: {
       responsive: true,
-      maintainAspectRatio: true,
+      maintainAspectRatio: false,
       plugins: {
         legend: { display: false },
         tooltip: {
@@ -586,7 +586,7 @@ function renderShiftChart(canvas, jobs, unit, currentChart, getValue) {
     },
     options: {
       responsive: true,
-      maintainAspectRatio: true,
+      maintainAspectRatio: false,
       plugins: {
         legend: { display: true, labels: { ...RATE_AXIS_STYLE } },
         tooltip: {
