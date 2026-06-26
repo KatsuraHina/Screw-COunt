@@ -25,7 +25,8 @@ export function getElements() {
     whTimeLost: document.getElementById("whTimeLost"),
     workerMetresChartCanvas: document.getElementById("workerMetresChart"),
     workerScrewsChartCanvas: document.getElementById("workerScrewsChart"),
-    workerMetresShiftChartCanvas: document.getElementById("workerMetresShiftChart"),
+    workerTrussMetresShiftChartCanvas: document.getElementById("workerTrussMetresShiftChart"),
+    workerWallMetresShiftChartCanvas: document.getElementById("workerWallMetresShiftChart"),
     workerScrewsShiftChartCanvas: document.getElementById("workerScrewsShiftChart"),
     workerJobsList: document.getElementById("workerJobsList"),
     workerJobsEmpty: document.getElementById("workerJobsEmpty"),
@@ -666,9 +667,10 @@ export function renderWorkerHistory(elements, jobs, workerName, charts, handlers
   return {
     metres: renderRateChart(elements.workerMetresChartCanvas, trussJobs, "m", existing.metres),
     screws: renderRateChart(elements.workerScrewsChartCanvas, wallJobs, "screws", existing.screws),
-    // Total metres includes wall panels' lineal metres, so aggregate over all
-    // jobs by their metres field; screws stay wall-only.
-    metresShift: renderShiftChart(elements.workerMetresShiftChartCanvas, jobs, "m", existing.metresShift, (job) => job.metres),
+    // Metres are split by job type: trusses' metres are their units, while wall
+    // metres come from the panels' lineal M. Screws stay wall-only.
+    trussMetresShift: renderShiftChart(elements.workerTrussMetresShiftChartCanvas, trussJobs, "m", existing.trussMetresShift, (job) => job.metres),
+    wallMetresShift: renderShiftChart(elements.workerWallMetresShiftChartCanvas, wallJobs, "m", existing.wallMetresShift, (job) => job.metres),
     screwsShift: renderShiftChart(elements.workerScrewsShiftChartCanvas, wallJobs, "screws", existing.screwsShift, (job) => job.totalUnits)
   };
 }

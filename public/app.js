@@ -62,7 +62,7 @@ const state = {
   },
   workerHistory: {
     selectedWorkerId: "all",
-    charts: { metres: null, screws: null, metresShift: null, screwsShift: null }
+    charts: { metres: null, screws: null, trussMetresShift: null, wallMetresShift: null, screwsShift: null }
   },
   currentUser: null,
   feedbackTimer: null
