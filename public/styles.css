@@ -922,6 +922,41 @@ select {
   min-height: 100%;
 }
 
+/* The Charts dashboard gets a wider canvas than the narrow data-entry views,
+   so the charts and job log can spread out instead of stacking in a column. */
+body.charts-view .topbar,
+body.charts-view .app,
+body.charts-view .worker-history-panel {
+  width: min(1400px, 100%);
+}
+
+/* Two-pane dashboard: a fluid grid of charts on the left, a job log on the
+   right. Collapses to a single column on narrower screens. */
+.worker-dashboard {
+  display: grid;
+  gap: 18px;
+  align-items: start;
+}
+
+.worker-charts .history-grid {
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+}
+
+@media (min-width: 1080px) {
+  .worker-dashboard {
+    grid-template-columns: minmax(0, 1fr) 340px;
+  }
+
+  .worker-dashboard .worker-jobs {
+    position: sticky;
+    top: 24px;
+  }
+
+  .worker-dashboard .worker-jobs .entries-scroll {
+    max-height: calc(100vh - 160px);
+  }
+}
+
 @media (max-width: 760px) {
   body {
     display: block;

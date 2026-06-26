@@ -275,41 +275,39 @@
       </div>
     </div>
 
-    <div class="history-grid">
-      <div class="chart-wrap">
-        <h3>Metres / hour per day</h3>
-        <canvas id="workerMetresChart" height="120"></canvas>
+    <div class="worker-dashboard">
+      <div class="worker-charts">
+        <div class="history-grid">
+          <div class="chart-wrap">
+            <h3>Metres / hour per day</h3>
+            <canvas id="workerMetresChart" height="120"></canvas>
+          </div>
+          <div class="chart-wrap">
+            <h3>Screws / hour per day</h3>
+            <canvas id="workerScrewsChart" height="120"></canvas>
+          </div>
+          <div class="chart-wrap">
+            <h3>Truss metres per shift</h3>
+            <canvas id="workerTrussMetresShiftChart" height="120"></canvas>
+          </div>
+          <div class="chart-wrap">
+            <h3>Wall metres per shift</h3>
+            <canvas id="workerWallMetresShiftChart" height="120"></canvas>
+          </div>
+          <div class="chart-wrap">
+            <h3>Total screws per shift</h3>
+            <canvas id="workerScrewsShiftChart" height="120"></canvas>
+          </div>
+        </div>
       </div>
-      <div class="chart-wrap">
-        <h3>Screws / hour per day</h3>
-        <canvas id="workerScrewsChart" height="120"></canvas>
-      </div>
-    </div>
 
-    <div class="history-grid">
-      <div class="chart-wrap">
-        <h3>Truss metres per shift</h3>
-        <canvas id="workerTrussMetresShiftChart" height="120"></canvas>
-      </div>
-      <div class="chart-wrap">
-        <h3>Wall metres per shift</h3>
-        <canvas id="workerWallMetresShiftChart" height="120"></canvas>
-      </div>
-    </div>
-
-    <div class="history-grid">
-      <div class="chart-wrap">
-        <h3>Total screws per shift</h3>
-        <canvas id="workerScrewsShiftChart" height="120"></canvas>
-      </div>
-    </div>
-
-    <div class="worker-jobs">
-      <h3>Logged jobs</h3>
-      <div class="entries-scroll">
-        <p id="workerJobsEmpty" class="entry-empty">No jobs logged for this worker yet.</p>
-        <ol id="workerJobsList" class="entry-list"></ol>
-      </div>
+      <aside class="worker-jobs">
+        <h3>Logged jobs</h3>
+        <div class="entries-scroll">
+          <p id="workerJobsEmpty" class="entry-empty">No jobs logged for this worker yet.</p>
+          <ol id="workerJobsList" class="entry-list"></ol>
+        </div>
+      </aside>
     </div>
   </section>
 

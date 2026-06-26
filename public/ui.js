@@ -360,6 +360,8 @@ export function toggleWorkersView(elements, showWorkers, showJobHistory) {
   elements.workerHistoryPanel.classList.toggle("hidden", !showWorkers);
   elements.workerHistoryPanel.hidden = !showWorkers;
   elements.jobHistoryPanel.classList.toggle("hidden", !showJobHistory);
+  // The Charts dashboard uses a wider layout than the data-entry views.
+  document.body.classList.toggle("charts-view", showWorkers);
 }
 
 export function setActiveTabButtons(elements, activeTab) {
