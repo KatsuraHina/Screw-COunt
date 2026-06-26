@@ -34,7 +34,7 @@ body {
 }
 
 .topbar {
-  width: min(980px, 100%);
+  width: min(1400px, 100%);
   margin-bottom: 24px;
   display: flex;
   justify-content: flex-end;
@@ -153,7 +153,7 @@ body {
 }
 
 .app {
-  width: min(980px, 100%);
+  width: min(1400px, 100%);
   background: rgba(255, 250, 242, 0.92);
   border: 1px solid rgba(221, 199, 163, 0.8);
   border-radius: 28px;
@@ -312,6 +312,14 @@ input[type="number"] {
   color: var(--text);
   font: inherit;
   font-size: 1rem;
+}
+
+/* The form sits in a wide column now, so cap the standalone full-width inputs
+   to keep them readable instead of stretching across the whole card. The
+   paired time/strap inputs already sit two-up and need no cap. */
+#workDate,
+#amountInput {
+  max-width: 420px;
 }
 
 input:focus,
@@ -821,7 +829,7 @@ button:disabled {
 }
 
 .history-panel {
-  width: min(980px, 100%);
+  width: min(1400px, 100%);
   margin-top: 24px;
   background: rgba(255, 250, 242, 0.92);
   border: 1px solid rgba(221, 199, 163, 0.8);
@@ -920,14 +928,6 @@ select {
 
 .history-grid .chart-wrap {
   min-height: 100%;
-}
-
-/* The Charts dashboard gets a wider canvas than the narrow data-entry views,
-   so the charts and job log can spread out instead of stacking in a column. */
-body.charts-view .topbar,
-body.charts-view .app,
-body.charts-view .worker-history-panel {
-  width: min(1400px, 100%);
 }
 
 /* Two-pane dashboard: a fluid grid of charts on the left, a job log on the
