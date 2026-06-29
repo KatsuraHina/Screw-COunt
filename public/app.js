@@ -391,11 +391,14 @@ function renderWorkerHistoryView() {
   const isAll = selectedId === "all";
   const worker = state.workers.find((item) => item.id === selectedId);
   const rangeStart = getRangeStartDate(Number(elements.workerRangeSelect.value));
+  const benchFilter = elements.benchFilterSelect.value;
+  const isAllBenches = benchFilter === "all";
   const jobs = state.savedJobs
     .filter((job) => new Date(job.endedAt) >= rangeStart)
     .filter((job) =>
       isAll ? job.assignedWorkerIds.length > 0 : job.assignedWorkerIds.includes(selectedId)
     )
+    .filter((job) => isAllBenches || job.benchNumber === Number(benchFilter))
     .sort((a, b) => new Date(b.endedAt) - new Date(a.endedAt));
 
   state.workerHistory.charts = renderWorkerHistory(
@@ -714,6 +717,7 @@ function bindEvents() {
     renderWorkerHistoryView();
   });
   elements.workerRangeSelect.addEventListener("change", renderWorkerHistoryView);
+  elements.benchFilterSelect.addEventListener("change", renderWorkerHistoryView);
 
   // Truss PDF import: click/keyboard to browse, drag-and-drop, and clear.
   elements.trussDropzone.addEventListener("click", () => elements.trussFileInput.click());

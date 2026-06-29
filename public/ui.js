@@ -20,6 +20,7 @@ export function getElements() {
     workerHistoryPanel: document.getElementById("workerHistoryPanel"),
     workerHistorySelect: document.getElementById("workerHistorySelect"),
     workerRangeSelect: document.getElementById("workerRangeSelect"),
+    benchFilterSelect: document.getElementById("benchFilterSelect"),
     whJobs: document.getElementById("whJobs"),
     whAvgMetres: document.getElementById("whAvgMetres"),
     whAvgScrews: document.getElementById("whAvgScrews"),
@@ -639,7 +640,8 @@ function renderBenchChart(canvas, jobs, unit, currentChart, getValue) {
   return new ChartLibrary(canvas, {
     type: "bar",
     data: {
-      labels: aggregated.labels,
+      // Use the bench number alone for a compact x-axis (the title says "bench").
+      labels: aggregated.labels.map((label) => label.replace("Bench ", "")),
       datasets: [
         {
           label: `Total ${unit}`,
@@ -658,7 +660,10 @@ function renderBenchChart(canvas, jobs, unit, currentChart, getValue) {
       plugins: {
         legend: { display: false },
         tooltip: {
-          callbacks: { label: (context) => `${context.parsed.y.toFixed(decimals)} ${unit}` }
+          callbacks: {
+            title: (items) => `Bench ${items[0].label}`,
+            label: (context) => `${context.parsed.y.toFixed(decimals)} ${unit}`
+          }
         }
       },
       scales: {
@@ -669,7 +674,8 @@ function renderBenchChart(canvas, jobs, unit, currentChart, getValue) {
         },
         x: {
           grid: { display: false },
-          ticks: RATE_AXIS_STYLE
+          // Show every bench (1–19); don't let Chart.js drop labels to save space.
+          ticks: { ...RATE_AXIS_STYLE, autoSkip: false }
         }
       }
     }
