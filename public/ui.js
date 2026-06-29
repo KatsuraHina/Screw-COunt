@@ -1,4 +1,5 @@
 import {
+  aggregateBenchTotals,
   aggregateHistorySeriesByDay,
   aggregateShiftSeriesByDay,
   formatDateLabel,
@@ -28,12 +29,15 @@ export function getElements() {
     workerTrussMetresShiftChartCanvas: document.getElementById("workerTrussMetresShiftChart"),
     workerWallMetresShiftChartCanvas: document.getElementById("workerWallMetresShiftChart"),
     workerScrewsShiftChartCanvas: document.getElementById("workerScrewsShiftChart"),
+    workerBenchMetresChartCanvas: document.getElementById("workerBenchMetresChart"),
+    workerBenchScrewsChartCanvas: document.getElementById("workerBenchScrewsChart"),
     workerJobsList: document.getElementById("workerJobsList"),
     workerJobsEmpty: document.getElementById("workerJobsEmpty"),
     tabTitle: document.getElementById("tabTitle"),
     tabDescription: document.getElementById("tabDescription"),
     activeTabLabel: document.getElementById("activeTabLabel"),
     workDateInput: document.getElementById("workDate"),
+    benchSelect: document.getElementById("benchNumber"),
     startTimeInput: document.getElementById("startTime"),
     endTimeInput: document.getElementById("endTime"),
     strapStartInput: document.getElementById("strapStart"),
@@ -618,6 +622,60 @@ function renderShiftChart(canvas, jobs, unit, currentChart, getValue) {
   });
 }
 
+// Bar chart of total units (metres or screws) produced on each bench (1–19).
+// One bar per bench; benches with no jobs show as zero.
+function renderBenchChart(canvas, jobs, unit, currentChart, getValue) {
+  const ChartLibrary = window.Chart;
+  if (currentChart) {
+    currentChart.destroy();
+  }
+  if (!ChartLibrary) {
+    return null;
+  }
+
+  const aggregated = aggregateBenchTotals(jobs, getValue);
+  const decimals = unit === "screws" ? 0 : 2;
+
+  return new ChartLibrary(canvas, {
+    type: "bar",
+    data: {
+      labels: aggregated.labels,
+      datasets: [
+        {
+          label: `Total ${unit}`,
+          data: aggregated.values,
+          backgroundColor: "rgba(181, 83, 47, 0.88)",
+          borderColor: "rgba(143, 63, 34, 1)",
+          borderWidth: 1,
+          borderRadius: 8,
+          borderSkipped: false
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: { label: (context) => `${context.parsed.y.toFixed(decimals)} ${unit}` }
+        }
+      },
+      scales: {
+        y: {
+          beginAtZero: true,
+          grid: { color: "rgba(111, 96, 75, 0.14)", drawBorder: false },
+          ticks: { ...RATE_AXIS_STYLE, callback: (value) => `${Number(value).toFixed(decimals)} ${unit}` }
+        },
+        x: {
+          grid: { display: false },
+          ticks: RATE_AXIS_STYLE
+        }
+      }
+    }
+  });
+}
+
 // Render the Charts tab: average rate stats, rate-per-day charts and
 // total-per-shift charts (metres and screws), and the job list. `workerName`
 // labels co-workers on each job (empty for the "All workers" view). `charts`
@@ -646,8 +704,9 @@ export function renderWorkerHistory(elements, jobs, workerName, charts, handlers
       .filter((name) => name && name !== workerName);
     const withText = coworkers.length > 0 ? ` · with ${coworkers.join(" & ")}` : "";
     const strapText = job.strapMinutes > 0 ? ` · strap ${job.strapMinutes}m` : "";
+    const benchText = job.benchNumber ? ` · Bench ${job.benchNumber}` : "";
     const jobLabel =
-      `${formatDateLabel(job.dayKey)} · ${typeLabel} · ${formatJobUnits(job)} · ` +
+      `${formatDateLabel(job.dayKey)} · ${typeLabel}${benchText} · ${formatJobUnits(job)} · ` +
       `${formatMinutes(job.netWorkedMinutes)} · ${formatJobRate(job)}${strapText}${withText}`;
     text.textContent = jobLabel;
 
@@ -680,7 +739,11 @@ export function renderWorkerHistory(elements, jobs, workerName, charts, handlers
     // metres come from the panels' lineal M. Screws stay wall-only.
     trussMetresShift: renderShiftChart(elements.workerTrussMetresShiftChartCanvas, trussJobs, "m", existing.trussMetresShift, (job) => job.metres),
     wallMetresShift: renderShiftChart(elements.workerWallMetresShiftChartCanvas, wallJobs, "m", existing.wallMetresShift, (job) => job.metres),
-    screwsShift: renderShiftChart(elements.workerScrewsShiftChartCanvas, wallJobs, "screws", existing.screwsShift, (job) => job.totalUnits)
+    screwsShift: renderShiftChart(elements.workerScrewsShiftChartCanvas, wallJobs, "screws", existing.screwsShift, (job) => job.totalUnits),
+    // Per-bench totals: metres spans all jobs (trusses + wall-panel metres),
+    // screws stay wall-only.
+    benchMetres: renderBenchChart(elements.workerBenchMetresChartCanvas, jobs, "m", existing.benchMetres, (job) => job.metres),
+    benchScrews: renderBenchChart(elements.workerBenchScrewsChartCanvas, wallJobs, "screws", existing.benchScrews, (job) => job.totalUnits)
   };
 }
 

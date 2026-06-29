@@ -62,7 +62,7 @@ const state = {
   },
   workerHistory: {
     selectedWorkerId: "all",
-    charts: { metres: null, screws: null, trussMetresShift: null, wallMetresShift: null, screwsShift: null }
+    charts: { metres: null, screws: null, trussMetresShift: null, wallMetresShift: null, screwsShift: null, benchMetres: null, benchScrews: null }
   },
   currentUser: null,
   feedbackTimer: null
@@ -130,6 +130,7 @@ function getTickedImportMetres() {
 function syncDraftFromInputs() {
   const draft = getActiveDraft();
   draft.workDate = elements.workDateInput.value;
+  draft.benchNumber = elements.benchSelect.value;
   draft.startTime = elements.startTimeInput.value;
   draft.endTime = elements.endTimeInput.value;
   draft.strapStart = elements.strapStartInput.value;
@@ -142,6 +143,7 @@ function syncDraftFromInputs() {
 function loadDraftIntoInputs() {
   const draft = getActiveDraft();
   elements.workDateInput.value = draft.workDate;
+  elements.benchSelect.value = draft.benchNumber;
   elements.startTimeInput.value = draft.startTime;
   elements.endTimeInput.value = draft.endTime;
   elements.strapStartInput.value = draft.strapStart;
@@ -465,6 +467,12 @@ function createPendingJob() {
     return null;
   }
 
+  const benchNumber = Number(elements.benchSelect.value);
+  if (!Number.isInteger(benchNumber) || benchNumber < 1 || benchNumber > 19) {
+    setStatus(elements, "Select a bench (1–19) before ending and saving a job.", "warning");
+    return null;
+  }
+
   if (totalAmount <= 0) {
     setStatus(elements, config.saveWarning, "warning");
     return null;
@@ -473,6 +481,7 @@ function createPendingJob() {
   return createJobPayload({
     jobType: state.activeTab,
     workDateValue: elements.workDateInput.value,
+    benchNumber,
     startTimeValue: elements.startTimeInput.value,
     endTimeValue: elements.endTimeInput.value,
     breakMinutes,
@@ -670,6 +679,7 @@ function switchTab(nextTab) {
 function bindEvents() {
   [
     elements.workDateInput,
+    elements.benchSelect,
     elements.startTimeInput,
     elements.endTimeInput,
     elements.strapStartInput,

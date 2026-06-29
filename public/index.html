@@ -85,6 +85,33 @@
           <p class="hint inline-hint">Pick the day the shift started. For overnight jobs the end time rolls into the next day automatically.</p>
         </div>
 
+        <div class="field">
+          <label for="benchNumber">Bench number</label>
+          <select id="benchNumber">
+            <option value="">Select bench…</option>
+            <option value="1">1</option>
+            <option value="2">2</option>
+            <option value="3">3</option>
+            <option value="4">4</option>
+            <option value="5">5</option>
+            <option value="6">6</option>
+            <option value="7">7</option>
+            <option value="8">8</option>
+            <option value="9">9</option>
+            <option value="10">10</option>
+            <option value="11">11</option>
+            <option value="12">12</option>
+            <option value="13">13</option>
+            <option value="14">14</option>
+            <option value="15">15</option>
+            <option value="16">16</option>
+            <option value="17">17</option>
+            <option value="18">18</option>
+            <option value="19">19</option>
+          </select>
+          <p class="hint inline-hint">Which bench (1–19) this job was done on. Required before saving.</p>
+        </div>
+
         <div class="field-grid">
           <div class="field">
             <label for="startTime">Start time</label>
@@ -297,6 +324,14 @@
           <div class="chart-wrap">
             <h3>Total screws per shift</h3>
             <canvas id="workerScrewsShiftChart" height="120"></canvas>
+          </div>
+          <div class="chart-wrap">
+            <h3>Total metres per bench</h3>
+            <canvas id="workerBenchMetresChart" height="120"></canvas>
+          </div>
+          <div class="chart-wrap">
+            <h3>Total screws per bench</h3>
+            <canvas id="workerBenchScrewsChart" height="120"></canvas>
           </div>
         </div>
       </div>

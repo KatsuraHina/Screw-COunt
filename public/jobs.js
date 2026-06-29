@@ -158,6 +158,7 @@ export function calculateStrapMinutes(strapStartValue, strapEndValue, workDateVa
 export function createEmptyDraft() {
   return {
     workDate: formatDateKey(new Date()),
+    benchNumber: "",
     startTime: "",
     endTime: "",
     strapStart: "",
@@ -198,6 +199,7 @@ function calculatePerWorkerRate(totalUnits, netWorkedMinutes, workerCount) {
 export function createJobPayload({
   jobType,
   workDateValue,
+  benchNumber,
   startTimeValue,
   endTimeValue,
   breakMinutes,
@@ -228,6 +230,7 @@ export function createJobPayload({
     startedAt: start.toISOString(),
     endedAt: end.toISOString(),
     dayKey: formatDateKey(start),
+    benchNumber: Number(benchNumber) || null,
     breakMinutes,
     strapMinutes,
     rawWorkedMinutes,
@@ -334,6 +337,29 @@ export function aggregateShiftSeriesByDay(jobs, getValue = (job) => job.totalUni
   };
 }
 
+// Benches are a fixed roster numbered 1–19.
+export const BENCH_NUMBERS = Array.from({ length: 19 }, (_, index) => index + 1);
+
+// Total produced on each bench across the given jobs. `getValue` selects the
+// metric per job (screws via totalUnits, or lineal metres via metres). Jobs
+// without a valid bench (older jobs predate the field) are skipped.
+export function aggregateBenchTotals(jobs, getValue = (job) => job.totalUnits) {
+  const totals = new Map(BENCH_NUMBERS.map((bench) => [bench, 0]));
+
+  jobs.forEach((job) => {
+    const bench = Number(job.benchNumber);
+    if (!totals.has(bench)) {
+      return;
+    }
+    totals.set(bench, totals.get(bench) + (Number(getValue(job)) || 0));
+  });
+
+  return {
+    labels: BENCH_NUMBERS.map((bench) => `Bench ${bench}`),
+    values: BENCH_NUMBERS.map((bench) => Number(totals.get(bench).toFixed(2)))
+  };
+}
+
 export function getRangeStartDate(days) {
   const start = new Date();
   start.setHours(0, 0, 0, 0);
@@ -391,6 +417,7 @@ export function normalizeJob(job) {
     jobType,
     endedAt,
     dayKey: typeof job.dayKey === "string" && job.dayKey ? job.dayKey : formatDateKey(new Date(endedAt)),
+    benchNumber: Number(job.benchNumber) || null,
     breakMinutes: Number(job.breakMinutes) || 0,
     strapMinutes: Number(job.strapMinutes) || 0,
     rawWorkedMinutes: Number(job.rawWorkedMinutes) || 0,

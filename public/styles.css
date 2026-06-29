@@ -318,7 +318,9 @@ input[type="number"] {
    to keep them readable instead of stretching across the whole card. The
    paired time/strap inputs already sit two-up and need no cap. */
 #workDate,
-#amountInput {
+#amountInput,
+#benchNumber {
+  width: 100%;
   max-width: 420px;
 }
 
