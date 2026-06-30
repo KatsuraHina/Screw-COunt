@@ -324,6 +324,40 @@ input[type="number"] {
   max-width: 420px;
 }
 
+/* Smart time entry: a text field with an AM/PM toggle button beside it. */
+.time-input {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.time-input input {
+  flex: 1;
+  min-width: 0;
+}
+
+.ampm-toggle {
+  width: auto;
+  flex: 0 0 auto;
+  min-width: 60px;
+  padding: 0 16px;
+  background: var(--panel-strong);
+  color: var(--accent-dark);
+  border: 1px solid var(--border);
+  box-shadow: none;
+}
+
+.ampm-toggle:hover {
+  transform: none;
+  box-shadow: none;
+  background: #ecd9b6;
+}
+
+.ampm-toggle:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
 input:focus,
 select:focus,
 button:focus {

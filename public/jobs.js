@@ -155,6 +155,83 @@ export function calculateStrapMinutes(strapStartValue, strapEndValue, workDateVa
   return Math.max(0, Math.floor((end - start) / 60000));
 }
 
+// --- Smart 12-hour time entry ---------------------------------------------
+// Workers type a bare time (e.g. "5:30") and the app picks AM/PM for them.
+// These hours default to AM; everything else defaults to PM. The mapping is
+// tuned for the fixed shift times (5:30a start; 1:30p / 2p / 10p), so the
+// common entries land right. Night-shift edge cases (e.g. 10 = 10pm) and the
+// occasional miss can be flipped with the AM/PM toggle in the UI.
+const AM_DEFAULT_HOURS = new Set([5, 6, 7, 8, 9, 11]);
+
+export function guessMeridiem(hour12) {
+  return AM_DEFAULT_HOURS.has(hour12) ? "AM" : "PM";
+}
+
+// Parse free-form text ("5", "530", "5:30", "5.30", "17:30") into a 12-hour
+// hour/minute. `meridiem` is set only when the input was an unambiguous 24-hour
+// time (so the caller skips guessing); otherwise it is null.
+export function parseFlexibleTime(text) {
+  const digits = String(text ?? "").replace(/[^0-9]/g, "");
+  if (!digits) {
+    return null;
+  }
+
+  let hour;
+  let minute;
+  if (digits.length <= 2) {
+    hour = Number(digits);
+    minute = 0;
+  } else if (digits.length === 3) {
+    hour = Number(digits.slice(0, 1));
+    minute = Number(digits.slice(1));
+  } else {
+    hour = Number(digits.slice(0, 2));
+    minute = Number(digits.slice(2, 4));
+  }
+
+  if (!Number.isFinite(hour) || !Number.isFinite(minute) || minute > 59 || hour > 23) {
+    return null;
+  }
+
+  let meridiem = null;
+  if (hour === 0) {
+    hour = 12;
+    meridiem = "AM";
+  } else if (hour === 12) {
+    meridiem = "PM"; // noon by default; the toggle covers midnight
+  } else if (hour > 12) {
+    hour -= 12;
+    meridiem = "PM";
+  }
+
+  return { hour12: hour, minute, meridiem };
+}
+
+export function to24hString(hour12, minute, meridiem) {
+  let hour = hour12 % 12; // 12 -> 0
+  if (meridiem === "PM") {
+    hour += 12;
+  }
+  return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+}
+
+// Break a canonical 24-hour "HH:MM" back into 12-hour display parts.
+export function from24hString(hhmm) {
+  if (typeof hhmm !== "string" || !hhmm.includes(":")) {
+    return null;
+  }
+  const [h, m] = hhmm.split(":").map(Number);
+  if (!Number.isFinite(h) || !Number.isFinite(m)) {
+    return null;
+  }
+  const meridiem = h >= 12 ? "PM" : "AM";
+  let hour12 = h % 12;
+  if (hour12 === 0) {
+    hour12 = 12;
+  }
+  return { hour12, minute: m, meridiem, text12: `${hour12}:${String(m).padStart(2, "0")}` };
+}
+
 export function createEmptyDraft() {
   return {
     workDate: formatDateKey(new Date()),

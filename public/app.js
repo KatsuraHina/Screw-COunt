@@ -17,10 +17,15 @@ import {
   createEmptyDraft,
   createEntry,
   createJobPayload,
+  formatDateKey,
+  from24hString,
   getRangeStartDate,
   getTotalAmount,
+  guessMeridiem,
   isAdminUser,
-  normalizeJob
+  normalizeJob,
+  parseFlexibleTime,
+  to24hString
 } from "./jobs.js";
 import { parseCutListPdf } from "./pdf-import.js";
 import {
@@ -127,27 +132,76 @@ function getTickedImportMetres() {
     .reduce((sum, row) => sum + (Number(row.metres) || 0), 0);
 }
 
+// Maps each smart-time field to its input, AM/PM toggle, and draft key. The
+// draft holds canonical 24-hour "HH:MM" so downstream calculations are
+// unchanged; the text input shows the 12-hour value and the toggle the AM/PM.
+const SMART_TIME_FIELDS = [
+  { input: "startTimeInput", toggle: "startTimeMeridiem", key: "startTime" },
+  { input: "endTimeInput", toggle: "endTimeMeridiem", key: "endTime" },
+  { input: "strapStartInput", toggle: "strapStartMeridiem", key: "strapStart" },
+  { input: "strapEndInput", toggle: "strapEndMeridiem", key: "strapEnd" }
+];
+
+// The smart-time fields are not synced here — their own handlers write the
+// canonical 24-hour value straight into the draft as the user edits them.
 function syncDraftFromInputs() {
   const draft = getActiveDraft();
   draft.workDate = elements.workDateInput.value;
   draft.benchNumber = elements.benchSelect.value;
-  draft.startTime = elements.startTimeInput.value;
-  draft.endTime = elements.endTimeInput.value;
-  draft.strapStart = elements.strapStartInput.value;
-  draft.strapEnd = elements.strapEndInput.value;
   draft.pendingAmount = elements.amountInput.value;
   draft.break15Checked = elements.break15Input.checked;
   draft.break24Checked = elements.break24Input.checked;
+}
+
+// Show a draft's canonical 24-hour value as a 12-hour text + AM/PM toggle.
+function renderSmartTimeField(input, toggle, value24) {
+  const parts = from24hString(value24);
+  if (!parts) {
+    input.value = "";
+    toggle.textContent = "AM";
+    toggle.dataset.meridiem = "";
+    toggle.disabled = true;
+    return;
+  }
+  input.value = parts.text12;
+  toggle.textContent = parts.meridiem;
+  toggle.dataset.meridiem = parts.meridiem;
+  toggle.disabled = false;
+}
+
+// Parse a typed time, pick AM/PM (unless the input was explicit 24-hour), and
+// store the canonical value back into the draft.
+function applySmartTimeInput(input, toggle, key) {
+  const draft = getActiveDraft();
+  const parsed = parseFlexibleTime(input.value);
+  if (!parsed) {
+    draft[key] = "";
+  } else {
+    const meridiem = parsed.meridiem || guessMeridiem(parsed.hour12);
+    draft[key] = to24hString(parsed.hour12, parsed.minute, meridiem);
+  }
+  renderSmartTimeField(input, toggle, draft[key]);
+}
+
+function toggleSmartTimeMeridiem(input, toggle, key) {
+  const draft = getActiveDraft();
+  const parts = from24hString(draft[key]);
+  if (!parts) {
+    return;
+  }
+  const flipped = parts.meridiem === "AM" ? "PM" : "AM";
+  draft[key] = to24hString(parts.hour12, parts.minute, flipped);
+  renderSmartTimeField(input, toggle, draft[key]);
+  renderCalculatorSection();
 }
 
 function loadDraftIntoInputs() {
   const draft = getActiveDraft();
   elements.workDateInput.value = draft.workDate;
   elements.benchSelect.value = draft.benchNumber;
-  elements.startTimeInput.value = draft.startTime;
-  elements.endTimeInput.value = draft.endTime;
-  elements.strapStartInput.value = draft.strapStart;
-  elements.strapEndInput.value = draft.strapEnd;
+  SMART_TIME_FIELDS.forEach(({ input, toggle, key }) => {
+    renderSmartTimeField(elements[input], elements[toggle], draft[key]);
+  });
   elements.amountInput.value = draft.pendingAmount;
   elements.break15Input.checked = draft.break15Checked;
   elements.break24Input.checked = draft.break24Checked;
@@ -202,18 +256,16 @@ function getBreakMinutes() {
 }
 
 function getStrapMinutes() {
-  return calculateStrapMinutes(
-    elements.strapStartInput.value,
-    elements.strapEndInput.value,
-    elements.workDateInput.value
-  );
+  const draft = getActiveDraft();
+  return calculateStrapMinutes(draft.strapStart, draft.strapEnd, draft.workDate);
 }
 
 function getCalculatorViewModel() {
+  const draft = getActiveDraft();
   const rawWorkedMinutes = calculateWorkedMinutes(
-    elements.startTimeInput.value,
-    elements.endTimeInput.value,
-    elements.workDateInput.value
+    draft.startTime,
+    draft.endTime,
+    draft.workDate
   );
   const breakMinutes = getBreakMinutes();
   const strapMinutes = getStrapMinutes();
@@ -222,7 +274,7 @@ function getCalculatorViewModel() {
   if (rawWorkedMinutes === null) {
     return {
       hasStartTime: false,
-      hasEndTime: Boolean(elements.endTimeInput.value),
+      hasEndTime: Boolean(draft.endTime),
       breakMinutes,
       strapMinutes,
       totalAmount,
@@ -239,7 +291,7 @@ function getCalculatorViewModel() {
 
   return {
     hasStartTime: true,
-    hasEndTime: Boolean(elements.endTimeInput.value),
+    hasEndTime: Boolean(draft.endTime),
     breakMinutes,
     strapMinutes,
     totalAmount,
@@ -465,7 +517,7 @@ function createPendingJob() {
     return null;
   }
 
-  if (!elements.startTimeInput.value) {
+  if (!draft.startTime) {
     setStatus(elements, "Enter a start time before ending and saving a job.", "warning");
     return null;
   }
@@ -476,6 +528,13 @@ function createPendingJob() {
     return null;
   }
 
+  // Live count (empty end time = "now") only makes sense for a job happening
+  // today. A forgotten/back-dated job must have an explicit end time.
+  if (!draft.endTime && draft.workDate && draft.workDate !== formatDateKey(new Date())) {
+    setStatus(elements, "Enter an end time for a past job — live count only works for today.", "warning");
+    return null;
+  }
+
   if (totalAmount <= 0) {
     setStatus(elements, config.saveWarning, "warning");
     return null;
@@ -483,10 +542,10 @@ function createPendingJob() {
 
   return createJobPayload({
     jobType: state.activeTab,
-    workDateValue: elements.workDateInput.value,
+    workDateValue: draft.workDate,
     benchNumber,
-    startTimeValue: elements.startTimeInput.value,
-    endTimeValue: elements.endTimeInput.value,
+    startTimeValue: draft.startTime,
+    endTimeValue: draft.endTime,
     breakMinutes,
     strapMinutes,
     totalAmount,
@@ -683,10 +742,6 @@ function bindEvents() {
   [
     elements.workDateInput,
     elements.benchSelect,
-    elements.startTimeInput,
-    elements.endTimeInput,
-    elements.strapStartInput,
-    elements.strapEndInput,
     elements.break15Input,
     elements.break24Input
   ].forEach((element) => {
@@ -698,6 +753,17 @@ function bindEvents() {
       syncDraftFromInputs();
       renderCalculatorSection();
     });
+  });
+
+  // Smart 12-hour time fields: parse + guess AM/PM on edit, flip on toggle.
+  SMART_TIME_FIELDS.forEach(({ input, toggle, key }) => {
+    const inputEl = elements[input];
+    const toggleEl = elements[toggle];
+    inputEl.addEventListener("change", () => {
+      applySmartTimeInput(inputEl, toggleEl, key);
+      renderCalculatorSection();
+    });
+    toggleEl.addEventListener("click", () => toggleSmartTimeMeridiem(inputEl, toggleEl, key));
   });
 
   elements.amountInput.addEventListener("input", syncDraftFromInputs);

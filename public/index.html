@@ -82,7 +82,7 @@
         <div class="field">
           <label for="workDate">Work date</label>
           <input id="workDate" type="date">
-          <p class="hint inline-hint">Pick the day the shift started. For overnight jobs the end time rolls into the next day automatically.</p>
+          <p class="hint inline-hint">Pick the day the shift started. Forgot to log a job? Set it to that past date and enter both the start and end times. For overnight jobs the end time rolls into the next day automatically.</p>
         </div>
 
         <div class="field">
@@ -115,24 +115,37 @@
         <div class="field-grid">
           <div class="field">
             <label for="startTime">Start time</label>
-            <input id="startTime" type="time">
+            <div class="time-input">
+              <input id="startTime" type="text" inputmode="numeric" placeholder="e.g. 5:30" autocomplete="off">
+              <button id="startTimeMeridiem" class="ampm-toggle" type="button" aria-label="Toggle AM/PM for start time" disabled>AM</button>
+            </div>
           </div>
 
           <div class="field">
             <label for="endTime">End time</label>
-            <input id="endTime" type="time">
+            <div class="time-input">
+              <input id="endTime" type="text" inputmode="numeric" placeholder="e.g. 1:30" autocomplete="off">
+              <button id="endTimeMeridiem" class="ampm-toggle" type="button" aria-label="Toggle AM/PM for end time" disabled>AM</button>
+            </div>
           </div>
         </div>
+        <p class="hint inline-hint">Just type the time (e.g. <strong>5:30</strong>) — the app picks AM/PM for you. Tap AM/PM to flip it if needed. Leave end time empty for a live count today.</p>
 
         <div class="field-grid">
           <div class="field">
             <label for="strapStart">Strap &amp; brace start</label>
-            <input id="strapStart" type="time">
+            <div class="time-input">
+              <input id="strapStart" type="text" inputmode="numeric" placeholder="e.g. 1:30" autocomplete="off">
+              <button id="strapStartMeridiem" class="ampm-toggle" type="button" aria-label="Toggle AM/PM for strap start" disabled>AM</button>
+            </div>
           </div>
 
           <div class="field">
             <label for="strapEnd">Strap &amp; brace end</label>
-            <input id="strapEnd" type="time">
+            <div class="time-input">
+              <input id="strapEnd" type="text" inputmode="numeric" placeholder="e.g. 2:00" autocomplete="off">
+              <button id="strapEndMeridiem" class="ampm-toggle" type="button" aria-label="Toggle AM/PM for strap end" disabled>AM</button>
+            </div>
           </div>
         </div>
         <p class="hint inline-hint">Strap &amp; brace is done outside the start/end times, so it is tracked separately and not removed from worked time.</p>
