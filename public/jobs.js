@@ -157,14 +157,38 @@ export function calculateStrapMinutes(strapStartValue, strapEndValue, workDateVa
 
 // --- Smart 12-hour time entry ---------------------------------------------
 // Workers type a bare time (e.g. "5:30") and the app picks AM/PM for them.
-// These hours default to AM; everything else defaults to PM. The mapping is
-// tuned for the fixed shift times (5:30a start; 1:30p / 2p / 10p), so the
-// common entries land right. Night-shift edge cases (e.g. 10 = 10pm) and the
-// occasional miss can be flipped with the AM/PM toggle in the UI.
+//
+// When a current time is known (live entry on today's date) we anchor the
+// guess to "now": of the two readings (AM vs PM) we pick whichever clock time
+// is closest to the current time, so the app follows the shift you're actually
+// in. Example: at 4am, "10" resolves to 10pm — it is 6 hours away, while 10am
+// would be 6 hours in the future. Ties go to the reading that already happened.
+//
+// Without a current time (a back-dated job on another day) we fall back to a
+// static map tuned to the fixed shift hours (5:30a start; 1:30p / 2p / 10p).
+// Either way the AM/PM toggle lets the user flip the occasional miss.
 const AM_DEFAULT_HOURS = new Set([5, 6, 7, 8, 9, 11]);
 
-export function guessMeridiem(hour12) {
-  return AM_DEFAULT_HOURS.has(hour12) ? "AM" : "PM";
+// Times are usually logged at or shortly after they happen, so we score each
+// reading by how long ago it was. A reading just ahead of now (within this
+// grace window) is treated as "now" — e.g. logging the afternoon job at 1pm
+// with a 2pm start should still read 2pm, not 2am.
+const FUTURE_GRACE_MINUTES = 180;
+
+function minutesSince(nowMinutes, candidate) {
+  const ago = (nowMinutes - candidate + 1440) % 1440;
+  return ago > 1440 - FUTURE_GRACE_MINUTES ? 0 : ago;
+}
+
+export function guessMeridiem(hour12, minute = 0, nowMinutes = null) {
+  if (nowMinutes === null || !Number.isFinite(nowMinutes)) {
+    return AM_DEFAULT_HOURS.has(hour12) ? "AM" : "PM";
+  }
+
+  const amTotal = (hour12 % 12) * 60 + minute;
+  const pmTotal = ((hour12 % 12) + 12) * 60 + minute;
+  // Pick whichever reading is the most recent (just-past or about-to-happen).
+  return minutesSince(nowMinutes, pmTotal) <= minutesSince(nowMinutes, amTotal) ? "PM" : "AM";
 }
 
 // Parse free-form text ("5", "530", "5:30", "5.30", "17:30") into a 12-hour

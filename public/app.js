@@ -169,6 +169,18 @@ function renderSmartTimeField(input, toggle, value24) {
   toggle.disabled = false;
 }
 
+// Minutes-since-midnight of the computer's clock, used to anchor the AM/PM
+// guess — but only for a job on today's date. For a back-dated job "now" is
+// not a meaningful anchor, so return null and let the static map decide.
+function meridiemNowContext(draft) {
+  const today = formatDateKey(new Date());
+  if (draft.workDate && draft.workDate !== today) {
+    return null;
+  }
+  const now = new Date();
+  return now.getHours() * 60 + now.getMinutes();
+}
+
 // Parse a typed time, pick AM/PM (unless the input was explicit 24-hour), and
 // store the canonical value back into the draft.
 function applySmartTimeInput(input, toggle, key) {
@@ -177,7 +189,8 @@ function applySmartTimeInput(input, toggle, key) {
   if (!parsed) {
     draft[key] = "";
   } else {
-    const meridiem = parsed.meridiem || guessMeridiem(parsed.hour12);
+    const meridiem =
+      parsed.meridiem || guessMeridiem(parsed.hour12, parsed.minute, meridiemNowContext(draft));
     draft[key] = to24hString(parsed.hour12, parsed.minute, meridiem);
   }
   renderSmartTimeField(input, toggle, draft[key]);
