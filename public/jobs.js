@@ -231,6 +231,60 @@ export function parseFlexibleTime(text) {
   return { hour12: hour, minute, meridiem };
 }
 
+// No job runs longer than a full 8-hour shift. When a start/end pair works out
+// longer than that, the AM/PM guess was wrong on one side.
+export const MAX_SHIFT_MINUTES = 8 * 60;
+
+function hhmmToMinutes(hhmm) {
+  const [h, m] = hhmm.split(":").map(Number);
+  return h * 60 + m;
+}
+
+function flipMeridiem24(hhmm) {
+  const [h, m] = hhmm.split(":").map(Number);
+  return `${String((h + 12) % 24).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+}
+
+// Minutes from start to end, rolling past midnight (matches how worked time
+// treats an end earlier than the start).
+export function timePairSpanMinutes(start24, end24) {
+  return (hhmmToMinutes(end24) - hhmmToMinutes(start24) + 1440) % 1440;
+}
+
+// If the pair spans more than MAX_SHIFT_MINUTES, flipping either time by 12
+// hours produces the only alternative span; when that alternative fits within
+// a shift, return the corrected pair. Which side to flip: times are logged as
+// (or just after) they happen, so the reading that occurred most recently is
+// the trustworthy anchor — flip the other one. Without a current time (a
+// back-dated job) we flip the end. Returns null when the pair is already
+// plausible or cannot be fixed by an AM/PM flip.
+export function reconcileTimePair(start24, end24, nowMinutes = null) {
+  if (!start24 || !end24) {
+    return null;
+  }
+
+  const base = timePairSpanMinutes(start24, end24);
+  if (base > 0 && base <= MAX_SHIFT_MINUTES) {
+    return null;
+  }
+
+  const alt = (base + 720) % 1440;
+  if (!(alt > 0 && alt <= MAX_SHIFT_MINUTES)) {
+    return null;
+  }
+
+  let flipStart = false;
+  if (nowMinutes !== null && Number.isFinite(nowMinutes)) {
+    const startAgo = (nowMinutes - hhmmToMinutes(start24) + 1440) % 1440;
+    const endAgo = (nowMinutes - hhmmToMinutes(end24) + 1440) % 1440;
+    flipStart = startAgo > endAgo;
+  }
+
+  return flipStart
+    ? { start: flipMeridiem24(start24), end: end24, changed: "start" }
+    : { start: start24, end: flipMeridiem24(end24), changed: "end" };
+}
+
 export function to24hString(hour12, minute, meridiem) {
   let hour = hour12 % 12; // 12 -> 0
   if (meridiem === "PM") {

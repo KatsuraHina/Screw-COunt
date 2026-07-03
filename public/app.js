@@ -25,6 +25,7 @@ import {
   isAdminUser,
   normalizeJob,
   parseFlexibleTime,
+  reconcileTimePair,
   to24hString
 } from "./jobs.js";
 import { parseCutListPdf } from "./pdf-import.js";
@@ -142,6 +143,20 @@ const SMART_TIME_FIELDS = [
   { input: "strapEndInput", toggle: "strapEndMeridiem", key: "strapEnd" }
 ];
 
+// Start/end pairs that must fit inside one shift (max 8 hours). Used to
+// auto-correct an AM/PM guess that produced an impossible duration.
+const SMART_TIME_PAIRS = [
+  { startKey: "startTime", endKey: "endTime" },
+  { startKey: "strapStart", endKey: "strapEnd" }
+];
+
+const SMART_TIME_LABELS = {
+  startTime: "start time",
+  endTime: "end time",
+  strapStart: "strap & brace start",
+  strapEnd: "strap & brace end"
+};
+
 // The smart-time fields are not synced here — their own handlers write the
 // canonical 24-hour value straight into the draft as the user edits them.
 function syncDraftFromInputs() {
@@ -182,7 +197,8 @@ function meridiemNowContext(draft) {
 }
 
 // Parse a typed time, pick AM/PM (unless the input was explicit 24-hour), and
-// store the canonical value back into the draft.
+// store the canonical value back into the draft. Returns a note describing an
+// automatic 8-hour correction, or null when nothing was adjusted.
 function applySmartTimeInput(input, toggle, key) {
   const draft = getActiveDraft();
   const parsed = parseFlexibleTime(input.value);
@@ -194,6 +210,36 @@ function applySmartTimeInput(input, toggle, key) {
     draft[key] = to24hString(parsed.hour12, parsed.minute, meridiem);
   }
   renderSmartTimeField(input, toggle, draft[key]);
+  return reconcileSmartTimePair(key);
+}
+
+// A job never runs longer than 8 hours. If the pair the edited field belongs
+// to now spans more than that, flip the AM/PM on whichever side fixes it and
+// report what changed so the user can see (and undo via the toggle).
+function reconcileSmartTimePair(editedKey) {
+  const pair = SMART_TIME_PAIRS.find(
+    ({ startKey, endKey }) => startKey === editedKey || endKey === editedKey
+  );
+  if (!pair) {
+    return null;
+  }
+
+  const draft = getActiveDraft();
+  const fixed = reconcileTimePair(draft[pair.startKey], draft[pair.endKey], meridiemNowContext(draft));
+  if (!fixed) {
+    return null;
+  }
+
+  draft[pair.startKey] = fixed.start;
+  draft[pair.endKey] = fixed.end;
+  [pair.startKey, pair.endKey].forEach((key) => {
+    const field = SMART_TIME_FIELDS.find((item) => item.key === key);
+    renderSmartTimeField(elements[field.input], elements[field.toggle], draft[key]);
+  });
+
+  const changedKey = fixed.changed === "end" ? pair.endKey : pair.startKey;
+  const parts = from24hString(draft[changedKey]);
+  return `Switched the ${SMART_TIME_LABELS[changedKey]} to ${parts.text12} ${parts.meridiem} — a job can't run longer than 8 hours. Tap AM/PM to change it back.`;
 }
 
 function toggleSmartTimeMeridiem(input, toggle, key) {
@@ -769,12 +815,16 @@ function bindEvents() {
   });
 
   // Smart 12-hour time fields: parse + guess AM/PM on edit, flip on toggle.
+  // A manual toggle click is an explicit choice, so it never auto-reconciles.
   SMART_TIME_FIELDS.forEach(({ input, toggle, key }) => {
     const inputEl = elements[input];
     const toggleEl = elements[toggle];
     inputEl.addEventListener("change", () => {
-      applySmartTimeInput(inputEl, toggleEl, key);
+      const adjustmentNote = applySmartTimeInput(inputEl, toggleEl, key);
       renderCalculatorSection();
+      if (adjustmentNote) {
+        setStatus(elements, adjustmentNote, "warning");
+      }
     });
     toggleEl.addEventListener("click", () => toggleSmartTimeMeridiem(inputEl, toggleEl, key));
   });
