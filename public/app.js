@@ -28,7 +28,7 @@ import {
   reconcileTimePair,
   to24hString
 } from "./jobs.js";
-import { parseCutListPdf } from "./pdf-import.js";
+import { detectJobTypeFromName, parseCutListPdf } from "./pdf-import.js";
 import {
   clearHistoryOutputs,
   getElements,
@@ -455,11 +455,24 @@ async function handleImportFile(file) {
   setImportStatus(elements, "Reading PDF...");
 
   try {
-    const rows = await parseCutListPdf(file);
+    const { rows, jobType: contentJobType } = await parseCutListPdf(file);
 
     if (rows.length === 0) {
       setImportStatus(elements, "No rows found in that PDF.", "warning");
       return;
+    }
+
+    // The job title tells us what the PDF is: wall packs carry "PACK", truss
+    // jobs carry "TRUSS" (filename checked first, then the PDF's title text).
+    // If it belongs on the other tab, switch there and import into that tab.
+    const detectedJobType = detectJobTypeFromName(file.name) || contentJobType;
+    let switchNote = "";
+    if (JOB_TYPES[detectedJobType] && detectedJobType !== state.activeTab) {
+      switchTab(detectedJobType);
+      switchNote =
+        detectedJobType === "walls"
+          ? "Wall pack PDF detected — switched to Walls. "
+          : "Truss PDF detected — switched to Trusses. ";
     }
 
     const config = getImportConfig();
@@ -470,7 +483,7 @@ async function handleImportFile(file) {
     const total = rows.reduce((sum, row) => sum + config.value(row), 0);
     setImportStatus(
       elements,
-      `Loaded ${rows.length} ${noun} (${config.format(total)} total). Tick the ones completed.`,
+      `${switchNote}Loaded ${rows.length} ${noun} (${config.format(total)} total). Tick the ones completed.`,
       "success"
     );
   } catch (error) {

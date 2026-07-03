@@ -51,6 +51,22 @@ function isHeaderRow(text) {
   return /no\./i.test(text) && /number/i.test(text) && /lineal/i.test(text);
 }
 
+// Job titles are reliable markers: wall packs always carry "PACK" (PACK3,
+// PACK100, ...) and truss jobs always carry "TRUSS". PACK is checked first.
+export function detectJobTypeFromText(text) {
+  if (/PACK/i.test(text)) {
+    return "walls";
+  }
+  if (/TRUSS/i.test(text)) {
+    return "trusses";
+  }
+  return null;
+}
+
+export function detectJobTypeFromName(fileName) {
+  return detectJobTypeFromText(String(fileName ?? ""));
+}
+
 // A data row looks like: <No.> <Number> <Lineal M> <W> <No. of Screws> <P> ...
 // e.g. "1 T017 37.34 32.58 115 0" or "1 W065 60.43 52.99 140 1".
 function parseDataRow(text) {
@@ -86,6 +102,7 @@ export async function parseCutListPdf(file) {
   const pdf = await pdfjsLib.getDocument({ data: buffer }).promise;
 
   const trusses = [];
+  const titleTexts = [];
   let headerSeen = false;
 
   for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
@@ -110,6 +127,10 @@ export async function parseCutListPdf(file) {
       }
 
       if (!headerSeen) {
+        // Title area above the table — where the PACK/TRUSS job name lives.
+        // (Excludes the table header itself, whose "Pack Number Completed"
+        // column on wall PDFs would otherwise always match.)
+        titleTexts.push(text);
         return;
       }
 
@@ -125,5 +146,5 @@ export async function parseCutListPdf(file) {
   }
 
   trusses.sort((a, b) => a.no - b.no);
-  return trusses;
+  return { rows: trusses, jobType: detectJobTypeFromText(titleTexts.join(" ")) };
 }
