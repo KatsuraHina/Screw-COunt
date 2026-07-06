@@ -29,7 +29,7 @@ import {
   reconcileTimePair,
   to24hString
 } from "./jobs.js";
-import { detectJobTypeFromName, parseCutListPdf } from "./pdf-import.js";
+import { deriveImportTitle, detectJobTypeFromName, parseCutListPdf } from "./pdf-import.js";
 import {
   clearHistoryOutputs,
   getElements,
@@ -43,6 +43,7 @@ import {
   renderWorkerHistorySelect,
   renderWorkerManagement,
   renderWorkerPicker,
+  renderImportLibrary,
   renderImportList,
   setActiveTabButtons,
   setImportLabels,
@@ -62,6 +63,10 @@ const state = {
   },
   savedJobs: [],
   workers: [],
+  importLibrary: {
+    trusses: [],
+    walls: []
+  },
   isAdmin: false,
   charts: {
     total: null,
@@ -427,6 +432,7 @@ function renderApp() {
 // PDF ahead of time and still have it after a reload. A list only lasts one
 // shift (8 hours) from when it was imported, then it must be imported again.
 const IMPORT_STORE_PREFIX = "screwcount.importList.";
+const IMPORT_LIB_PREFIX = "screwcount.importJobs.";
 const IMPORT_MAX_AGE_MS = 8 * 60 * 60 * 1000;
 
 function persistImportRows(tab) {
@@ -435,7 +441,11 @@ function persistImportRows(tab) {
     if (Array.isArray(draft.importRows) && draft.importRows.length > 0) {
       localStorage.setItem(
         IMPORT_STORE_PREFIX + tab,
-        JSON.stringify({ loadedAt: draft.importLoadedAt ?? Date.now(), rows: draft.importRows })
+        JSON.stringify({
+          loadedAt: draft.importLoadedAt ?? Date.now(),
+          jobId: draft.importJobId ?? null,
+          rows: draft.importRows
+        })
       );
     } else {
       localStorage.removeItem(IMPORT_STORE_PREFIX + tab);
@@ -462,6 +472,7 @@ function restoreImportRows() {
       }
       state.drafts[tab].importRows = stored.rows.map((row) => ({ ...row }));
       state.drafts[tab].importLoadedAt = stored.loadedAt;
+      state.drafts[tab].importJobId = stored.jobId ?? null;
     } catch {
       try {
         localStorage.removeItem(IMPORT_STORE_PREFIX + tab);
@@ -472,6 +483,111 @@ function restoreImportRows() {
   });
 }
 
+// The preloaded-jobs library: each imported PDF is kept as a reusable job
+// ({ id, title, loadedAt, rows }) so the admin can load the day's sheets ahead
+// of time and just tap one later. Each job lasts one shift (8 hours) from its
+// own import, survives End job, and is removed manually or on expiry.
+function persistImportLibrary(tab) {
+  const jobs = state.importLibrary[tab] ?? [];
+  try {
+    if (jobs.length > 0) {
+      localStorage.setItem(IMPORT_LIB_PREFIX + tab, JSON.stringify(jobs));
+    } else {
+      localStorage.removeItem(IMPORT_LIB_PREFIX + tab);
+    }
+  } catch {
+    // Storage unavailable (private mode etc.) — the library just won't persist.
+  }
+}
+
+function restoreImportLibrary() {
+  Object.keys(JOB_TYPES).forEach((tab) => {
+    try {
+      const raw = localStorage.getItem(IMPORT_LIB_PREFIX + tab);
+      if (!raw) {
+        return;
+      }
+      const stored = JSON.parse(raw);
+      if (!Array.isArray(stored)) {
+        throw new Error("bad stored library");
+      }
+      const now = Date.now();
+      state.importLibrary[tab] = stored
+        .filter(
+          (job) =>
+            job &&
+            typeof job.id === "string" &&
+            Array.isArray(job.rows) &&
+            Number.isFinite(job.loadedAt) &&
+            now - job.loadedAt <= IMPORT_MAX_AGE_MS
+        )
+        .map((job) => ({
+          id: job.id,
+          title: job.title || "Imported list",
+          loadedAt: job.loadedAt,
+          rows: job.rows.map((row) => ({ ...row }))
+        }));
+      persistImportLibrary(tab);
+    } catch {
+      try {
+        localStorage.removeItem(IMPORT_LIB_PREFIX + tab);
+      } catch {
+        // ignore
+      }
+    }
+  });
+}
+
+// Drop jobs older than one shift; returns true if anything expired so the
+// caller can also unload a now-gone active list.
+function pruneImportLibrary(tab) {
+  const jobs = state.importLibrary[tab] ?? [];
+  const now = Date.now();
+  const fresh = jobs.filter((job) => now - job.loadedAt <= IMPORT_MAX_AGE_MS);
+  if (fresh.length !== jobs.length) {
+    state.importLibrary[tab] = fresh;
+    persistImportLibrary(tab);
+    return true;
+  }
+  return false;
+}
+
+// Load a preloaded job's rows into the active checklist, replacing whatever is
+// there with a fresh (unticked) copy so nothing double-counts.
+function selectImportJob(id) {
+  const tab = state.activeTab;
+  const job = (state.importLibrary[tab] ?? []).find((entry) => entry.id === id);
+  if (!job) {
+    return;
+  }
+  const draft = getActiveDraft();
+  draft.importRows = job.rows.map((row) => ({ ...row, done: false }));
+  draft.importLoadedAt = job.loadedAt;
+  draft.importJobId = job.id;
+  persistImportRows(tab);
+  renderImportSection();
+  renderCalculatorSection();
+  setImportStatus(elements, `Loaded "${job.title}". Tick the ones completed.`, "success");
+}
+
+// Remove a preloaded job from the library. If it is the one currently loaded,
+// unload the active checklist too.
+function removeImportJob(id) {
+  const tab = state.activeTab;
+  state.importLibrary[tab] = (state.importLibrary[tab] ?? []).filter((entry) => entry.id !== id);
+  persistImportLibrary(tab);
+
+  const draft = getActiveDraft();
+  if (draft.importJobId === id) {
+    draft.importRows = [];
+    draft.importLoadedAt = null;
+    draft.importJobId = null;
+    persistImportRows(tab);
+    renderCalculatorSection();
+  }
+  renderImportSection();
+}
+
 // The PDF importer is admin-only, on both the Trusses and Walls tabs.
 function renderImportSection() {
   const showImport = state.isAdmin && JOB_TYPES[state.activeTab];
@@ -479,20 +595,34 @@ function renderImportSection() {
 
   if (showImport) {
     const draft = getActiveDraft();
-    // A preloaded list only lasts one shift; drop it once it's stale.
-    if (
+    // Preloaded jobs only last one shift; drop any that went stale.
+    const prunedLibrary = pruneImportLibrary(state.activeTab);
+
+    // The active checklist also expires one shift after it was loaded, or when
+    // the job it came from is no longer in the library.
+    const activeExpired =
       draft.importRows.length > 0 &&
       draft.importLoadedAt &&
-      Date.now() - draft.importLoadedAt > IMPORT_MAX_AGE_MS
-    ) {
+      Date.now() - draft.importLoadedAt > IMPORT_MAX_AGE_MS;
+    const activeJobGone =
+      draft.importJobId &&
+      !(state.importLibrary[state.activeTab] ?? []).some((job) => job.id === draft.importJobId);
+    if (activeExpired || activeJobGone) {
       draft.importRows = [];
       draft.importLoadedAt = null;
+      draft.importJobId = null;
       persistImportRows(state.activeTab);
-      setImportStatus(elements, "Imported list expired after one shift (8 hours) — import the PDF again.", "warning");
+      if (activeExpired) {
+        setImportStatus(elements, "Imported list expired after one shift (8 hours) — import the PDF again.", "warning");
+      }
     }
 
     const config = getImportConfig();
     setImportLabels(elements, config.label, config.column);
+    renderImportLibrary(elements, state.importLibrary[state.activeTab] ?? [], draft.importJobId, {
+      onSelect: selectImportJob,
+      onRemove: removeImportJob
+    });
     renderImportList(elements, draft.importRows ?? [], config, toggleImportRow);
   }
 }
@@ -542,16 +672,29 @@ async function handleImportFile(file) {
 
     const config = getImportConfig();
     const noun = state.activeTab === "walls" ? "panels" : "trusses";
-    const draft = getActiveDraft();
-    draft.importRows = rows.map((row) => ({ ...row, done: false }));
-    draft.importLoadedAt = Date.now();
-    persistImportRows(state.activeTab);
-    renderImportSection();
-    renderCalculatorSection();
+    const tab = state.activeTab;
+    const title = deriveImportTitle(file.name);
+    const id = title.toLowerCase();
+    const job = { id, title, loadedAt: Date.now(), rows: rows.map((row) => ({ ...row })) };
+
+    // Same PDF imported again just refreshes the existing entry (import once).
+    const library = state.importLibrary[tab] ?? [];
+    const existingIndex = library.findIndex((entry) => entry.id === id);
+    const alreadyThere = existingIndex >= 0;
+    if (alreadyThere) {
+      library[existingIndex] = job;
+    } else {
+      library.unshift(job);
+    }
+    state.importLibrary[tab] = library;
+    persistImportLibrary(tab);
+
+    // Load it straight away so it's ready to tick.
+    selectImportJob(id);
     const total = rows.reduce((sum, row) => sum + config.value(row), 0);
     setImportStatus(
       elements,
-      `${switchNote}Loaded ${rows.length} ${noun} (${config.format(total)} total). Tick the ones completed.`,
+      `${switchNote}${alreadyThere ? "Refreshed" : "Added"} "${title}" — ${rows.length} ${noun} (${config.format(total)} total). Tick the ones completed.`,
       "success"
     );
   } catch (error) {
@@ -560,10 +703,13 @@ async function handleImportFile(file) {
   }
 }
 
+// "Clear" unloads the active checklist only — the preloaded job stays in the
+// library so it can be loaded again (or for another bench).
 function clearImport() {
   const draft = getActiveDraft();
   draft.importRows = [];
   draft.importLoadedAt = null;
+  draft.importJobId = null;
   persistImportRows(state.activeTab);
   elements.trussFileInput.value = "";
   renderImportSection();
@@ -638,6 +784,7 @@ function resetDraftForNextCrew() {
     row.done ? { ...row, done: false, loggedCount: (row.loggedCount || 0) + 1 } : { ...row }
   );
   next.importLoadedAt = previous.importLoadedAt;
+  next.importJobId = previous.importJobId;
   state.drafts[state.activeTab] = next;
   persistImportRows(state.activeTab);
   elements.trussFileInput.value = "";
@@ -1007,6 +1154,7 @@ function startLiveUpdates() {
 
 function init() {
   bindEvents();
+  restoreImportLibrary();
   restoreImportRows();
   renderAuthState(elements, null);
   renderApp();

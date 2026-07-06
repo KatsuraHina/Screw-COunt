@@ -324,6 +324,7 @@ export function createEmptyDraft() {
     assignedWorkerIds: [],
     importRows: [],
     importLoadedAt: null,
+    importJobId: null,
     entries: []
   };
 }

@@ -838,6 +838,104 @@ button:disabled {
   font-size: 0.95rem;
 }
 
+/* Preloaded jobs library: PDFs imported ahead of time, tap one to load it. */
+.import-library {
+  display: grid;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.import-library.hidden {
+  display: none;
+}
+
+.import-library-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.import-library-head strong {
+  font-size: 0.95rem;
+}
+
+.import-library-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.import-library-row {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: #fff;
+  overflow: hidden;
+}
+
+.import-library-row.is-active {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(181, 83, 47, 0.15);
+}
+
+.import-library-select {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  border: none;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  box-shadow: none;
+}
+
+.import-library-select:hover {
+  transform: none;
+  box-shadow: none;
+  background: rgba(181, 83, 47, 0.06);
+}
+
+.import-library-title {
+  font-weight: 700;
+  word-break: break-word;
+}
+
+.import-library-count {
+  color: var(--muted);
+  white-space: nowrap;
+  font-size: 0.88rem;
+}
+
+.import-library-remove {
+  flex: 0 0 auto;
+  width: 40px;
+  border: none;
+  border-left: 1px solid var(--border);
+  border-radius: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 1.3rem;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: none;
+}
+
+.import-library-remove:hover {
+  transform: none;
+  box-shadow: none;
+  background: rgba(181, 83, 47, 0.1);
+  color: var(--accent-dark);
+}
+
 .truss-list-wrap {
   display: grid;
   gap: 10px;

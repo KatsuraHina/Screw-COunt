@@ -65,6 +65,8 @@ export function getElements() {
     trussDropzone: document.getElementById("trussDropzone"),
     trussFileInput: document.getElementById("trussFileInput"),
     trussImportStatus: document.getElementById("trussImportStatus"),
+    importLibrary: document.getElementById("importLibrary"),
+    importLibraryList: document.getElementById("importLibraryList"),
     trussListWrap: document.getElementById("trussListWrap"),
     trussList: document.getElementById("trussList"),
     trussSelectedSummary: document.getElementById("trussSelectedSummary"),
@@ -768,6 +770,42 @@ export function renderWorkerHistory(elements, jobs, workerName, charts, handlers
     benchMetres: renderBenchChart(elements.workerBenchMetresChartCanvas, jobs, "m", existing.benchMetres, (job) => job.metres),
     benchScrews: renderBenchChart(elements.workerBenchScrewsChartCanvas, wallJobs, "screws", existing.benchScrews, (job) => job.totalUnits)
   };
+}
+
+// Render the list of preloaded jobs. Each row loads its rows when tapped and
+// can be removed with the × button. `activeId` highlights the loaded job.
+// `jobs` are `{ id, title, rows }`; `handlers` are `onSelect(id)` / `onRemove(id)`.
+export function renderImportLibrary(elements, jobs, activeId, handlers = {}) {
+  const hasJobs = jobs.length > 0;
+  elements.importLibrary.classList.toggle("hidden", !hasJobs);
+  elements.importLibraryList.innerHTML = "";
+
+  jobs.forEach((job) => {
+    const item = document.createElement("li");
+    item.className = "import-library-row";
+    if (job.id === activeId) {
+      item.classList.add("is-active");
+    }
+
+    const select = document.createElement("button");
+    select.type = "button";
+    select.className = "import-library-select";
+    const count = job.rows.length;
+    select.innerHTML =
+      `<span class="import-library-title">${job.title}</span>` +
+      `<span class="import-library-count">${count} row${count === 1 ? "" : "s"}</span>`;
+    select.addEventListener("click", () => handlers.onSelect?.(job.id));
+
+    const remove = document.createElement("button");
+    remove.type = "button";
+    remove.className = "import-library-remove";
+    remove.setAttribute("aria-label", `Remove ${job.title}`);
+    remove.textContent = "×";
+    remove.addEventListener("click", () => handlers.onRemove?.(job.id));
+
+    item.append(select, remove);
+    elements.importLibraryList.appendChild(item);
+  });
 }
 
 // Render the imported cut-list checklist. `config` controls how each row's

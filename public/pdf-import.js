@@ -67,6 +67,13 @@ export function detectJobTypeFromName(fileName) {
   return detectJobTypeFromText(String(fileName ?? ""));
 }
 
+// The label a preloaded job shows in the list — the PDF's own file name, with
+// the ".pdf" extension and surrounding whitespace stripped.
+export function deriveImportTitle(fileName) {
+  const trimmed = String(fileName ?? "").trim().replace(/\.pdf$/i, "").trim();
+  return trimmed || "Imported list";
+}
+
 // A data row looks like: <No.> <Number> <Lineal M> <W> <No. of Screws> <P> ...
 // e.g. "1 T017 37.34 32.58 115 0" or "1 W065 60.43 52.99 140 1".
 function parseDataRow(text) {
