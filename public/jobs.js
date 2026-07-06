@@ -497,23 +497,33 @@ export function aggregateShiftSeriesByDay(jobs, getValue = (job) => job.totalUni
 // Benches are a fixed roster numbered 1–19.
 export const BENCH_NUMBERS = Array.from({ length: 19 }, (_, index) => index + 1);
 
-// Total produced on each bench across the given jobs. `getValue` selects the
-// metric per job (screws via totalUnits, or lineal metres via metres). Jobs
-// without a valid bench (older jobs predate the field) are skipped.
-export function aggregateBenchTotals(jobs, getValue = (job) => job.totalUnits) {
-  const totals = new Map(BENCH_NUMBERS.map((bench) => [bench, 0]));
+// Amount produced on each bench, split by shift. One bench per x-axis slot,
+// with a value for each shift (morning/afternoon/night) so you can read how
+// much each shift did on a bench rather than one accumulated bench total.
+export function aggregateBenchShiftTotals(jobs, getValue = (job) => job.totalUnits) {
+  const benchTotals = new Map(
+    BENCH_NUMBERS.map((bench) => [bench, new Map(SHIFTS.map((s) => [s.key, 0]))])
+  );
 
   jobs.forEach((job) => {
     const bench = Number(job.benchNumber);
-    if (!totals.has(bench)) {
+    if (!benchTotals.has(bench)) {
       return;
     }
-    totals.set(bench, totals.get(bench) + (Number(getValue(job)) || 0));
+    const shift = getJobShift(job);
+    const perShift = benchTotals.get(bench);
+    perShift.set(shift, perShift.get(shift) + (Number(getValue(job)) || 0));
   });
 
   return {
     labels: BENCH_NUMBERS.map((bench) => `Bench ${bench}`),
-    values: BENCH_NUMBERS.map((bench) => Number(totals.get(bench).toFixed(2)))
+    shifts: SHIFTS.map((shift) => ({
+      key: shift.key,
+      label: shift.label,
+      values: BENCH_NUMBERS.map((bench) =>
+        Number(benchTotals.get(bench).get(shift.key).toFixed(2))
+      )
+    }))
   };
 }
 

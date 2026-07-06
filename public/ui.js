@@ -1,5 +1,5 @@
 import {
-  aggregateBenchTotals,
+  aggregateBenchShiftTotals,
   aggregateHistorySeriesByDay,
   aggregateShiftSeriesByDay,
   formatDateLabel,
@@ -642,9 +642,10 @@ function renderShiftChart(canvas, jobs, unit, currentChart, getValue) {
   });
 }
 
-// Bar chart of total units (metres or screws) produced on each bench (1–19).
-// One bar per bench; benches with no jobs show as zero.
-function renderBenchChart(canvas, jobs, unit, currentChart, getValue) {
+// Grouped bar chart of the amount (metres or screws) produced on each bench
+// (1–19), split by shift. Each bench has one bar per shift so you can read how
+// much each shift produced on that bench, not one accumulated bench total.
+function renderBenchShiftChart(canvas, jobs, unit, currentChart, getValue) {
   const ChartLibrary = window.Chart;
   if (currentChart) {
     currentChart.destroy();
@@ -653,35 +654,36 @@ function renderBenchChart(canvas, jobs, unit, currentChart, getValue) {
     return null;
   }
 
-  const aggregated = aggregateBenchTotals(jobs, getValue);
+  const series = aggregateBenchShiftTotals(jobs, getValue);
   const decimals = unit === "screws" ? 0 : 2;
+
+  const datasets = series.shifts.map((shift) => ({
+    label: shift.label,
+    data: shift.values,
+    backgroundColor: SHIFT_BAR_COLORS[shift.key]?.bg ?? "rgba(181,83,47,0.88)",
+    borderColor: SHIFT_BAR_COLORS[shift.key]?.border ?? "rgba(143,63,34,1)",
+    borderWidth: 1,
+    borderRadius: 8,
+    borderSkipped: false
+  }));
 
   return new ChartLibrary(canvas, {
     type: "bar",
     data: {
       // Use the bench number alone for a compact x-axis (the title says "bench").
-      labels: aggregated.labels.map((label) => label.replace("Bench ", "")),
-      datasets: [
-        {
-          label: `Total ${unit}`,
-          data: aggregated.values,
-          backgroundColor: "rgba(181, 83, 47, 0.88)",
-          borderColor: "rgba(143, 63, 34, 1)",
-          borderWidth: 1,
-          borderRadius: 8,
-          borderSkipped: false
-        }
-      ]
+      labels: series.labels.map((label) => label.replace("Bench ", "")),
+      datasets
     },
     options: {
       responsive: true,
       maintainAspectRatio: false,
       plugins: {
-        legend: { display: false },
+        legend: { display: true, labels: { ...RATE_AXIS_STYLE } },
         tooltip: {
           callbacks: {
             title: (items) => `Bench ${items[0].label}`,
-            label: (context) => `${context.parsed.y.toFixed(decimals)} ${unit}`
+            label: (context) =>
+              `${context.dataset.label}: ${context.parsed.y.toFixed(decimals)} ${unit}`
           }
         }
       },
@@ -767,8 +769,8 @@ export function renderWorkerHistory(elements, jobs, workerName, charts, handlers
     screwsShift: renderShiftChart(elements.workerScrewsShiftChartCanvas, wallJobs, "screws", existing.screwsShift, (job) => job.totalUnits),
     // Per-bench totals: metres spans all jobs (trusses + wall-panel metres),
     // screws stay wall-only.
-    benchMetres: renderBenchChart(elements.workerBenchMetresChartCanvas, jobs, "m", existing.benchMetres, (job) => job.metres),
-    benchScrews: renderBenchChart(elements.workerBenchScrewsChartCanvas, wallJobs, "screws", existing.benchScrews, (job) => job.totalUnits)
+    benchMetres: renderBenchShiftChart(elements.workerBenchMetresChartCanvas, jobs, "m", existing.benchMetres, (job) => job.metres),
+    benchScrews: renderBenchShiftChart(elements.workerBenchScrewsChartCanvas, wallJobs, "screws", existing.benchScrews, (job) => job.totalUnits)
   };
 }
 
