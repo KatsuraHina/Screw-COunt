@@ -275,7 +275,7 @@ function renderWorkerPickerSection() {
     state.workers,
     draft.assignedWorkerIds,
     handleWorkerPickerChange,
-    deriveRecentCrews(state.savedJobs, state.workers)
+    deriveRecentCrews(state.savedJobs, state.workers, 4, draft.assignedWorkerIds)
   );
 }
 

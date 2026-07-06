@@ -596,9 +596,12 @@ export function normalizeJob(job) {
 // Most recently used worker combinations, for one-tap crew selection when
 // logging a job. Crews are distinct by membership (order ignored); names are
 // resolved against the current roster and crews containing a removed worker
-// are skipped.
-export function deriveRecentCrews(jobs, workers, limit = 4) {
+// are skipped. When workers are already selected (`withIds`), only crews that
+// include all of them are suggested — i.e. the selected workers' most recent
+// partners — and the crew identical to the current selection is omitted.
+export function deriveRecentCrews(jobs, workers, limit = 4, withIds = []) {
   const namesById = new Map(workers.map((worker) => [worker.id, worker.name]));
+  const selectionKey = [...withIds].sort().join("|");
   const seen = new Set();
   const crews = [];
 
@@ -613,6 +616,9 @@ export function deriveRecentCrews(jobs, workers, limit = 4) {
       continue;
     }
     seen.add(key);
+    if (!withIds.every((id) => ids.includes(id)) || key === selectionKey) {
+      continue;
+    }
     if (!ids.every((id) => namesById.has(id))) {
       continue;
     }
