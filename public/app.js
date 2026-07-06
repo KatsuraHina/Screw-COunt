@@ -17,6 +17,7 @@ import {
   createEmptyDraft,
   createEntry,
   createJobPayload,
+  deriveRecentCrews,
   formatDateKey,
   from24hString,
   getRangeStartDate,
@@ -273,7 +274,8 @@ function renderWorkerPickerSection() {
     elements,
     state.workers,
     draft.assignedWorkerIds,
-    handleWorkerPickerChange
+    handleWorkerPickerChange,
+    deriveRecentCrews(state.savedJobs, state.workers)
   );
 }
 
@@ -550,8 +552,19 @@ async function removeJob(jobId) {
   }
 }
 
-function resetCurrentDraft() {
-  state.drafts[state.activeTab] = createEmptyDraft();
+// After a save, keep the shared shift details (date, start/end, breaks) so the
+// next crew's job in the same shift only needs crew, bench and amounts. Crew-
+// specific fields (workers, bench, strap, amounts, imported rows) are cleared.
+function resetDraftForNextCrew() {
+  const previous = getActiveDraft();
+  const next = createEmptyDraft();
+  next.workDate = previous.workDate;
+  next.startTime = previous.startTime;
+  next.endTime = previous.endTime;
+  next.break15Checked = previous.break15Checked;
+  next.break24Checked = previous.break24Checked;
+  state.drafts[state.activeTab] = next;
+  elements.trussFileInput.value = "";
   renderApp();
 }
 
@@ -647,9 +660,9 @@ async function saveJob() {
   try {
     const savedJob = await saveJobRecord(job, state.currentUser);
     state.savedJobs.unshift(normalizeJob(savedJob));
-    resetCurrentDraft();
+    resetDraftForNextCrew();
     renderHistorySection();
-    setStatus(elements, `${getActiveConfig().label} job saved successfully. You can start the next one straight away.`);
+    setStatus(elements, `${getActiveConfig().label} job saved. Shift details kept — pick the next crew and bench.`);
   } catch (error) {
     console.error(error);
     setStatus(elements, formatFirestoreError(error), "warning");

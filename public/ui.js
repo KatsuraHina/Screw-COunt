@@ -57,6 +57,7 @@ export function getElements() {
     workerPicker: document.getElementById("workerPicker"),
     workerPickerSummary: document.getElementById("workerPickerSummary"),
     workerPickerSearch: document.getElementById("workerPickerSearch"),
+    workerPickerCrews: document.getElementById("workerPickerCrews"),
     workerPickerOptions: document.getElementById("workerPickerOptions"),
     trussImport: document.getElementById("trussImport"),
     importLabel: document.getElementById("importLabel"),
@@ -429,12 +430,24 @@ export function renderWorkerManagement(elements, workers, handlers) {
 
 // Per-job worker picker: pick one or more workers for this job (ad-hoc pairing).
 // Returns the cleaned list of selected ids (dropping any that no longer exist).
-export function renderWorkerPicker(elements, workers, selectedIds, onChange) {
+export function renderWorkerPicker(elements, workers, selectedIds, onChange, recentCrews = []) {
   const validIds = selectedIds.filter((id) => workers.some((worker) => worker.id === id));
   const query = (elements.workerPickerSearch.value || "").trim().toLowerCase();
   const visible = query
     ? workers.filter((worker) => worker.name.toLowerCase().includes(query))
     : workers;
+
+  // One-tap chips for recently used crews: tapping selects the whole crew.
+  elements.workerPickerCrews.innerHTML = "";
+  elements.workerPickerCrews.hidden = recentCrews.length === 0;
+  recentCrews.forEach((crew) => {
+    const chip = document.createElement("button");
+    chip.type = "button";
+    chip.className = "crew-chip";
+    chip.textContent = crew.label;
+    chip.addEventListener("click", () => onChange([...crew.ids]));
+    elements.workerPickerCrews.appendChild(chip);
+  });
 
   elements.workerPickerOptions.innerHTML = "";
 

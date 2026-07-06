@@ -720,6 +720,35 @@ button:disabled {
   padding: 4px 8px 10px;
 }
 
+/* One-tap chips for recently used crews, shown above the worker search. */
+.worker-picker-crews {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.worker-picker-crews[hidden] {
+  display: none;
+}
+
+.crew-chip {
+  width: auto;
+  padding: 6px 12px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--panel-strong);
+  color: var(--accent-dark);
+  font-size: 0.88rem;
+  font-weight: 700;
+  box-shadow: none;
+}
+
+.crew-chip:hover {
+  transform: none;
+  box-shadow: none;
+  background: #ecd9b6;
+}
+
 .worker-picker-search {
   width: 100%;
   box-sizing: border-box;

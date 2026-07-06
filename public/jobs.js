@@ -593,6 +593,38 @@ export function normalizeJob(job) {
   };
 }
 
+// Most recently used worker combinations, for one-tap crew selection when
+// logging a job. Crews are distinct by membership (order ignored); names are
+// resolved against the current roster and crews containing a removed worker
+// are skipped.
+export function deriveRecentCrews(jobs, workers, limit = 4) {
+  const namesById = new Map(workers.map((worker) => [worker.id, worker.name]));
+  const seen = new Set();
+  const crews = [];
+
+  const sorted = [...jobs].sort((a, b) => new Date(b.endedAt) - new Date(a.endedAt));
+  for (const job of sorted) {
+    const ids = Array.isArray(job.assignedWorkerIds) ? job.assignedWorkerIds : [];
+    if (ids.length === 0) {
+      continue;
+    }
+    const key = [...ids].sort().join("|");
+    if (seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
+    if (!ids.every((id) => namesById.has(id))) {
+      continue;
+    }
+    crews.push({ ids: [...ids], label: ids.map((id) => namesById.get(id)).join(" & ") });
+    if (crews.length >= limit) {
+      break;
+    }
+  }
+
+  return crews;
+}
+
 export function summarizeWorkerJobs(jobs) {
   const totals = jobs.reduce(
     (acc, job) => {
