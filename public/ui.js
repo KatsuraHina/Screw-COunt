@@ -792,8 +792,13 @@ export function renderImportList(elements, rows, config, onToggle) {
 
     const text = document.createElement("span");
     text.className = "truss-text";
+    // Rows saved with an earlier job this shift are tagged so the next crew
+    // can see what's already been logged.
+    const loggedBadge = row.loggedCount
+      ? `<span class="truss-logged">logged${row.loggedCount > 1 ? ` ×${row.loggedCount}` : ""}</span>`
+      : "";
     text.innerHTML =
-      `<span class="truss-name">${row.no}. ${row.number}</span>` +
+      `<span class="truss-name">${row.no}. ${row.number}${loggedBadge}</span>` +
       `<span class="truss-metres">${config.format(config.value(row))}</span>`;
 
     label.append(checkbox, text);

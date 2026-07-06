@@ -423,15 +423,77 @@ function renderApp() {
   }
 }
 
+// Preloaded import lists live in localStorage so the admin can load the day's
+// PDF ahead of time and still have it after a reload. A list only lasts one
+// shift (8 hours) from when it was imported, then it must be imported again.
+const IMPORT_STORE_PREFIX = "screwcount.importList.";
+const IMPORT_MAX_AGE_MS = 8 * 60 * 60 * 1000;
+
+function persistImportRows(tab) {
+  const draft = state.drafts[tab];
+  try {
+    if (Array.isArray(draft.importRows) && draft.importRows.length > 0) {
+      localStorage.setItem(
+        IMPORT_STORE_PREFIX + tab,
+        JSON.stringify({ loadedAt: draft.importLoadedAt ?? Date.now(), rows: draft.importRows })
+      );
+    } else {
+      localStorage.removeItem(IMPORT_STORE_PREFIX + tab);
+    }
+  } catch {
+    // Storage unavailable (private mode etc.) — the list just won't persist.
+  }
+}
+
+function restoreImportRows() {
+  Object.keys(JOB_TYPES).forEach((tab) => {
+    try {
+      const raw = localStorage.getItem(IMPORT_STORE_PREFIX + tab);
+      if (!raw) {
+        return;
+      }
+      const stored = JSON.parse(raw);
+      if (!stored || !Array.isArray(stored.rows) || !Number.isFinite(stored.loadedAt)) {
+        throw new Error("bad stored import");
+      }
+      if (Date.now() - stored.loadedAt > IMPORT_MAX_AGE_MS) {
+        localStorage.removeItem(IMPORT_STORE_PREFIX + tab);
+        return;
+      }
+      state.drafts[tab].importRows = stored.rows.map((row) => ({ ...row }));
+      state.drafts[tab].importLoadedAt = stored.loadedAt;
+    } catch {
+      try {
+        localStorage.removeItem(IMPORT_STORE_PREFIX + tab);
+      } catch {
+        // ignore
+      }
+    }
+  });
+}
+
 // The PDF importer is admin-only, on both the Trusses and Walls tabs.
 function renderImportSection() {
   const showImport = state.isAdmin && JOB_TYPES[state.activeTab];
   setImportVisible(elements, Boolean(showImport));
 
   if (showImport) {
+    const draft = getActiveDraft();
+    // A preloaded list only lasts one shift; drop it once it's stale.
+    if (
+      draft.importRows.length > 0 &&
+      draft.importLoadedAt &&
+      Date.now() - draft.importLoadedAt > IMPORT_MAX_AGE_MS
+    ) {
+      draft.importRows = [];
+      draft.importLoadedAt = null;
+      persistImportRows(state.activeTab);
+      setImportStatus(elements, "Imported list expired after one shift (8 hours) — import the PDF again.", "warning");
+    }
+
     const config = getImportConfig();
     setImportLabels(elements, config.label, config.column);
-    renderImportList(elements, getActiveDraft().importRows ?? [], config, toggleImportRow);
+    renderImportList(elements, draft.importRows ?? [], config, toggleImportRow);
   }
 }
 
@@ -439,6 +501,7 @@ function toggleImportRow(index, done) {
   const draft = getActiveDraft();
   if (draft.importRows && draft.importRows[index]) {
     draft.importRows[index].done = done;
+    persistImportRows(state.activeTab);
     renderImportSection();
     renderCalculatorSection();
   }
@@ -479,7 +542,10 @@ async function handleImportFile(file) {
 
     const config = getImportConfig();
     const noun = state.activeTab === "walls" ? "panels" : "trusses";
-    getActiveDraft().importRows = rows.map((row) => ({ ...row, done: false }));
+    const draft = getActiveDraft();
+    draft.importRows = rows.map((row) => ({ ...row, done: false }));
+    draft.importLoadedAt = Date.now();
+    persistImportRows(state.activeTab);
     renderImportSection();
     renderCalculatorSection();
     const total = rows.reduce((sum, row) => sum + config.value(row), 0);
@@ -495,7 +561,10 @@ async function handleImportFile(file) {
 }
 
 function clearImport() {
-  getActiveDraft().importRows = [];
+  const draft = getActiveDraft();
+  draft.importRows = [];
+  draft.importLoadedAt = null;
+  persistImportRows(state.activeTab);
   elements.trussFileInput.value = "";
   renderImportSection();
   renderCalculatorSection();
@@ -554,7 +623,9 @@ async function removeJob(jobId) {
 
 // After a save, keep the shared shift details (date, start/end, breaks) so the
 // next crew's job in the same shift only needs crew, bench and amounts. Crew-
-// specific fields (workers, bench, strap, amounts, imported rows) are cleared.
+// specific fields (workers, bench, strap, amounts) are cleared. The imported
+// PDF list survives too — another bench may be working the same job — with the
+// just-saved ticks reset (so they don't double-count) and marked as logged.
 function resetDraftForNextCrew() {
   const previous = getActiveDraft();
   const next = createEmptyDraft();
@@ -563,7 +634,12 @@ function resetDraftForNextCrew() {
   next.endTime = previous.endTime;
   next.break15Checked = previous.break15Checked;
   next.break24Checked = previous.break24Checked;
+  next.importRows = (previous.importRows ?? []).map((row) =>
+    row.done ? { ...row, done: false, loggedCount: (row.loggedCount || 0) + 1 } : { ...row }
+  );
+  next.importLoadedAt = previous.importLoadedAt;
   state.drafts[state.activeTab] = next;
+  persistImportRows(state.activeTab);
   elements.trussFileInput.value = "";
   renderApp();
 }
@@ -931,6 +1007,7 @@ function startLiveUpdates() {
 
 function init() {
   bindEvents();
+  restoreImportRows();
   renderAuthState(elements, null);
   renderApp();
   subscribeToAuthChanges(handleAuthChanged);

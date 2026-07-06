@@ -323,6 +323,7 @@ export function createEmptyDraft() {
     break24Checked: false,
     assignedWorkerIds: [],
     importRows: [],
+    importLoadedAt: null,
     entries: []
   };
 }
