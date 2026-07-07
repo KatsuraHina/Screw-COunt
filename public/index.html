@@ -24,14 +24,10 @@
 
   <main class="app">
     <section class="hero">
-      <div class="tab-strip" role="tablist" aria-label="Job type">
-        <button class="tab-button is-active" type="button" data-job-tab="trusses" role="tab" aria-selected="true">
+      <div class="tab-strip" role="tablist" aria-label="View">
+        <button class="tab-button is-active" type="button" data-job-tab="log" role="tab" aria-selected="true">
           <span class="tab-icon" aria-hidden="true">🏗</span>
-          <span>Trusses</span>
-        </button>
-        <button class="tab-button" type="button" data-job-tab="walls" role="tab" aria-selected="false">
-          <span class="tab-icon" aria-hidden="true">🧱</span>
-          <span>Walls</span>
+          <span>Log job</span>
         </button>
         <button class="tab-button hidden" id="workersTabButton" type="button" data-job-tab="workers" role="tab" aria-selected="false">
           <span class="tab-icon" aria-hidden="true">📊</span>
@@ -65,6 +61,15 @@
               <p id="workerStatus" class="hint"></p>
             </div>
           </details>
+        </div>
+
+        <div class="field">
+          <label id="jobTypeLabel">Job type</label>
+          <div class="segmented" id="jobTypeToggle" role="group" aria-labelledby="jobTypeLabel">
+            <button type="button" class="segmented-option" data-job-type="trusses">🏗 Trusses</button>
+            <button type="button" class="segmented-option" data-job-type="walls">🧱 Walls</button>
+          </div>
+          <p class="hint inline-hint">Set automatically when you import or pick a job (PACK&nbsp;=&nbsp;Walls, TRUSS&nbsp;=&nbsp;Trusses). Metres/hour and screws/hour follow the type. Tap to change it for a manual entry.</p>
         </div>
 
         <div class="field worker-field hidden" id="workerField">

@@ -838,6 +838,65 @@ button:disabled {
   font-size: 0.95rem;
 }
 
+/* Job-type segmented toggle (Trusses / Walls). */
+.segmented {
+  display: flex;
+  gap: 6px;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--panel-strong);
+}
+
+.segmented-option {
+  flex: 1;
+  padding: 10px 12px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--muted);
+  font-weight: 700;
+  font-size: 0.95rem;
+  cursor: pointer;
+  box-shadow: none;
+}
+
+.segmented-option:hover {
+  transform: none;
+  box-shadow: none;
+  color: var(--accent-dark);
+}
+
+.segmented-option.is-active {
+  background: #fff;
+  border-color: var(--border);
+  color: var(--accent-dark);
+  box-shadow: 0 1px 3px rgba(45, 36, 23, 0.12);
+}
+
+/* Type badge on each preloaded-job row. */
+.import-library-type {
+  display: inline-block;
+  margin-right: 8px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  vertical-align: 1px;
+}
+
+.import-library-type-trusses {
+  background: rgba(181, 83, 47, 0.14);
+  color: var(--accent-dark);
+}
+
+.import-library-type-walls {
+  background: rgba(99, 102, 241, 0.16);
+  color: #4338ca;
+}
+
 /* Preloaded jobs library: PDFs imported ahead of time, tap one to load it. */
 .import-library {
   display: grid;

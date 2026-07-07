@@ -43,6 +43,7 @@ import {
   renderWorkerHistorySelect,
   renderWorkerManagement,
   renderWorkerPicker,
+  renderJobTypeToggle,
   renderImportLibrary,
   renderImportList,
   setActiveTabButtons,
@@ -57,6 +58,9 @@ import {
 const elements = getElements();
 const state = {
   activeTab: "trusses",
+  // Remembers the last job type (trusses/walls) so leaving the Charts view
+  // returns to the type you were logging.
+  lastJobType: "trusses",
   drafts: {
     trusses: createEmptyDraft(),
     walls: createEmptyDraft()
@@ -418,6 +422,7 @@ function renderApp() {
   const showJobHistory = !state.isAdmin;
   toggleWorkersView(elements, false, showJobHistory);
   renderTabState(elements, getActiveConfig(), state.activeTab);
+  renderJobTypeToggle(elements, state.activeTab);
   loadDraftIntoInputs();
   renderImportSection();
   renderEntriesSection();
@@ -552,40 +557,59 @@ function pruneImportLibrary(tab) {
   return false;
 }
 
-// Load a preloaded job's rows into the active checklist, replacing whatever is
-// there with a fresh (unticked) copy so nothing double-counts.
-function selectImportJob(id) {
-  const tab = state.activeTab;
-  const job = (state.importLibrary[tab] ?? []).find((entry) => entry.id === id);
+// The preloaded-jobs list is shown as one merged list across both job types.
+// Each entry carries its `type` so selecting it can switch the job type and
+// flip the rate between metres/hour and screws/hour.
+function getMergedImportLibrary() {
+  return Object.keys(JOB_TYPES)
+    .flatMap((type) => (state.importLibrary[type] ?? []).map((job) => ({ ...job, type })))
+    .sort((a, b) => b.loadedAt - a.loadedAt);
+}
+
+// Load a preloaded job's rows into the checklist, replacing whatever is there
+// with a fresh (unticked) copy so nothing double-counts. If the job is of the
+// other type, switch the job type first so metres/screws and the rate follow.
+function selectImportJob(type, id) {
+  const job = (state.importLibrary[type] ?? []).find((entry) => entry.id === id);
   if (!job) {
     return;
   }
-  const draft = getActiveDraft();
+  const draft = state.drafts[type];
   draft.importRows = job.rows.map((row) => ({ ...row, done: false }));
   draft.importLoadedAt = job.loadedAt;
   draft.importJobId = job.id;
-  persistImportRows(tab);
-  renderImportSection();
-  renderCalculatorSection();
+  persistImportRows(type);
+
+  if (type !== state.activeTab) {
+    // Preserve the job we're leaving, then switch the active type. renderApp()
+    // repaints the form (rate label, units, checklist) for the new type.
+    if (JOB_TYPES[state.activeTab]) {
+      syncDraftFromInputs();
+    }
+    state.activeTab = type;
+    state.lastJobType = type;
+  }
+  renderApp();
   setImportStatus(elements, `Loaded "${job.title}". Tick the ones completed.`, "success");
 }
 
 // Remove a preloaded job from the library. If it is the one currently loaded,
-// unload the active checklist too.
-function removeImportJob(id) {
-  const tab = state.activeTab;
-  state.importLibrary[tab] = (state.importLibrary[tab] ?? []).filter((entry) => entry.id !== id);
-  persistImportLibrary(tab);
+// unload its checklist too.
+function removeImportJob(type, id) {
+  state.importLibrary[type] = (state.importLibrary[type] ?? []).filter((entry) => entry.id !== id);
+  persistImportLibrary(type);
 
-  const draft = getActiveDraft();
+  const draft = state.drafts[type];
   if (draft.importJobId === id) {
     draft.importRows = [];
     draft.importLoadedAt = null;
     draft.importJobId = null;
-    persistImportRows(tab);
-    renderCalculatorSection();
+    persistImportRows(type);
   }
   renderImportSection();
+  if (type === state.activeTab) {
+    renderCalculatorSection();
+  }
 }
 
 // The PDF importer is admin-only, on both the Trusses and Walls tabs.
@@ -595,8 +619,9 @@ function renderImportSection() {
 
   if (showImport) {
     const draft = getActiveDraft();
-    // Preloaded jobs only last one shift; drop any that went stale.
-    const prunedLibrary = pruneImportLibrary(state.activeTab);
+    // Preloaded jobs only last one shift; drop any that went stale, across both
+    // types since the list is merged.
+    Object.keys(JOB_TYPES).forEach((type) => pruneImportLibrary(type));
 
     // The active checklist also expires one shift after it was loaded, or when
     // the job it came from is no longer in the library.
@@ -619,7 +644,7 @@ function renderImportSection() {
 
     const config = getImportConfig();
     setImportLabels(elements, config.label, config.column);
-    renderImportLibrary(elements, state.importLibrary[state.activeTab] ?? [], draft.importJobId, {
+    renderImportLibrary(elements, getMergedImportLibrary(), state.activeTab, draft.importJobId, {
       onSelect: selectImportJob,
       onRemove: removeImportJob
     });
@@ -690,7 +715,7 @@ async function handleImportFile(file) {
     persistImportLibrary(tab);
 
     // Load it straight away so it's ready to tick.
-    selectImportJob(id);
+    selectImportJob(tab, id);
     const total = rows.reduce((sum, row) => sum + config.value(row), 0);
     setImportStatus(
       elements,
@@ -1025,6 +1050,11 @@ async function removeWorker(workerId) {
 }
 
 function switchTab(nextTab) {
+  // The "Log job" tab returns to whichever job type was last active.
+  if (nextTab === "log") {
+    nextTab = JOB_TYPES[state.activeTab] ? state.activeTab : state.lastJobType;
+  }
+
   if (nextTab === state.activeTab) {
     return;
   }
@@ -1043,6 +1073,9 @@ function switchTab(nextTab) {
   }
 
   state.activeTab = nextTab;
+  if (JOB_TYPES[nextTab]) {
+    state.lastJobType = nextTab;
+  }
   renderApp();
 }
 
@@ -1145,6 +1178,11 @@ function bindEvents() {
   });
   elements.tabButtons.forEach((button) => {
     button.addEventListener("click", () => switchTab(button.dataset.jobTab));
+  });
+  // Job-type segmented toggle: manual override of trusses/walls (normally set
+  // automatically when a PDF is imported or a preloaded job is picked).
+  elements.jobTypeButtons.forEach((button) => {
+    button.addEventListener("click", () => switchTab(button.dataset.jobType));
   });
 }
 

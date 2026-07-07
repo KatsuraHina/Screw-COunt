@@ -15,6 +15,8 @@ export function getElements() {
     currentUserEmail: document.getElementById("currentUserEmail"),
     tabButtons: Array.from(document.querySelectorAll("[data-job-tab]")),
     workersTabButton: document.getElementById("workersTabButton"),
+    jobTypeToggle: document.getElementById("jobTypeToggle"),
+    jobTypeButtons: Array.from(document.querySelectorAll("[data-job-type]")),
     contentSection: document.querySelector(".content"),
     jobHistoryPanel: document.getElementById("jobHistoryPanel"),
     workerHistoryPanel: document.getElementById("workerHistoryPanel"),
@@ -142,7 +144,7 @@ export function renderTabState(elements, config, activeTab) {
   elements.rateChartTitle.textContent = config.chartRateTitle;
 
   elements.tabButtons.forEach((button) => {
-    const isActive = button.dataset.jobTab === activeTab;
+    const isActive = isTabButtonActive(button.dataset.jobTab, activeTab);
     button.classList.toggle("is-active", isActive);
     button.setAttribute("aria-selected", String(isActive));
   });
@@ -374,11 +376,29 @@ export function toggleWorkersView(elements, showWorkers, showJobHistory) {
   elements.jobHistoryPanel.classList.toggle("hidden", !showJobHistory);
 }
 
+// The "Log job" tab covers both job types, so it stays active for trusses and
+// walls; other tabs match their key exactly.
+function isTabButtonActive(buttonTab, activeTab) {
+  if (buttonTab === "log") {
+    return activeTab === "trusses" || activeTab === "walls";
+  }
+  return buttonTab === activeTab;
+}
+
 export function setActiveTabButtons(elements, activeTab) {
   elements.tabButtons.forEach((button) => {
-    const isActive = button.dataset.jobTab === activeTab;
+    const isActive = isTabButtonActive(button.dataset.jobTab, activeTab);
     button.classList.toggle("is-active", isActive);
     button.setAttribute("aria-selected", String(isActive));
+  });
+}
+
+// Highlight the active job type in the Trusses/Walls segmented toggle.
+export function renderJobTypeToggle(elements, activeType) {
+  elements.jobTypeButtons.forEach((button) => {
+    const isActive = button.dataset.jobType === activeType;
+    button.classList.toggle("is-active", isActive);
+    button.setAttribute("aria-pressed", String(isActive));
   });
 }
 
@@ -774,10 +794,12 @@ export function renderWorkerHistory(elements, jobs, workerName, charts, handlers
   };
 }
 
-// Render the list of preloaded jobs. Each row loads its rows when tapped and
-// can be removed with the × button. `activeId` highlights the loaded job.
-// `jobs` are `{ id, title, rows }`; `handlers` are `onSelect(id)` / `onRemove(id)`.
-export function renderImportLibrary(elements, jobs, activeId, handlers = {}) {
+// Render the merged list of preloaded jobs (both trusses and walls). Each row
+// shows a type badge, loads its rows when tapped, and can be removed with the ×
+// button. A row is highlighted only when it is the loaded job of the active
+// type. `jobs` are `{ id, title, rows, type }`; `handlers` are
+// `onSelect(type, id)` / `onRemove(type, id)`.
+export function renderImportLibrary(elements, jobs, activeType, activeId, handlers = {}) {
   const hasJobs = jobs.length > 0;
   elements.importLibrary.classList.toggle("hidden", !hasJobs);
   elements.importLibraryList.innerHTML = "";
@@ -785,7 +807,7 @@ export function renderImportLibrary(elements, jobs, activeId, handlers = {}) {
   jobs.forEach((job) => {
     const item = document.createElement("li");
     item.className = "import-library-row";
-    if (job.id === activeId) {
+    if (job.type === activeType && job.id === activeId) {
       item.classList.add("is-active");
     }
 
@@ -793,17 +815,20 @@ export function renderImportLibrary(elements, jobs, activeId, handlers = {}) {
     select.type = "button";
     select.className = "import-library-select";
     const count = job.rows.length;
+    const typeLabel = job.type === "walls" ? "Walls" : "Trusses";
     select.innerHTML =
-      `<span class="import-library-title">${job.title}</span>` +
+      `<span class="import-library-title">` +
+      `<span class="import-library-type import-library-type-${job.type}">${typeLabel}</span>` +
+      `${job.title}</span>` +
       `<span class="import-library-count">${count} row${count === 1 ? "" : "s"}</span>`;
-    select.addEventListener("click", () => handlers.onSelect?.(job.id));
+    select.addEventListener("click", () => handlers.onSelect?.(job.type, job.id));
 
     const remove = document.createElement("button");
     remove.type = "button";
     remove.className = "import-library-remove";
     remove.setAttribute("aria-label", `Remove ${job.title}`);
     remove.textContent = "×";
-    remove.addEventListener("click", () => handlers.onRemove?.(job.id));
+    remove.addEventListener("click", () => handlers.onRemove?.(job.type, job.id));
 
     item.append(select, remove);
     elements.importLibraryList.appendChild(item);
