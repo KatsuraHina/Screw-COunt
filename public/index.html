@@ -69,7 +69,6 @@
             <button type="button" class="segmented-option" data-job-type="trusses">🏗 Trusses</button>
             <button type="button" class="segmented-option" data-job-type="walls">🧱 Walls</button>
           </div>
-          <p class="hint inline-hint">Set automatically when you import or pick a job (PACK&nbsp;=&nbsp;Walls, TRUSS&nbsp;=&nbsp;Trusses). Metres/hour and screws/hour follow the type. Tap to change it for a manual entry.</p>
         </div>
 
         <div class="field worker-field hidden" id="workerField">
@@ -88,7 +87,6 @@
         <div class="field">
           <label for="workDate">Work date</label>
           <input id="workDate" type="date">
-          <p class="hint inline-hint">Pick the day the shift started. Forgot to log a job? Set it to that past date and enter both the start and end times. For overnight jobs the end time rolls into the next day automatically.</p>
         </div>
 
         <div class="field">
@@ -115,7 +113,6 @@
             <option value="18">18</option>
             <option value="19">19</option>
           </select>
-          <p class="hint inline-hint">Which bench (1–19) this job was done on. Required before saving.</p>
         </div>
 
         <div class="field-grid">
@@ -135,8 +132,6 @@
             </div>
           </div>
         </div>
-        <p class="hint inline-hint">Just type the time (e.g. <strong>5:30</strong>) — the app picks AM/PM for you. Tap AM/PM to flip it if needed. Leave end time empty for a live count today.</p>
-
         <div class="field-grid">
           <div class="field">
             <label for="strapStart">Strap &amp; brace start</label>
@@ -148,8 +143,6 @@
             <input id="strapEnd" type="text" inputmode="numeric" placeholder="e.g. 2:00" autocomplete="off">
           </div>
         </div>
-        <p class="hint inline-hint">Just the start and end of strap &amp; brace — no AM/PM needed, we only work out how long it took. It is tracked separately and not removed from worked time.</p>
-
         <div class="field truss-import hidden" id="trussImport">
           <label id="importLabel">Import truss list (PDF)</label>
           <div class="dropzone" id="trussDropzone" tabindex="0" role="button" aria-label="Import PDF">
@@ -187,7 +180,6 @@
             <button id="addAmountButton" type="button">Add metres</button>
             <button id="endJobButton" class="secondary-outline-button" type="button" disabled>End job</button>
           </div>
-          <p class="hint inline-hint">Each tab keeps its own running job, so you can switch between trusses and walls without losing your progress.</p>
         </div>
 
         <div class="field">
