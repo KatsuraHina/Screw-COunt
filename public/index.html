@@ -140,21 +140,15 @@
         <div class="field-grid">
           <div class="field">
             <label for="strapStart">Strap &amp; brace start</label>
-            <div class="time-input">
-              <input id="strapStart" type="text" inputmode="numeric" placeholder="e.g. 1:30" autocomplete="off">
-              <button id="strapStartMeridiem" class="ampm-toggle" type="button" aria-label="Toggle AM/PM for strap start" disabled>AM</button>
-            </div>
+            <input id="strapStart" type="text" inputmode="numeric" placeholder="e.g. 1:30" autocomplete="off">
           </div>
 
           <div class="field">
             <label for="strapEnd">Strap &amp; brace end</label>
-            <div class="time-input">
-              <input id="strapEnd" type="text" inputmode="numeric" placeholder="e.g. 2:00" autocomplete="off">
-              <button id="strapEndMeridiem" class="ampm-toggle" type="button" aria-label="Toggle AM/PM for strap end" disabled>AM</button>
-            </div>
+            <input id="strapEnd" type="text" inputmode="numeric" placeholder="e.g. 2:00" autocomplete="off">
           </div>
         </div>
-        <p class="hint inline-hint">Strap &amp; brace is done outside the start/end times, so it is tracked separately and not removed from worked time.</p>
+        <p class="hint inline-hint">Just the start and end of strap &amp; brace — no AM/PM needed, we only work out how long it took. It is tracked separately and not removed from worked time.</p>
 
         <div class="field truss-import hidden" id="trussImport">
           <label id="importLabel">Import truss list (PDF)</label>

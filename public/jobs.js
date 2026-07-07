@@ -139,20 +139,19 @@ export function calculateWorkedMinutes(startTimeValue, endTimeValue, workDateVal
 
 // Strap time is a span (e.g. banding the finished product) that is lost from the
 // shift. Both a start and end are required; an end before the start rolls over.
-export function calculateStrapMinutes(strapStartValue, strapEndValue, workDateValue) {
-  if (!strapStartValue || !strapEndValue) {
+// How long strap & brace took. Strap is a short task done right after the job,
+// so AM/PM is irrelevant — both times are read on a 12-hour dial and the end is
+// rolled forward past the start. Returns whole minutes (0 if either is blank).
+export function calculateStrapMinutes(strapStartValue, strapEndValue) {
+  const start = parseFlexibleTime(strapStartValue);
+  const end = parseFlexibleTime(strapEndValue);
+  if (!start || !end) {
     return 0;
   }
 
-  const reference = parseDateValue(workDateValue) ?? startOfReferenceDay(new Date());
-  const start = parseTimeAgainstReference(strapStartValue, reference);
-  const end = parseTimeAgainstReference(strapEndValue, reference);
-
-  if (end < start) {
-    end.setDate(end.getDate() + 1);
-  }
-
-  return Math.max(0, Math.floor((end - start) / 60000));
+  const startDial = (start.hour12 % 12) * 60 + start.minute;
+  const endDial = (end.hour12 % 12) * 60 + end.minute;
+  return (endDial - startDial + 720) % 720;
 }
 
 // --- Smart 12-hour time entry ---------------------------------------------

@@ -148,23 +148,20 @@ function getTickedImportMetres() {
 // unchanged; the text input shows the 12-hour value and the toggle the AM/PM.
 const SMART_TIME_FIELDS = [
   { input: "startTimeInput", toggle: "startTimeMeridiem", key: "startTime" },
-  { input: "endTimeInput", toggle: "endTimeMeridiem", key: "endTime" },
-  { input: "strapStartInput", toggle: "strapStartMeridiem", key: "strapStart" },
-  { input: "strapEndInput", toggle: "strapEndMeridiem", key: "strapEnd" }
+  { input: "endTimeInput", toggle: "endTimeMeridiem", key: "endTime" }
 ];
+
+// Strap & brace is entered as a plain start/end without AM/PM — the duration is
+// read on a 12-hour dial (see calculateStrapMinutes), so it skips the smart-time
+// (AM/PM guessing) machinery above and is synced/bound as a plain input.
 
 // Start/end pairs that must fit inside one shift (max 8 hours). Used to
 // auto-correct an AM/PM guess that produced an impossible duration.
-const SMART_TIME_PAIRS = [
-  { startKey: "startTime", endKey: "endTime" },
-  { startKey: "strapStart", endKey: "strapEnd" }
-];
+const SMART_TIME_PAIRS = [{ startKey: "startTime", endKey: "endTime" }];
 
 const SMART_TIME_LABELS = {
   startTime: "start time",
-  endTime: "end time",
-  strapStart: "strap & brace start",
-  strapEnd: "strap & brace end"
+  endTime: "end time"
 };
 
 // The smart-time fields are not synced here — their own handlers write the
@@ -176,6 +173,10 @@ function syncDraftFromInputs() {
   draft.pendingAmount = elements.amountInput.value;
   draft.break15Checked = elements.break15Input.checked;
   draft.break24Checked = elements.break24Input.checked;
+  // Strap times are plain (no AM/PM), so they're synced here rather than by the
+  // smart-time handlers.
+  draft.strapStart = elements.strapStartInput.value;
+  draft.strapEnd = elements.strapEndInput.value;
 }
 
 // Show a draft's canonical 24-hour value as a 12-hour text + AM/PM toggle.
@@ -271,6 +272,8 @@ function loadDraftIntoInputs() {
   SMART_TIME_FIELDS.forEach(({ input, toggle, key }) => {
     renderSmartTimeField(elements[input], elements[toggle], draft[key]);
   });
+  elements.strapStartInput.value = draft.strapStart;
+  elements.strapEndInput.value = draft.strapEnd;
   elements.amountInput.value = draft.pendingAmount;
   elements.break15Input.checked = draft.break15Checked;
   elements.break24Input.checked = draft.break24Checked;
@@ -327,7 +330,7 @@ function getBreakMinutes() {
 
 function getStrapMinutes() {
   const draft = getActiveDraft();
-  return calculateStrapMinutes(draft.strapStart, draft.strapEnd, draft.workDate);
+  return calculateStrapMinutes(draft.strapStart, draft.strapEnd);
 }
 
 function getCalculatorViewModel() {
@@ -1084,7 +1087,9 @@ function bindEvents() {
     elements.workDateInput,
     elements.benchSelect,
     elements.break15Input,
-    elements.break24Input
+    elements.break24Input,
+    elements.strapStartInput,
+    elements.strapEndInput
   ].forEach((element) => {
     element.addEventListener("input", () => {
       syncDraftFromInputs();
