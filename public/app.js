@@ -61,6 +61,8 @@ const state = {
   // Remembers the last job type (trusses/walls) so leaving the Charts view
   // returns to the type you were logging.
   lastJobType: "trusses",
+  // Whose imports are currently loaded in memory (see syncImportsForUser).
+  importOwnerKey: null,
   drafts: {
     trusses: createEmptyDraft(),
     walls: createEmptyDraft()
@@ -439,16 +441,33 @@ function renderApp() {
 // Preloaded import lists live in localStorage so the admin can load the day's
 // PDF ahead of time and still have it after a reload. A list only lasts one
 // shift (8 hours) from when it was imported, then it must be imported again.
+//
+// Storage is namespaced per signed-in user so imports stay private — one
+// person (including the admin) never sees another user's imports on a shared
+// device.
 const IMPORT_STORE_PREFIX = "screwcount.importList.";
 const IMPORT_LIB_PREFIX = "screwcount.importJobs.";
 const IMPORT_MAX_AGE_MS = 8 * 60 * 60 * 1000;
+
+// Identifies whose imports these are. Falls back to "anon" before sign-in.
+function importUserKey() {
+  return state.currentUser?.uid || state.currentUser?.email || "anon";
+}
+
+function importListKey(tab) {
+  return `${IMPORT_STORE_PREFIX}${importUserKey()}.${tab}`;
+}
+
+function importLibraryKey(tab) {
+  return `${IMPORT_LIB_PREFIX}${importUserKey()}.${tab}`;
+}
 
 function persistImportRows(tab) {
   const draft = state.drafts[tab];
   try {
     if (Array.isArray(draft.importRows) && draft.importRows.length > 0) {
       localStorage.setItem(
-        IMPORT_STORE_PREFIX + tab,
+        importListKey(tab),
         JSON.stringify({
           loadedAt: draft.importLoadedAt ?? Date.now(),
           jobId: draft.importJobId ?? null,
@@ -456,7 +475,7 @@ function persistImportRows(tab) {
         })
       );
     } else {
-      localStorage.removeItem(IMPORT_STORE_PREFIX + tab);
+      localStorage.removeItem(importListKey(tab));
     }
   } catch {
     // Storage unavailable (private mode etc.) — the list just won't persist.
@@ -466,7 +485,7 @@ function persistImportRows(tab) {
 function restoreImportRows() {
   Object.keys(JOB_TYPES).forEach((tab) => {
     try {
-      const raw = localStorage.getItem(IMPORT_STORE_PREFIX + tab);
+      const raw = localStorage.getItem(importListKey(tab));
       if (!raw) {
         return;
       }
@@ -475,7 +494,7 @@ function restoreImportRows() {
         throw new Error("bad stored import");
       }
       if (Date.now() - stored.loadedAt > IMPORT_MAX_AGE_MS) {
-        localStorage.removeItem(IMPORT_STORE_PREFIX + tab);
+        localStorage.removeItem(importListKey(tab));
         return;
       }
       state.drafts[tab].importRows = stored.rows.map((row) => ({ ...row }));
@@ -483,7 +502,7 @@ function restoreImportRows() {
       state.drafts[tab].importJobId = stored.jobId ?? null;
     } catch {
       try {
-        localStorage.removeItem(IMPORT_STORE_PREFIX + tab);
+        localStorage.removeItem(importListKey(tab));
       } catch {
         // ignore
       }
@@ -499,9 +518,9 @@ function persistImportLibrary(tab) {
   const jobs = state.importLibrary[tab] ?? [];
   try {
     if (jobs.length > 0) {
-      localStorage.setItem(IMPORT_LIB_PREFIX + tab, JSON.stringify(jobs));
+      localStorage.setItem(importLibraryKey(tab), JSON.stringify(jobs));
     } else {
-      localStorage.removeItem(IMPORT_LIB_PREFIX + tab);
+      localStorage.removeItem(importLibraryKey(tab));
     }
   } catch {
     // Storage unavailable (private mode etc.) — the library just won't persist.
@@ -511,7 +530,7 @@ function persistImportLibrary(tab) {
 function restoreImportLibrary() {
   Object.keys(JOB_TYPES).forEach((tab) => {
     try {
-      const raw = localStorage.getItem(IMPORT_LIB_PREFIX + tab);
+      const raw = localStorage.getItem(importLibraryKey(tab));
       if (!raw) {
         return;
       }
@@ -538,12 +557,37 @@ function restoreImportLibrary() {
       persistImportLibrary(tab);
     } catch {
       try {
-        localStorage.removeItem(IMPORT_LIB_PREFIX + tab);
+        localStorage.removeItem(importLibraryKey(tab));
       } catch {
         // ignore
       }
     }
   });
+}
+
+// Imports are per-user. When the signed-in user changes, drop the previous
+// user's in-memory imports and restore this user's own from their namespace.
+// Admins get their preloaded-jobs library; everyone gets their single active
+// list. Keeps imports private across users on a shared device.
+function syncImportsForUser() {
+  const key = importUserKey();
+  if (key === state.importOwnerKey) {
+    return;
+  }
+  state.importOwnerKey = key;
+
+  Object.keys(JOB_TYPES).forEach((tab) => {
+    state.importLibrary[tab] = [];
+    const draft = state.drafts[tab];
+    draft.importRows = [];
+    draft.importLoadedAt = null;
+    draft.importJobId = null;
+  });
+
+  if (state.isAdmin) {
+    restoreImportLibrary();
+  }
+  restoreImportRows();
 }
 
 // Drop jobs older than one shift; returns true if anything expired so the
@@ -623,17 +667,20 @@ function renderImportSection() {
 
   if (showImport) {
     const draft = getActiveDraft();
-    // Preloaded jobs only last one shift; drop any that went stale, across both
-    // types since the list is merged.
-    Object.keys(JOB_TYPES).forEach((type) => pruneImportLibrary(type));
+    // The preloaded-jobs library is admin-only; workers keep just one import at
+    // a time. Only admins prune the library.
+    if (state.isAdmin) {
+      Object.keys(JOB_TYPES).forEach((type) => pruneImportLibrary(type));
+    }
 
-    // The active checklist also expires one shift after it was loaded, or when
-    // the job it came from is no longer in the library.
+    // The active checklist also expires one shift after it was loaded, or (for
+    // admins) when the job it came from is no longer in the library.
     const activeExpired =
       draft.importRows.length > 0 &&
       draft.importLoadedAt &&
       Date.now() - draft.importLoadedAt > IMPORT_MAX_AGE_MS;
     const activeJobGone =
+      state.isAdmin &&
       draft.importJobId &&
       !(state.importLibrary[state.activeTab] ?? []).some((job) => job.id === draft.importJobId);
     if (activeExpired || activeJobGone) {
@@ -648,10 +695,15 @@ function renderImportSection() {
 
     const config = getImportConfig();
     setImportLabels(elements, config.label, config.column);
-    renderImportLibrary(elements, getMergedImportLibrary(), state.activeTab, draft.importJobId, {
-      onSelect: selectImportJob,
-      onRemove: removeImportJob
-    });
+    if (state.isAdmin) {
+      renderImportLibrary(elements, getMergedImportLibrary(), state.activeTab, draft.importJobId, {
+        onSelect: selectImportJob,
+        onRemove: removeImportJob
+      });
+    } else {
+      // Non-admins have no library — keep it hidden.
+      elements.importLibrary.classList.add("hidden");
+    }
     renderImportList(elements, draft.importRows ?? [], config, toggleImportRow);
   }
 }
@@ -702,6 +754,26 @@ async function handleImportFile(file) {
     const config = getImportConfig();
     const noun = state.activeTab === "walls" ? "panels" : "trusses";
     const tab = state.activeTab;
+    const total = rows.reduce((sum, row) => sum + config.value(row), 0);
+
+    if (!state.isAdmin) {
+      // Non-admins keep just one import at a time — a new PDF replaces the
+      // current checklist (no preloaded-jobs library).
+      const draft = getActiveDraft();
+      draft.importRows = rows.map((row) => ({ ...row, done: false }));
+      draft.importLoadedAt = Date.now();
+      draft.importJobId = null;
+      persistImportRows(tab);
+      renderImportSection();
+      renderCalculatorSection();
+      setImportStatus(
+        elements,
+        `${switchNote}Loaded ${rows.length} ${noun} (${config.format(total)} total). Tick the ones completed.`,
+        "success"
+      );
+      return;
+    }
+
     const title = deriveImportTitle(file.name);
     const id = title.toLowerCase();
     const job = { id, title, loadedAt: Date.now(), rows: rows.map((row) => ({ ...row })) };
@@ -720,7 +792,6 @@ async function handleImportFile(file) {
 
     // Load it straight away so it's ready to tick.
     selectImportJob(tab, id);
-    const total = rows.reduce((sum, row) => sum + config.value(row), 0);
     setImportStatus(
       elements,
       `${switchNote}${alreadyThere ? "Refreshed" : "Added"} "${title}" — ${rows.length} ${noun} (${config.format(total)} total). Tick the ones completed.`,
@@ -965,6 +1036,10 @@ function handleAuthChanged(user) {
   renderAuthState(elements, user);
   renderWorkerAdminVisibility(elements, state.isAdmin);
 
+  // Load this user's own imports (and drop the previous user's) so imports stay
+  // private across accounts on a shared device.
+  syncImportsForUser();
+
   // The Charts tab is admin-only; fall back to the calculator if access is lost.
   if (!state.isAdmin && state.activeTab === "workers") {
     state.activeTab = "trusses";
@@ -1198,8 +1273,8 @@ function startLiveUpdates() {
 
 function init() {
   bindEvents();
-  restoreImportLibrary();
-  restoreImportRows();
+  // Imports are restored per-user once auth resolves (see syncImportsForUser),
+  // so nothing is loaded here.
   renderAuthState(elements, null);
   renderApp();
   subscribeToAuthChanges(handleAuthChanged);
