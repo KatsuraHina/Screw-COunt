@@ -615,10 +615,11 @@ function removeImportJob(type, id) {
   }
 }
 
-// The PDF importer is admin-only, on both the Trusses and Walls tabs.
+// The PDF importer is available to everyone (admins and workers) on both the
+// Trusses and Walls tabs.
 function renderImportSection() {
-  const showImport = state.isAdmin && JOB_TYPES[state.activeTab];
-  setImportVisible(elements, Boolean(showImport));
+  const showImport = Boolean(JOB_TYPES[state.activeTab]);
+  setImportVisible(elements, showImport);
 
   if (showImport) {
     const draft = getActiveDraft();
