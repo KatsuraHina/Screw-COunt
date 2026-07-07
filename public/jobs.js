@@ -68,6 +68,19 @@ export function formatDateLabel(dateKey) {
   });
 }
 
+// Format an ISO timestamp as a 12-hour clock time, e.g. "5:30 AM". Returns ""
+// when the value is missing or unparseable (older jobs may lack startedAt).
+export function formatClockTime(isoValue) {
+  if (!isoValue) {
+    return "";
+  }
+  const date = new Date(isoValue);
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+  return date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+}
+
 export function parseTimeAgainstReference(timeValue, referenceDate) {
   if (!timeValue) {
     return null;

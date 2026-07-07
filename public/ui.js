@@ -2,6 +2,7 @@ import {
   aggregateBenchShiftTotals,
   aggregateHistorySeriesByDay,
   aggregateShiftSeriesByDay,
+  formatClockTime,
   formatDateLabel,
   formatMinutes,
   summarizeWorkerJobs
@@ -750,8 +751,11 @@ export function renderWorkerHistory(elements, jobs, workerName, charts, handlers
     const withText = coworkers.length > 0 ? ` · with ${coworkers.join(" & ")}` : "";
     const strapText = job.strapMinutes > 0 ? ` · strap ${job.strapMinutes}m` : "";
     const benchText = job.benchNumber ? ` · Bench ${job.benchNumber}` : "";
+    const startText = formatClockTime(job.startedAt);
+    const endText = formatClockTime(job.endedAt);
+    const timeText = startText && endText ? ` · ${startText}–${endText}` : "";
     const jobLabel =
-      `${formatDateLabel(job.dayKey)} · ${typeLabel}${benchText} · ${formatJobUnits(job)} · ` +
+      `${formatDateLabel(job.dayKey)}${timeText} · ${typeLabel}${benchText} · ${formatJobUnits(job)} · ` +
       `${formatMinutes(job.netWorkedMinutes)} · ${formatJobRate(job)}${strapText}${withText}`;
     text.textContent = jobLabel;
 
