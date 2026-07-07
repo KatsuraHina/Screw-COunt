@@ -613,29 +613,54 @@ function getMergedImportLibrary() {
     .sort((a, b) => b.loadedAt - a.loadedAt);
 }
 
+// Shift/crew details that belong to a job regardless of its type. When an
+// imported job of the OTHER type is picked, these carry over so nothing the
+// admin already entered disappears. Type-specific fields (metres/screws
+// amounts, entries, import rows) are not carried.
+const SHARED_SHIFT_KEYS = [
+  "workDate",
+  "startTime",
+  "endTime",
+  "break15Checked",
+  "break24Checked",
+  "strapStart",
+  "strapEnd",
+  "benchNumber",
+  "assignedWorkerIds"
+];
+
 // Load a preloaded job's rows into the checklist, replacing whatever is there
 // with a fresh (unticked) copy so nothing double-counts. If the job is of the
-// other type, switch the job type first so metres/screws and the rate follow.
+// other type, switch the job type first (so metres/screws and the rate follow)
+// while carrying over the shared shift/crew details already entered.
 function selectImportJob(type, id) {
   const job = (state.importLibrary[type] ?? []).find((entry) => entry.id === id);
   if (!job) {
     return;
   }
-  const draft = state.drafts[type];
-  draft.importRows = job.rows.map((row) => ({ ...row, done: false }));
-  draft.importLoadedAt = job.loadedAt;
-  draft.importJobId = job.id;
-  persistImportRows(type);
+
+  const targetDraft = state.drafts[type];
 
   if (type !== state.activeTab) {
-    // Preserve the job we're leaving, then switch the active type. renderApp()
-    // repaints the form (rate label, units, checklist) for the new type.
+    // Carry the shared shift/crew details from the job we're leaving so the
+    // admin doesn't lose what they entered when the picked job is a different
+    // type. renderApp() then repaints the form for the new type.
     if (JOB_TYPES[state.activeTab]) {
       syncDraftFromInputs();
+      const current = getActiveDraft();
+      SHARED_SHIFT_KEYS.forEach((key) => {
+        targetDraft[key] = Array.isArray(current[key]) ? [...current[key]] : current[key];
+      });
     }
     state.activeTab = type;
     state.lastJobType = type;
   }
+
+  targetDraft.importRows = job.rows.map((row) => ({ ...row, done: false }));
+  targetDraft.importLoadedAt = job.loadedAt;
+  targetDraft.importJobId = job.id;
+  persistImportRows(type);
+
   renderApp();
   setImportStatus(elements, `Loaded "${job.title}". Tick the ones completed.`, "success");
 }
