@@ -373,6 +373,8 @@ export function createJobPayload({
   endTimeValue,
   breakMinutes,
   strapMinutes = 0,
+  strapStartValue = "",
+  strapEndValue = "",
   totalAmount,
   importMetres = 0,
   entries,
@@ -402,6 +404,10 @@ export function createJobPayload({
     benchNumber: Number(benchNumber) || null,
     breakMinutes,
     strapMinutes,
+    // Kept alongside strapMinutes purely so a later edit can re-populate the
+    // strap start/end fields exactly, instead of only the computed duration.
+    ...(strapStartValue ? { strapStart: strapStartValue } : {}),
+    ...(strapEndValue ? { strapEnd: strapEndValue } : {}),
     rawWorkedMinutes,
     netWorkedMinutes,
     totalUnits: totalAmount,

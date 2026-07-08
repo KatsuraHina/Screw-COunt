@@ -19,6 +19,9 @@ export function getElements() {
     workersTabButton: document.getElementById("workersTabButton"),
     jobTypeToggle: document.getElementById("jobTypeToggle"),
     jobTypeButtons: Array.from(document.querySelectorAll("[data-job-type]")),
+    editBanner: document.getElementById("editBanner"),
+    editBannerText: document.getElementById("editBannerText"),
+    cancelEditButton: document.getElementById("cancelEditButton"),
     contentSection: document.querySelector(".content"),
     jobHistoryPanel: document.getElementById("jobHistoryPanel"),
     workerHistoryPanel: document.getElementById("workerHistoryPanel"),
@@ -762,6 +765,15 @@ export function renderWorkerHistory(elements, jobs, workerName, charts, handlers
 
     const actions = document.createElement("div");
     actions.className = "entry-actions";
+
+    if (typeof handlers.onEditJob === "function" && job.id) {
+      const editButton = document.createElement("button");
+      editButton.type = "button";
+      editButton.className = "entry-action";
+      editButton.textContent = "Edit";
+      editButton.addEventListener("click", () => handlers.onEditJob(job));
+      actions.appendChild(editButton);
+    }
 
     if (typeof handlers.onHideJob === "function" && job.id) {
       const hideButton = document.createElement("button");

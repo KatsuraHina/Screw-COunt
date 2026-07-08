@@ -76,6 +76,12 @@ export async function setJobHiddenRecord(jobId, hidden) {
   await updateDoc(doc(db, "jobs", jobId), { hidden });
 }
 
+// Overwrites a job's editable fields (times, amounts, crew, etc.) in place.
+// Fields not present in `job` (e.g. hidden, userId, createdAt) are left as-is.
+export async function updateJobRecord(jobId, job) {
+  await updateDoc(doc(db, "jobs", jobId), job);
+}
+
 export async function addWorkerRecord(name, user) {
   const docRef = await addDoc(collection(db, "workers"), {
     name,

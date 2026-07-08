@@ -599,7 +599,8 @@ button:disabled {
   box-shadow: none;
 }
 
-/* Neutral secondary action (Hide / Unhide) next to Delete on a logged job. */
+/* Neutral secondary action (Edit, Hide / Unhide) next to Delete on a logged
+   job, and reused for the "Cancel edit" button in the edit banner. */
 .entry-action {
   width: auto;
   min-width: 72px;
@@ -623,6 +624,27 @@ button:disabled {
 .is-hidden-job .entry-text {
   opacity: 0.55;
   font-style: italic;
+}
+
+/* Banner shown on the Log job form while editing an existing logged job. */
+.edit-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: rgba(99, 102, 241, 0.12);
+  border: 1px solid rgba(99, 102, 241, 0.35);
+}
+
+.edit-banner.hidden {
+  display: none;
+}
+
+.edit-banner span {
+  font-weight: 700;
+  color: #4338ca;
 }
 
 /* "Show hidden jobs" checkbox in the worker-history controls. Overrides the

@@ -8,9 +8,12 @@ import {
   logoutCurrentUser,
   saveJobRecord,
   setJobHiddenRecord,
-  subscribeToAuthChanges
+  subscribeToAuthChanges,
+  updateJobRecord
 } from "./firebase-service.js";
 import {
+  BREAK_15,
+  BREAK_24,
   JOB_TYPES,
   calculateBreakMinutes,
   calculateStrapMinutes,
@@ -64,6 +67,9 @@ const state = {
   lastJobType: "trusses",
   // Whose imports are currently loaded in memory (see syncImportsForUser).
   importOwnerKey: null,
+  // The logged job currently loaded into the Log job form for editing, or
+  // null. { id, jobType, originalStrapMinutes }.
+  editingJob: null,
   drafts: {
     trusses: createEmptyDraft(),
     walls: createEmptyDraft()
@@ -94,6 +100,18 @@ function getActiveConfig() {
 
 function getActiveDraft() {
   return state.drafts[state.activeTab];
+}
+
+function isEditingActiveTab() {
+  return Boolean(state.editingJob && state.editingJob.jobType === state.activeTab);
+}
+
+// Shows/hides the "Editing a logged job" banner and swaps the End job button's
+// label to match, for the active job-type tab.
+function renderEditBanner() {
+  const editing = isEditingActiveTab();
+  elements.editBanner.classList.toggle("hidden", !editing);
+  elements.endJobButton.textContent = editing ? "Save changes" : "End job";
 }
 
 // How the imported cut list behaves per tab: trusses count lineal metres,
@@ -430,6 +448,7 @@ function renderApp() {
   toggleWorkersView(elements, false, showJobHistory);
   renderTabState(elements, getActiveConfig(), state.activeTab);
   renderJobTypeToggle(elements, state.activeTab);
+  renderEditBanner();
   loadDraftIntoInputs();
   renderImportSection();
   renderEntriesSection();
@@ -874,7 +893,12 @@ function renderWorkerHistoryView() {
     jobs,
     isAll ? "" : worker ? worker.name : "",
     state.workerHistory.charts,
-    { onRemoveJob: removeJob, onHideJob: setJobHidden, showHidden: state.workerHistory.showHidden }
+    {
+      onRemoveJob: removeJob,
+      onHideJob: setJobHidden,
+      onEditJob: startEditJob,
+      showHidden: state.workerHistory.showHidden
+    }
   );
 }
 
@@ -913,6 +937,88 @@ async function setJobHidden(jobId, hidden) {
     console.error(error);
     window.alert(formatFirestoreError(error));
   }
+}
+
+// Local "HH:MM" (24-hour) of a Date's clock time — matches the canonical
+// format the smart-time fields store, so it can be dropped straight into a
+// draft's startTime/endTime.
+function formatClockKey(date) {
+  return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
+}
+
+// Load a logged job back into the Log job form for editing. Switches to that
+// job's type/tab, replacing the draft there (after confirming if it holds
+// unsaved progress), so the End job button becomes "Save changes" and updates
+// the existing record instead of creating a new one.
+function startEditJob(job) {
+  if (!state.isAdmin) {
+    return;
+  }
+
+  const targetTab = JOB_TYPES[job.jobType] ? job.jobType : "trusses";
+  const targetDraft = state.drafts[targetTab];
+  const hasUnsavedProgress =
+    targetDraft.entries.length > 0 ||
+    Number.parseFloat(targetDraft.pendingAmount) > 0 ||
+    (targetDraft.importRows ?? []).some((row) => row.done);
+
+  if (
+    hasUnsavedProgress &&
+    !window.confirm(
+      `Editing this job will replace what you've currently entered on the ${JOB_TYPES[targetTab].label} tab. Continue?`
+    )
+  ) {
+    return;
+  }
+
+  const startDate = new Date(job.startedAt);
+  const endDate = new Date(job.endedAt);
+  const breakMinutes = Number(job.breakMinutes) || 0;
+
+  const editedDraft = createEmptyDraft();
+  editedDraft.workDate = formatDateKey(startDate);
+  editedDraft.benchNumber = job.benchNumber ? String(job.benchNumber) : "";
+  editedDraft.startTime = formatClockKey(startDate);
+  editedDraft.endTime = formatClockKey(endDate);
+  // Older jobs (saved before strap start/end were recorded) only have a
+  // duration, not clock times — leave the fields blank in that case; saving
+  // without touching them keeps the original duration (see createPendingJob).
+  editedDraft.strapStart = job.strapStart || "";
+  editedDraft.strapEnd = job.strapEnd || "";
+  editedDraft.break15Checked = breakMinutes === BREAK_15 || breakMinutes === BREAK_15 + BREAK_24;
+  editedDraft.break24Checked = breakMinutes === BREAK_24 || breakMinutes === BREAK_15 + BREAK_24;
+  editedDraft.assignedWorkerIds = Array.isArray(job.assignedWorkerIds) ? [...job.assignedWorkerIds] : [];
+  editedDraft.entries = Array.isArray(job.entries) ? job.entries.map((entry) => ({ ...entry })) : [];
+
+  state.drafts[targetTab] = editedDraft;
+  state.editingJob = { id: job.id, jobType: targetTab, originalStrapMinutes: Number(job.strapMinutes) || 0 };
+
+  if (targetTab !== state.activeTab) {
+    if (JOB_TYPES[state.activeTab]) {
+      syncDraftFromInputs();
+    }
+    state.activeTab = targetTab;
+    state.lastJobType = targetTab;
+  }
+
+  renderApp();
+  elements.workDateInput.scrollIntoView({ behavior: "smooth", block: "center" });
+  setStatus(elements, "Editing this job — make your changes and tap Save changes, or Cancel edit.", "warning");
+}
+
+function cancelEditJob() {
+  if (!state.editingJob) {
+    return;
+  }
+
+  const tab = state.editingJob.jobType;
+  state.editingJob = null;
+  state.drafts[tab] = createEmptyDraft();
+
+  if (tab === state.activeTab) {
+    renderApp();
+  }
+  setStatus(elements, "Edit cancelled.");
 }
 
 // After a save, keep the shared shift details (date, start/end, breaks) so the
@@ -965,8 +1071,16 @@ function createPendingJob() {
   const entries = getCombinedEntries();
   const totalAmount = getTotalAmount(entries);
   const breakMinutes = getBreakMinutes();
-  const strapMinutes = getStrapMinutes();
+  const editing = isEditingActiveTab();
+  let strapMinutes = getStrapMinutes();
+  if (editing && strapMinutes === 0 && !draft.strapStart && !draft.strapEnd) {
+    // Blank strap fields while editing keep the job's original strap time
+    // rather than erasing it — needed for older jobs that predate storing
+    // strapStart/strapEnd, so there's nothing to re-populate the fields with.
+    strapMinutes = state.editingJob.originalStrapMinutes;
+  }
   const config = getActiveConfig();
+  const actionLabel = editing ? "saving your changes" : "ending and saving a job";
 
   if (!state.currentUser) {
     setStatus(elements, "Sign in before saving a job.", "warning");
@@ -974,13 +1088,13 @@ function createPendingJob() {
   }
 
   if (!draft.startTime) {
-    setStatus(elements, "Enter a start time before ending and saving a job.", "warning");
+    setStatus(elements, `Enter a start time before ${actionLabel}.`, "warning");
     return null;
   }
 
   const benchNumber = Number(elements.benchSelect.value);
   if (!Number.isInteger(benchNumber) || benchNumber < 1 || benchNumber > 19) {
-    setStatus(elements, "Select a bench (1–19) before ending and saving a job.", "warning");
+    setStatus(elements, `Select a bench (1–19) before ${actionLabel}.`, "warning");
     return null;
   }
 
@@ -1004,6 +1118,8 @@ function createPendingJob() {
     endTimeValue: draft.endTime,
     breakMinutes,
     strapMinutes,
+    strapStartValue: draft.strapStart,
+    strapEndValue: draft.strapEnd,
     totalAmount,
     importMetres: getTickedImportMetres(),
     entries,
@@ -1025,21 +1141,41 @@ async function saveJob() {
     return;
   }
 
+  const editing = isEditingActiveTab();
   elements.endJobButton.disabled = true;
   elements.endJobButton.textContent = "Saving...";
 
   try {
-    const savedJob = await saveJobRecord(job, state.currentUser);
-    state.savedJobs.unshift(normalizeJob(savedJob));
-    resetDraftForNextCrew();
-    renderHistorySection();
-    setStatus(elements, `${getActiveConfig().label} job saved. Shift details kept — pick the next crew and bench.`);
+    if (editing) {
+      const jobId = state.editingJob.id;
+      await updateJobRecord(jobId, job);
+      // updateDoc only touches the given fields, so hidden/userId/createdAt on
+      // the existing record are preserved — merge onto the cached copy to match.
+      const index = state.savedJobs.findIndex((item) => item.id === jobId);
+      const updated = normalizeJob({ ...(index >= 0 ? state.savedJobs[index] : {}), ...job, id: jobId });
+      if (index >= 0) {
+        state.savedJobs[index] = updated;
+      } else {
+        state.savedJobs.unshift(updated);
+      }
+      state.editingJob = null;
+      state.drafts[state.activeTab] = createEmptyDraft();
+      renderApp();
+      renderHistorySection();
+      setStatus(elements, `${getActiveConfig().label} job updated.`, "success");
+    } else {
+      const savedJob = await saveJobRecord(job, state.currentUser);
+      state.savedJobs.unshift(normalizeJob(savedJob));
+      resetDraftForNextCrew();
+      renderHistorySection();
+      setStatus(elements, `${getActiveConfig().label} job saved. Shift details kept — pick the next crew and bench.`);
+    }
   } catch (error) {
     console.error(error);
     setStatus(elements, formatFirestoreError(error), "warning");
   } finally {
     elements.endJobButton.disabled = false;
-    elements.endJobButton.textContent = "End job";
+    renderEditBanner();
   }
 }
 
@@ -1250,6 +1386,7 @@ function bindEvents() {
   });
   elements.addAmountButton.addEventListener("click", addEntry);
   elements.endJobButton.addEventListener("click", saveJob);
+  elements.cancelEditButton.addEventListener("click", cancelEditJob);
   elements.logoutButton.addEventListener("click", handleLogout);
   elements.rangeSelect.addEventListener("change", renderHistorySection);
   elements.workerHistorySelect.addEventListener("change", () => {
