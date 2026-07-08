@@ -7,7 +7,10 @@ service cloud.firestore {
         && request.resource.data.userId == request.auth.uid
         && request.resource.data.userEmail is string;
       allow delete: if request.auth != null && resource.data.userId == request.auth.uid;
-      allow update: if false;
+      // Owners may toggle only the `hidden` flag (to hide a job from charts).
+      allow update: if request.auth != null
+        && resource.data.userId == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['hidden']);
     }
 
     match /workers/{workerId} {

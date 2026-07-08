@@ -24,6 +24,7 @@ export function getElements() {
     workerHistorySelect: document.getElementById("workerHistorySelect"),
     workerRangeSelect: document.getElementById("workerRangeSelect"),
     benchFilterSelect: document.getElementById("benchFilterSelect"),
+    showHiddenJobs: document.getElementById("showHiddenJobs"),
     whJobs: document.getElementById("whJobs"),
     whAvgMetres: document.getElementById("whAvgMetres"),
     whAvgScrews: document.getElementById("whAvgScrews"),
@@ -728,19 +729,23 @@ function renderBenchShiftChart(canvas, jobs, unit, currentChart, getValue) {
 // holds the existing charts so they can be destroyed before re-rendering.
 // `handlers.onRemoveJob` (admin only) deletes a job from the log.
 export function renderWorkerHistory(elements, jobs, workerName, charts, handlers = {}) {
-  const summary = summarizeWorkerJobs(jobs);
+  // Charts and stats always exclude hidden jobs.
+  const visibleJobs = jobs.filter((job) => !job.hidden);
+  const summary = summarizeWorkerJobs(visibleJobs);
   elements.whJobs.textContent = String(summary.jobs);
   elements.whAvgMetres.textContent = `${summary.avgMetresPerHour.toFixed(2)} m/h`;
   elements.whAvgScrews.textContent = `${summary.avgScrewsPerHour.toFixed(2)} screws/h`;
   elements.whTimeLost.textContent = formatMinutes(summary.avgStrapMinutes);
 
-  // Job list (already sorted newest-first by the caller)
+  // The list shows visible jobs; hidden ones appear only when "Show hidden" is on
+  // so they can be unhidden. (Both already sorted newest-first by the caller.)
+  const listJobs = handlers.showHidden ? jobs : visibleJobs;
   elements.workerJobsList.innerHTML = "";
-  elements.workerJobsEmpty.hidden = jobs.length > 0;
+  elements.workerJobsEmpty.hidden = listJobs.length > 0;
 
-  jobs.forEach((job) => {
+  listJobs.forEach((job) => {
     const item = document.createElement("li");
-    item.className = "entry-row";
+    item.className = job.hidden ? "entry-row is-hidden-job" : "entry-row";
 
     const text = document.createElement("span");
     text.className = "entry-text";
@@ -757,9 +762,18 @@ export function renderWorkerHistory(elements, jobs, workerName, charts, handlers
     const jobLabel =
       `${formatDateLabel(job.dayKey)}${timeText} · ${typeLabel}${benchText} · ${formatJobUnits(job)} · ` +
       `${formatMinutes(job.netWorkedMinutes)} · ${formatJobRate(job)}${strapText}${withText}`;
-    text.textContent = jobLabel;
+    text.textContent = job.hidden ? `${jobLabel} · hidden` : jobLabel;
 
     item.appendChild(text);
+
+    if (typeof handlers.onHideJob === "function" && job.id) {
+      const hideButton = document.createElement("button");
+      hideButton.type = "button";
+      hideButton.className = "entry-action";
+      hideButton.textContent = job.hidden ? "Unhide" : "Hide";
+      hideButton.addEventListener("click", () => handlers.onHideJob(job.id, !job.hidden));
+      item.appendChild(hideButton);
+    }
 
     if (typeof handlers.onRemoveJob === "function" && job.id) {
       const removeButton = document.createElement("button");
@@ -777,8 +791,8 @@ export function renderWorkerHistory(elements, jobs, workerName, charts, handlers
     elements.workerJobsList.appendChild(item);
   });
 
-  const trussJobs = jobs.filter((job) => job.jobType !== "walls");
-  const wallJobs = jobs.filter((job) => job.jobType === "walls");
+  const trussJobs = visibleJobs.filter((job) => job.jobType !== "walls");
+  const wallJobs = visibleJobs.filter((job) => job.jobType === "walls");
   const existing = charts || {};
 
   return {

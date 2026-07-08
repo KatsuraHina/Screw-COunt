@@ -7,6 +7,7 @@ import {
   loadWorkerRecords,
   logoutCurrentUser,
   saveJobRecord,
+  setJobHiddenRecord,
   subscribeToAuthChanges
 } from "./firebase-service.js";
 import {
@@ -80,6 +81,7 @@ const state = {
   },
   workerHistory: {
     selectedWorkerId: "all",
+    showHidden: false,
     charts: { metres: null, screws: null, trussMetresShift: null, wallMetresShift: null, screwsShift: null, benchMetres: null, benchScrews: null }
   },
   currentUser: null,
@@ -872,7 +874,7 @@ function renderWorkerHistoryView() {
     jobs,
     isAll ? "" : worker ? worker.name : "",
     state.workerHistory.charts,
-    { onRemoveJob: removeJob }
+    { onRemoveJob: removeJob, onHideJob: setJobHidden, showHidden: state.workerHistory.showHidden }
   );
 }
 
@@ -884,6 +886,27 @@ async function removeJob(jobId) {
   try {
     await deleteJobRecord(jobId);
     state.savedJobs = state.savedJobs.filter((job) => job.id !== jobId);
+    renderWorkerHistoryView();
+    renderHistorySection();
+  } catch (error) {
+    console.error(error);
+    window.alert(formatFirestoreError(error));
+  }
+}
+
+// Hide (or unhide) a logged job: it stays in the database but is excluded from
+// the charts and stats. Reversible via the "Show hidden jobs" toggle.
+async function setJobHidden(jobId, hidden) {
+  if (!state.isAdmin) {
+    return;
+  }
+
+  try {
+    await setJobHiddenRecord(jobId, hidden);
+    const job = state.savedJobs.find((item) => item.id === jobId);
+    if (job) {
+      job.hidden = hidden;
+    }
     renderWorkerHistoryView();
     renderHistorySection();
   } catch (error) {
@@ -1235,6 +1258,10 @@ function bindEvents() {
   });
   elements.workerRangeSelect.addEventListener("change", renderWorkerHistoryView);
   elements.benchFilterSelect.addEventListener("change", renderWorkerHistoryView);
+  elements.showHiddenJobs.addEventListener("change", () => {
+    state.workerHistory.showHidden = elements.showHiddenJobs.checked;
+    renderWorkerHistoryView();
+  });
 
   // Truss PDF import: click/keyboard to browse, drag-and-drop, and clear.
   elements.trussDropzone.addEventListener("click", () => elements.trussFileInput.click());

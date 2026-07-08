@@ -15,6 +15,7 @@ import {
   getFirestore,
   query,
   serverTimestamp,
+  updateDoc,
   where
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 import { firebaseConfig, firebaseProjectId } from "./firebase-config.js";
@@ -69,6 +70,10 @@ export async function loadJobRecords(user) {
 
 export async function deleteJobRecord(jobId) {
   await deleteDoc(doc(db, "jobs", jobId));
+}
+
+export async function setJobHiddenRecord(jobId, hidden) {
+  await updateDoc(doc(db, "jobs", jobId), { hidden });
 }
 
 export async function addWorkerRecord(name, user) {

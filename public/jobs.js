@@ -613,7 +613,9 @@ export function normalizeJob(job) {
       : [],
     assignedWorkerIds,
     assignedWorkers,
-    assignedToLabel: typeof job.assignedToLabel === "string" ? job.assignedToLabel : ""
+    assignedToLabel: typeof job.assignedToLabel === "string" ? job.assignedToLabel : "",
+    // Hidden jobs are kept in the database but excluded from charts and stats.
+    hidden: Boolean(job.hidden)
   };
 }
 

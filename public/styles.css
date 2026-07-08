@@ -599,6 +599,49 @@ button:disabled {
   box-shadow: none;
 }
 
+/* Neutral secondary action (Hide / Unhide) next to Delete on a logged job. */
+.entry-action {
+  width: auto;
+  min-width: 72px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--panel-strong);
+  color: var(--accent-dark);
+  font-size: 0.92rem;
+  font-weight: 700;
+  box-shadow: none;
+}
+
+.entry-action:hover {
+  transform: none;
+  box-shadow: none;
+  background: #ecd9b6;
+}
+
+/* A hidden job shown in the list (only when "Show hidden jobs" is on). */
+.is-hidden-job .entry-text {
+  opacity: 0.55;
+  font-style: italic;
+}
+
+/* "Show hidden jobs" checkbox in the worker-history controls. Overrides the
+   grid layout that .history-controls label otherwise applies. */
+.history-controls .show-hidden-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  white-space: nowrap;
+  padding-bottom: 12px;
+}
+
+.history-controls .show-hidden-toggle input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent);
+}
+
 /* Work details header holds the title and the compact "Manage workers" dropdown */
 .work-details-head {
   display: flex;
