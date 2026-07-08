@@ -1198,10 +1198,30 @@ select {
   font-size: 1.02rem;
 }
 
+/* Stack the job text and its action buttons so the narrow jobs panel doesn't
+   squish the text into a sliver. Text takes the full width; Hide/Delete sit in
+   a row beneath it. */
 .worker-jobs .entry-row {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
   margin-bottom: 0;
-  padding: 10px 0;
+  padding: 12px 0;
   border-bottom: 1px solid rgba(221, 199, 163, 0.6);
+}
+
+.entry-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.entry-actions .entry-action,
+.entry-actions .entry-remove {
+  min-width: 0;
+  flex: 0 0 auto;
+  padding: 6px 16px;
 }
 
 .history-grid .chart-wrap {

@@ -766,13 +766,16 @@ export function renderWorkerHistory(elements, jobs, workerName, charts, handlers
 
     item.appendChild(text);
 
+    const actions = document.createElement("div");
+    actions.className = "entry-actions";
+
     if (typeof handlers.onHideJob === "function" && job.id) {
       const hideButton = document.createElement("button");
       hideButton.type = "button";
       hideButton.className = "entry-action";
       hideButton.textContent = job.hidden ? "Unhide" : "Hide";
       hideButton.addEventListener("click", () => handlers.onHideJob(job.id, !job.hidden));
-      item.appendChild(hideButton);
+      actions.appendChild(hideButton);
     }
 
     if (typeof handlers.onRemoveJob === "function" && job.id) {
@@ -785,7 +788,11 @@ export function renderWorkerHistory(elements, jobs, workerName, charts, handlers
           handlers.onRemoveJob(job.id);
         }
       });
-      item.appendChild(removeButton);
+      actions.appendChild(removeButton);
+    }
+
+    if (actions.childElementCount > 0) {
+      item.appendChild(actions);
     }
 
     elements.workerJobsList.appendChild(item);
