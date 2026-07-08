@@ -423,13 +423,15 @@ export function createJobPayload({
 // partitioned so every job lands in exactly one shift. The 1:30pm–2pm gap
 // between the stated morning/afternoon shifts is folded into the afternoon.
 export const SHIFTS = [
-  { key: "morning", label: "Morning", hint: "5:30a–1:30p" },
+  { key: "morning", label: "Morning", hint: "6a–1:30p" },
   { key: "afternoon", label: "Afternoon", hint: "2p–10p" },
-  { key: "night", label: "Night", hint: "10p–5:30a" }
+  { key: "night", label: "Night", hint: "10p–6a" }
 ];
 
 const NIGHT_START = 22 * 60; // 22:00
-const MORNING_START = 5 * 60 + 30; // 05:30
+// Night runs 10pm–6am, so it wins the 5:30–6:00am overlap with the morning
+// shift: a job that starts before 6:00am is the tail of that night shift.
+const MORNING_START = 6 * 60; // 06:00
 const AFTERNOON_START = 13 * 60 + 30; // 13:30 (folds the 1:30–2pm gap into afternoon)
 
 export function getJobShift(job) {
