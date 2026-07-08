@@ -506,6 +506,43 @@ export function aggregateShiftSeriesByDay(jobs, getValue = (job) => job.totalUni
   };
 }
 
+// Rate (units per worker-hour) per shift: one row per shift-day, with a value
+// for each shift (morning/afternoon/night). Overnight shifts cross midnight, so
+// jobs are grouped by getShiftDayKey (which rolls early-morning work back to the
+// previous evening) rather than by calendar day — keeping a night shift as one
+// column. Rate = units / worker-hours within each shift.
+export function aggregateShiftRateSeriesByDay(jobs) {
+  const dayShift = new Map();
+
+  jobs.forEach((job) => {
+    const shift = getJobShift(job);
+    const dayKey = getShiftDayKey(job);
+    const day =
+      dayShift.get(dayKey) ??
+      new Map(SHIFTS.map((s) => [s.key, { units: 0, workerMinutes: 0 }]));
+    const bucket = day.get(shift);
+    bucket.units += Number(job.totalUnits) || 0;
+    bucket.workerMinutes += (Number(job.netWorkedMinutes) || 0) * getWorkerCount(job);
+    dayShift.set(dayKey, day);
+  });
+
+  const sortedKeys = Array.from(dayShift.keys()).sort((a, b) => a.localeCompare(b));
+
+  return {
+    labels: sortedKeys.map(formatDateLabel),
+    shifts: SHIFTS.map((shift) => ({
+      key: shift.key,
+      label: shift.label,
+      values: sortedKeys.map((dayKey) => {
+        const bucket = dayShift.get(dayKey).get(shift.key);
+        const workerHours = bucket.workerMinutes / 60;
+        const rate = workerHours > 0 ? bucket.units / workerHours : 0;
+        return Number(rate.toFixed(2));
+      })
+    }))
+  };
+}
+
 // Benches are a fixed roster numbered 1–19.
 export const BENCH_NUMBERS = Array.from({ length: 19 }, (_, index) => index + 1);
 

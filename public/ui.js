@@ -1,6 +1,7 @@
 import {
   aggregateBenchShiftTotals,
   aggregateHistorySeriesByDay,
+  aggregateShiftRateSeriesByDay,
   aggregateShiftSeriesByDay,
   formatClockTime,
   formatDateLabel,
@@ -534,70 +535,6 @@ const RATE_AXIS_STYLE = {
   padding: 8
 };
 
-function renderRateChart(canvas, jobs, unit, currentChart) {
-  const ChartLibrary = window.Chart;
-  if (currentChart) {
-    currentChart.destroy();
-  }
-  if (!ChartLibrary) {
-    return null;
-  }
-
-  const aggregated = aggregateHistorySeriesByDay(jobs);
-
-  return new ChartLibrary(canvas, {
-    type: "line",
-    data: {
-      labels: aggregated.labels,
-      datasets: [
-        {
-          label: `${unit}/hour`,
-          data: aggregated.rateValues,
-          borderColor: "rgba(181, 83, 47, 1)",
-          backgroundColor: "rgba(181, 83, 47, 0.14)",
-          fill: true,
-          tension: 0.32,
-          pointRadius: 4,
-          pointHoverRadius: 7,
-          pointHitRadius: 16,
-          pointBackgroundColor: "rgba(255, 250, 242, 1)",
-          pointHoverBackgroundColor: "rgba(181, 83, 47, 1)",
-          pointBorderColor: "rgba(143, 63, 34, 1)",
-          pointBorderWidth: 2
-        }
-      ]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      // Hovering anywhere above a day (not just exactly on the dot) shows that
-      // day's value; the dot for that day enlarges and fills to mark it.
-      interaction: { mode: "index", intersect: false },
-      plugins: {
-        legend: { display: false },
-        tooltip: {
-          displayColors: false,
-          padding: 12,
-          titleFont: { size: 14, weight: "700" },
-          bodyFont: { size: 14 },
-          callbacks: { label: (context) => `${context.parsed.y.toFixed(2)} ${unit}/h` }
-        }
-      },
-      scales: {
-        y: {
-          beginAtZero: true,
-          grid: { color: "rgba(111, 96, 75, 0.14)", drawBorder: false },
-          ticks: { ...RATE_AXIS_STYLE, callback: (value) => `${value} ${unit}/h` }
-        },
-        x: {
-          grid: { display: false },
-          ticks: RATE_AXIS_STYLE
-        }
-      }
-    }
-  });
-}
-
 const SHIFT_BAR_COLORS = {
   morning:   { bg: "rgba(245, 158, 11, 0.85)",  border: "rgba(180, 113, 6, 1)" },
   afternoon: { bg: "rgba(181, 83, 47, 0.88)",   border: "rgba(143, 63, 34, 1)" },
@@ -652,6 +589,63 @@ function renderShiftChart(canvas, jobs, unit, currentChart, getValue) {
           beginAtZero: true,
           grid: { color: "rgba(111, 96, 75, 0.14)", drawBorder: false },
           ticks: { ...RATE_AXIS_STYLE, callback: (value) => `${Number(value).toFixed(decimals)} ${unit}` }
+        },
+        x: {
+          grid: { display: false },
+          ticks: RATE_AXIS_STYLE
+        }
+      }
+    }
+  });
+}
+
+// Grouped bar chart of the rate (metres/hour or screws/hour) per shift. The
+// x-axis is each shift-day; within it there is one bar per shift so you can
+// read each shift's output rate. Overnight shifts stay in one column (grouped
+// by shift-day, not calendar day).
+function renderShiftRateChart(canvas, jobs, unit, currentChart) {
+  const ChartLibrary = window.Chart;
+  if (currentChart) {
+    currentChart.destroy();
+  }
+  if (!ChartLibrary) {
+    return null;
+  }
+
+  const series = aggregateShiftRateSeriesByDay(jobs);
+
+  const datasets = series.shifts.map((shift) => ({
+    label: shift.label,
+    data: shift.values,
+    backgroundColor: SHIFT_BAR_COLORS[shift.key]?.bg ?? "rgba(181,83,47,0.88)",
+    borderColor: SHIFT_BAR_COLORS[shift.key]?.border ?? "rgba(143,63,34,1)",
+    borderWidth: 1,
+    borderRadius: 8,
+    borderSkipped: false
+  }));
+
+  return new ChartLibrary(canvas, {
+    type: "bar",
+    data: {
+      labels: series.labels,
+      datasets
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: true, labels: { ...RATE_AXIS_STYLE } },
+        tooltip: {
+          callbacks: {
+            label: (context) => `${context.dataset.label}: ${context.parsed.y.toFixed(2)} ${unit}/h`
+          }
+        }
+      },
+      scales: {
+        y: {
+          beginAtZero: true,
+          grid: { color: "rgba(111, 96, 75, 0.14)", drawBorder: false },
+          ticks: { ...RATE_AXIS_STYLE, callback: (value) => `${value} ${unit}/h` }
         },
         x: {
           grid: { display: false },
@@ -803,8 +797,10 @@ export function renderWorkerHistory(elements, jobs, workerName, charts, handlers
   const existing = charts || {};
 
   return {
-    metres: renderRateChart(elements.workerMetresChartCanvas, trussJobs, "m", existing.metres),
-    screws: renderRateChart(elements.workerScrewsChartCanvas, wallJobs, "screws", existing.screws),
+    // Output rate per shift (overnight shifts stay in one column, not split
+    // across two calendar days).
+    metres: renderShiftRateChart(elements.workerMetresChartCanvas, trussJobs, "m", existing.metres),
+    screws: renderShiftRateChart(elements.workerScrewsChartCanvas, wallJobs, "screws", existing.screws),
     // Metres are split by job type: trusses' metres are their units, while wall
     // metres come from the panels' lineal M. Screws stay wall-only.
     trussMetresShift: renderShiftChart(elements.workerTrussMetresShiftChartCanvas, trussJobs, "m", existing.trussMetresShift, (job) => job.metres),
@@ -812,7 +808,7 @@ export function renderWorkerHistory(elements, jobs, workerName, charts, handlers
     screwsShift: renderShiftChart(elements.workerScrewsShiftChartCanvas, wallJobs, "screws", existing.screwsShift, (job) => job.totalUnits),
     // Per-bench totals: metres spans all jobs (trusses + wall-panel metres),
     // screws stay wall-only.
-    benchMetres: renderBenchShiftChart(elements.workerBenchMetresChartCanvas, jobs, "m", existing.benchMetres, (job) => job.metres),
+    benchMetres: renderBenchShiftChart(elements.workerBenchMetresChartCanvas, visibleJobs, "m", existing.benchMetres, (job) => job.metres),
     benchScrews: renderBenchShiftChart(elements.workerBenchScrewsChartCanvas, wallJobs, "screws", existing.benchScrews, (job) => job.totalUnits)
   };
 }
