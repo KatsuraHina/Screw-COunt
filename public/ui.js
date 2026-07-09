@@ -69,7 +69,6 @@ export function getElements() {
     workerPickerOptions: document.getElementById("workerPickerOptions"),
     trussImport: document.getElementById("trussImport"),
     importLabel: document.getElementById("importLabel"),
-    importColumn: document.getElementById("importColumn"),
     trussDropzone: document.getElementById("trussDropzone"),
     trussFileInput: document.getElementById("trussFileInput"),
     trussImportStatus: document.getElementById("trussImportStatus"),
@@ -99,7 +98,6 @@ export function getElements() {
     rateOutput: document.getElementById("rate"),
     statusMessage: document.getElementById("statusMessage"),
     historyTitle: document.getElementById("historyTitle"),
-    historyDescription: document.getElementById("historyDescription"),
     totalChartTitle: document.getElementById("totalChartTitle"),
     rateChartTitle: document.getElementById("rateChartTitle"),
     totalChartCanvas: document.getElementById("totalChart"),
@@ -145,7 +143,6 @@ export function renderTabState(elements, config, activeTab) {
   elements.entriesEmpty.textContent = config.emptyEntriesText;
   elements.rateLabel.textContent = config.rateLabel;
   elements.historyTitle.textContent = `${config.label} History`;
-  elements.historyDescription.textContent = "Multiple jobs on the same day are grouped together into one daily result.";
   elements.totalChartTitle.textContent = config.chartTotalTitle;
   elements.rateChartTitle.textContent = config.chartRateTitle;
 
@@ -930,9 +927,8 @@ export function renderImportList(elements, rows, config, onToggle) {
     : `${ticked.length} of ${rows.length} ticked`;
 }
 
-export function setImportLabels(elements, label, column) {
+export function setImportLabels(elements, label) {
   elements.importLabel.textContent = label;
-  elements.importColumn.textContent = column;
 }
 
 export function setImportStatus(elements, message, tone = "hint") {
