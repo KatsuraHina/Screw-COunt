@@ -618,6 +618,15 @@ const SHARED_SHIFT_KEYS = [
   "assignedWorkerIds"
 ];
 
+// Copy the shared shift/crew details from one draft to another (arrays cloned
+// so the two drafts don't alias). Type-specific fields (amounts, entries,
+// import rows) are left untouched.
+function carryShiftDetails(fromDraft, toDraft) {
+  SHARED_SHIFT_KEYS.forEach((key) => {
+    toDraft[key] = Array.isArray(fromDraft[key]) ? [...fromDraft[key]] : fromDraft[key];
+  });
+}
+
 // Load a preloaded job's rows into the checklist, replacing whatever is there
 // with a fresh (unticked) copy so nothing double-counts. If the job is of the
 // other type, switch the job type first (so metres/screws and the rate follow)
@@ -636,10 +645,7 @@ function selectImportJob(type, id) {
     // type. renderApp() then repaints the form for the new type.
     if (JOB_TYPES[state.activeTab]) {
       syncDraftFromInputs();
-      const current = getActiveDraft();
-      SHARED_SHIFT_KEYS.forEach((key) => {
-        targetDraft[key] = Array.isArray(current[key]) ? [...current[key]] : current[key];
-      });
+      carryShiftDetails(getActiveDraft(), targetDraft);
     }
     state.activeTab = type;
     state.lastJobType = type;
@@ -1323,6 +1329,13 @@ function switchTab(nextTab) {
   // Preserve any in-progress job before leaving a calculator tab.
   if (JOB_TYPES[state.activeTab]) {
     syncDraftFromInputs();
+    // Carry the shared shift/crew details across to the other job type so the
+    // admin doesn't re-enter the date, times, shift, breaks, strap, bench and
+    // crew when logging the same crew's other work. Skip when the target tab
+    // holds a job being edited, so its saved values aren't overwritten.
+    if (JOB_TYPES[nextTab] && !(state.editingJob && state.editingJob.jobType === nextTab)) {
+      carryShiftDetails(getActiveDraft(), state.drafts[nextTab]);
+    }
   }
 
   state.activeTab = nextTab;
