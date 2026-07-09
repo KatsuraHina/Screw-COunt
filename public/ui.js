@@ -198,7 +198,9 @@ export function renderCalculator(elements, calculatorViewModel, config) {
   if (calculatorViewModel.breaksExceedWorkedTime) {
     setStatus(
       elements,
-      "Breaks and strap time are longer than the worked time so it is held at zero.",
+      calculatorViewModel.strapAbsorbedBreak
+        ? "The break runs past the finish time, so the overflow was taken out of the strap & brace time."
+        : "Breaks are longer than the worked time so it is held at zero.",
       "warning"
     );
     return;

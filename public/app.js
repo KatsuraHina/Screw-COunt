@@ -15,6 +15,7 @@ import {
   BREAK_15,
   BREAK_24,
   JOB_TYPES,
+  adjustStrapForBreakOverflow,
   calculateBreakMinutes,
   calculateStrapMinutes,
   calculateWorkedMinutes,
@@ -349,16 +350,19 @@ function getCalculatorViewModel() {
   const netWorkedMinutes = Math.max(rawWorkedMinutes - lostMinutes, 0);
   const hoursWorked = netWorkedMinutes / 60;
   const numWorkers = Math.max(getActiveDraft().assignedWorkerIds.length, 1);
+  // A break that runs past the finish time is taken out of the bracing instead.
+  const adjustedStrapMinutes = adjustStrapForBreakOverflow(strapMinutes, breakMinutes, rawWorkedMinutes);
 
   return {
     hasStartTime: true,
     hasEndTime: Boolean(draft.endTime),
     breakMinutes,
-    strapMinutes,
+    strapMinutes: adjustedStrapMinutes,
     totalAmount,
     netWorkedMinutes,
     rate: hoursWorked > 0 ? totalAmount / hoursWorked / numWorkers : 0,
-    breaksExceedWorkedTime: rawWorkedMinutes < lostMinutes
+    breaksExceedWorkedTime: rawWorkedMinutes < lostMinutes,
+    strapAbsorbedBreak: adjustedStrapMinutes < strapMinutes
   };
 }
 

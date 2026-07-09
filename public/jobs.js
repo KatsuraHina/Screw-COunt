@@ -167,6 +167,18 @@ export function calculateStrapMinutes(strapStartValue, strapEndValue) {
   return (endDial - startDial + 720) % 720;
 }
 
+// Breaks come out of the worked window first. If they run past the job's finish
+// time — i.e. the total break minutes are longer than the worked window
+// (end − start) — that overflow is taken out of the strap & brace time instead
+// of vanishing. Returns the strap minutes left after absorbing the overflow,
+// never below zero.
+export function adjustStrapForBreakOverflow(strapMinutes, breakMinutes, rawWorkedMinutes) {
+  const worked = Number(rawWorkedMinutes) || 0;
+  const breaks = Number(breakMinutes) || 0;
+  const overflow = Math.max(breaks - worked, 0);
+  return Math.max((Number(strapMinutes) || 0) - overflow, 0);
+}
+
 // --- Smart 12-hour time entry ---------------------------------------------
 // Workers type a bare time (e.g. "5:30") and the app picks AM/PM for them.
 //
@@ -398,6 +410,8 @@ export function createJobPayload({
   // Strap & brace happens outside the start/end window, so it is recorded but
   // NOT deducted from worked time. Worked time only removes breaks.
   const netWorkedMinutes = Math.max(rawWorkedMinutes - breakMinutes, 0);
+  // A break that runs past the finish time comes out of the bracing instead.
+  const adjustedStrapMinutes = adjustStrapForBreakOverflow(strapMinutes, breakMinutes, rawWorkedMinutes);
   const workers = Array.isArray(assignedWorkers) ? assignedWorkers : [];
   const workerCount = Math.max(workers.length, 1);
   // Trusses are measured in metres already; walls are measured in screws but
@@ -412,7 +426,7 @@ export function createJobPayload({
     dayKey: formatDateKey(start),
     benchNumber: Number(benchNumber) || null,
     breakMinutes,
-    strapMinutes,
+    strapMinutes: adjustedStrapMinutes,
     // Kept alongside strapMinutes purely so a later edit can re-populate the
     // strap start/end fields exactly, instead of only the computed duration.
     ...(strapStartValue ? { strapStart: strapStartValue } : {}),
