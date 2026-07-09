@@ -83,7 +83,6 @@
             <button type="button" class="segmented-option" data-shift="morning">🌅 Morning</button>
             <button type="button" class="segmented-option" data-shift="afternoon">☀️ Afternoon</button>
           </div>
-          <p class="hint inline-hint">Pick the shift, then just type the times — AM/PM is set from the shift (Night 10pm–5:45am, Morning 5:45am–1:30pm, Afternoon 2pm–10pm).</p>
         </div>
 
         <div class="field worker-field hidden" id="workerField">
@@ -96,7 +95,6 @@
               <div id="workerPickerOptions"></div>
             </div>
           </details>
-          <p class="hint inline-hint">Pick everyone working this job. Choose two or more when they work together — pairings can change job to job.</p>
         </div>
 
         <div class="field">
@@ -162,14 +160,13 @@
           <label id="importLabel">Import truss list (PDF)</label>
           <div class="dropzone" id="trussDropzone" tabindex="0" role="button" aria-label="Import PDF">
             <input id="trussFileInput" type="file" accept="application/pdf" hidden>
-            <p class="dropzone-text">Drag a PDF here, or tap to choose.<br>We read the <strong>No.</strong>, <strong>Number</strong> and <strong id="importColumn">Lineal M</strong> columns.</p>
+            <p class="dropzone-text">Drag a PDF here, or tap to choose.</p>
           </div>
           <p id="trussImportStatus" class="hint"></p>
 
           <div class="import-library hidden" id="importLibrary">
             <div class="import-library-head">
               <strong>Preloaded jobs</strong>
-              <span class="hint">Tap to load. Kept for one shift (8 hours).</span>
             </div>
             <ul id="importLibraryList" class="import-library-list"></ul>
           </div>
@@ -258,7 +255,6 @@
     <div class="history-header">
       <div>
         <h2 id="historyTitle">Trusses History</h2>
-        <p id="historyDescription">Multiple jobs on the same day are grouped together into one daily result.</p>
       </div>
 
       <div class="history-controls">
@@ -291,7 +287,6 @@
     <div class="history-header">
       <div>
         <h2>Worker history</h2>
-        <p>Review each worker's logged jobs, hours, and output.</p>
       </div>
 
       <div class="history-controls">
