@@ -555,6 +555,16 @@ const SHIFT_BAR_COLORS = {
   night:     { bg: "rgba(99, 102, 241, 0.85)",  border: "rgba(67, 56, 202, 1)" }
 };
 
+// Keep only the shifts that actually have data across the range. A shift with
+// no jobs anywhere would otherwise still claim a slot inside every date group,
+// pushing the remaining bar off to the side. Dropping it lets a single-shift
+// worker's bar sit centred under each date. If nothing has data, keep the list
+// as-is so the (empty) chart still renders its axes.
+function activeShiftSeries(shifts) {
+  const withData = shifts.filter((shift) => shift.values.some((value) => value > 0));
+  return withData.length > 0 ? withData : shifts;
+}
+
 // Grouped bar chart of the daily amount (metres or screws) per shift. The
 // x-axis is each day; within a day there is one bar per shift so you can see
 // how much each shift produced day by day, not one accumulated total.
@@ -570,7 +580,7 @@ function renderShiftChart(canvas, jobs, unit, currentChart, getValue) {
   const series = aggregateShiftSeriesByDay(jobs, getValue);
   const decimals = unit === "screws" ? 0 : 2;
 
-  const datasets = series.shifts.map((shift) => ({
+  const datasets = activeShiftSeries(series.shifts).map((shift) => ({
     label: shift.label,
     data: shift.values,
     backgroundColor: SHIFT_BAR_COLORS[shift.key]?.bg ?? "rgba(181,83,47,0.88)",
@@ -628,7 +638,7 @@ function renderShiftRateChart(canvas, jobs, unit, currentChart) {
 
   const series = aggregateShiftRateSeriesByDay(jobs);
 
-  const datasets = series.shifts.map((shift) => ({
+  const datasets = activeShiftSeries(series.shifts).map((shift) => ({
     label: shift.label,
     data: shift.values,
     backgroundColor: SHIFT_BAR_COLORS[shift.key]?.bg ?? "rgba(181,83,47,0.88)",
@@ -685,7 +695,7 @@ function renderBenchShiftChart(canvas, jobs, unit, currentChart, getValue) {
   const series = aggregateBenchShiftTotals(jobs, getValue);
   const decimals = unit === "screws" ? 0 : 2;
 
-  const datasets = series.shifts.map((shift) => ({
+  const datasets = activeShiftSeries(series.shifts).map((shift) => ({
     label: shift.label,
     data: shift.values,
     backgroundColor: SHIFT_BAR_COLORS[shift.key]?.bg ?? "rgba(181,83,47,0.88)",
