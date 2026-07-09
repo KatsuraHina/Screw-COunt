@@ -26,11 +26,10 @@ import {
   from24hString,
   getRangeStartDate,
   getTotalAmount,
-  guessMeridiem,
   isAdminUser,
+  meridiemForShift,
   normalizeJob,
   parseFlexibleTime,
-  reconcileTimePair,
   to24hString
 } from "./jobs.js";
 import { deriveImportTitle, detectJobTypeFromName, parseCutListPdf } from "./pdf-import.js";
@@ -48,6 +47,7 @@ import {
   renderWorkerManagement,
   renderWorkerPicker,
   renderJobTypeToggle,
+  renderShiftToggle,
   renderImportLibrary,
   renderImportList,
   setActiveTabButtons,
@@ -175,16 +175,7 @@ const SMART_TIME_FIELDS = [
 
 // Strap & brace is entered as a plain start/end without AM/PM — the duration is
 // read on a 12-hour dial (see calculateStrapMinutes), so it skips the smart-time
-// (AM/PM guessing) machinery above and is synced/bound as a plain input.
-
-// Start/end pairs that must fit inside one shift (max 8 hours). Used to
-// auto-correct an AM/PM guess that produced an impossible duration.
-const SMART_TIME_PAIRS = [{ startKey: "startTime", endKey: "endTime" }];
-
-const SMART_TIME_LABELS = {
-  startTime: "start time",
-  endTime: "end time"
-};
+// machinery above and is synced/bound as a plain input.
 
 // The smart-time fields are not synced here — their own handlers write the
 // canonical 24-hour value straight into the draft as the user edits them.
@@ -201,89 +192,61 @@ function syncDraftFromInputs() {
   draft.strapEnd = elements.strapEndInput.value;
 }
 
-// Show a draft's canonical 24-hour value as a 12-hour text + AM/PM toggle.
-function renderSmartTimeField(input, toggle, value24) {
+// Show a draft's canonical 24-hour value as 12-hour text plus a read-only AM/PM
+// indicator. The AM/PM comes from the selected shift, not a manual toggle.
+function renderSmartTimeField(input, indicator, value24) {
   const parts = from24hString(value24);
   if (!parts) {
     input.value = "";
-    toggle.textContent = "AM";
-    toggle.dataset.meridiem = "";
-    toggle.disabled = true;
+    indicator.textContent = "AM";
+    indicator.classList.add("is-empty");
     return;
   }
   input.value = parts.text12;
-  toggle.textContent = parts.meridiem;
-  toggle.dataset.meridiem = parts.meridiem;
-  toggle.disabled = false;
+  indicator.textContent = parts.meridiem;
+  indicator.classList.remove("is-empty");
 }
 
-// Minutes-since-midnight of the computer's clock, used to anchor the AM/PM
-// guess — but only for a job on today's date. For a back-dated job "now" is
-// not a meaningful anchor, so return null and let the static map decide.
-function meridiemNowContext(draft) {
-  const today = formatDateKey(new Date());
-  if (draft.workDate && draft.workDate !== today) {
-    return null;
-  }
-  const now = new Date();
-  return now.getHours() * 60 + now.getMinutes();
-}
-
-// Parse a typed time, pick AM/PM (unless the input was explicit 24-hour), and
-// store the canonical value back into the draft. Returns a note describing an
-// automatic 8-hour correction, or null when nothing was adjusted.
-function applySmartTimeInput(input, toggle, key) {
+// Parse a typed time and store its canonical 24-hour value in the draft. AM/PM
+// is decided by the selected shift (unless the input was an explicit 24-hour
+// time, which already carries its own meridiem).
+function applySmartTimeInput(input, indicator, key) {
   const draft = getActiveDraft();
   const parsed = parseFlexibleTime(input.value);
   if (!parsed) {
     draft[key] = "";
   } else {
-    const meridiem =
-      parsed.meridiem || guessMeridiem(parsed.hour12, parsed.minute, meridiemNowContext(draft));
+    const meridiem = parsed.meridiem || meridiemForShift(parsed.hour12, draft.shift);
     draft[key] = to24hString(parsed.hour12, parsed.minute, meridiem);
   }
-  renderSmartTimeField(input, toggle, draft[key]);
-  return reconcileSmartTimePair(key);
+  renderSmartTimeField(input, indicator, draft[key]);
 }
 
-// A job never runs longer than 8 hours. If the pair the edited field belongs
-// to now spans more than that, flip the AM/PM on whichever side fixes it and
-// report what changed so the user can see (and undo via the toggle).
-function reconcileSmartTimePair(editedKey) {
-  const pair = SMART_TIME_PAIRS.find(
-    ({ startKey, endKey }) => startKey === editedKey || endKey === editedKey
-  );
-  if (!pair) {
-    return null;
-  }
-
+// When the shift changes, re-resolve the AM/PM of any already-entered start/end
+// times to the new shift (the clock values are kept; only AM/PM follows).
+function reapplyShiftToTimes() {
   const draft = getActiveDraft();
-  const fixed = reconcileTimePair(draft[pair.startKey], draft[pair.endKey], meridiemNowContext(draft));
-  if (!fixed) {
-    return null;
-  }
-
-  draft[pair.startKey] = fixed.start;
-  draft[pair.endKey] = fixed.end;
-  [pair.startKey, pair.endKey].forEach((key) => {
-    const field = SMART_TIME_FIELDS.find((item) => item.key === key);
-    renderSmartTimeField(elements[field.input], elements[field.toggle], draft[key]);
+  ["startTime", "endTime"].forEach((key) => {
+    const parts = from24hString(draft[key]);
+    if (!parts) {
+      return;
+    }
+    const meridiem = meridiemForShift(parts.hour12, draft.shift);
+    draft[key] = to24hString(parts.hour12, parts.minute, meridiem);
   });
-
-  const changedKey = fixed.changed === "end" ? pair.endKey : pair.startKey;
-  const parts = from24hString(draft[changedKey]);
-  return `Switched the ${SMART_TIME_LABELS[changedKey]} to ${parts.text12} ${parts.meridiem} — a job can't run longer than 8 hours. Tap AM/PM to change it back.`;
 }
 
-function toggleSmartTimeMeridiem(input, toggle, key) {
+function handleShiftChange(shift) {
   const draft = getActiveDraft();
-  const parts = from24hString(draft[key]);
-  if (!parts) {
+  if (draft.shift === shift) {
     return;
   }
-  const flipped = parts.meridiem === "AM" ? "PM" : "AM";
-  draft[key] = to24hString(parts.hour12, parts.minute, flipped);
-  renderSmartTimeField(input, toggle, draft[key]);
+  draft.shift = shift;
+  reapplyShiftToTimes();
+  renderShiftToggle(elements, shift);
+  SMART_TIME_FIELDS.forEach(({ input, toggle, key }) => {
+    renderSmartTimeField(elements[input], elements[toggle], draft[key]);
+  });
   renderCalculatorSection();
 }
 
@@ -448,6 +411,7 @@ function renderApp() {
   toggleWorkersView(elements, false, showJobHistory);
   renderTabState(elements, getActiveConfig(), state.activeTab);
   renderJobTypeToggle(elements, state.activeTab);
+  renderShiftToggle(elements, getActiveDraft().shift);
   renderEditBanner();
   loadDraftIntoInputs();
   renderImportSection();
@@ -639,6 +603,7 @@ function getMergedImportLibrary() {
 // admin already entered disappears. Type-specific fields (metres/screws
 // amounts, entries, import rows) are not carried.
 const SHARED_SHIFT_KEYS = [
+  "shift",
   "workDate",
   "startTime",
   "endTime",
@@ -976,6 +941,7 @@ function startEditJob(job) {
   const breakMinutes = Number(job.breakMinutes) || 0;
 
   const editedDraft = createEmptyDraft();
+  editedDraft.shift = job.shift || "night";
   editedDraft.workDate = formatDateKey(startDate);
   editedDraft.benchNumber = job.benchNumber ? String(job.benchNumber) : "";
   editedDraft.startTime = formatClockKey(startDate);
@@ -1029,6 +995,7 @@ function cancelEditJob() {
 function resetDraftForNextCrew() {
   const previous = getActiveDraft();
   const next = createEmptyDraft();
+  next.shift = previous.shift;
   next.workDate = previous.workDate;
   next.startTime = previous.startTime;
   next.endTime = previous.endTime;
@@ -1112,6 +1079,7 @@ function createPendingJob() {
 
   return createJobPayload({
     jobType: state.activeTab,
+    shift: draft.shift,
     workDateValue: draft.workDate,
     benchNumber,
     startTimeValue: draft.startTime,
@@ -1361,19 +1329,15 @@ function bindEvents() {
     });
   });
 
-  // Smart 12-hour time fields: parse + guess AM/PM on edit, flip on toggle.
-  // A manual toggle click is an explicit choice, so it never auto-reconciles.
+  // 12-hour time fields: on edit, resolve AM/PM from the selected shift and
+  // store the canonical 24-hour value. The AM/PM indicator is read-only.
   SMART_TIME_FIELDS.forEach(({ input, toggle, key }) => {
     const inputEl = elements[input];
-    const toggleEl = elements[toggle];
+    const indicatorEl = elements[toggle];
     inputEl.addEventListener("change", () => {
-      const adjustmentNote = applySmartTimeInput(inputEl, toggleEl, key);
+      applySmartTimeInput(inputEl, indicatorEl, key);
       renderCalculatorSection();
-      if (adjustmentNote) {
-        setStatus(elements, adjustmentNote, "warning");
-      }
     });
-    toggleEl.addEventListener("click", () => toggleSmartTimeMeridiem(inputEl, toggleEl, key));
   });
 
   elements.amountInput.addEventListener("input", syncDraftFromInputs);
@@ -1453,6 +1417,11 @@ function bindEvents() {
   // automatically when a PDF is imported or a preloaded job is picked).
   elements.jobTypeButtons.forEach((button) => {
     button.addEventListener("click", () => switchTab(button.dataset.jobType));
+  });
+  // Shift segmented toggle: sets the shift, which decides the AM/PM of the times
+  // and is stored as the job's shift.
+  elements.shiftButtons.forEach((button) => {
+    button.addEventListener("click", () => handleShiftChange(button.dataset.shift));
   });
 }
 

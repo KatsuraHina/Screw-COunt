@@ -326,6 +326,10 @@ export function createEmptyDraft() {
   return {
     workDate: formatDateKey(new Date()),
     benchNumber: "",
+    // The admin picks the shift up front; it resolves the AM/PM of the entered
+    // times and is stored as the job's authoritative shift. Night is the default
+    // since it's the main shift.
+    shift: "night",
     startTime: "",
     endTime: "",
     strapStart: "",
@@ -367,6 +371,7 @@ function calculatePerWorkerRate(totalUnits, netWorkedMinutes, workerCount) {
 
 export function createJobPayload({
   jobType,
+  shift = "night",
   workDateValue,
   benchNumber,
   startTimeValue,
@@ -398,6 +403,7 @@ export function createJobPayload({
 
   return {
     jobType,
+    shift,
     startedAt: start.toISOString(),
     endedAt: end.toISOString(),
     dayKey: formatDateKey(start),
@@ -440,6 +446,8 @@ const NIGHT_START = 22 * 60; // 22:00
 const MORNING_START = 5 * 60 + 45; // 05:45
 const AFTERNOON_START = 13 * 60 + 30; // 13:30 (folds the 1:30–2pm gap into afternoon)
 
+// Fallback shift classification from the start time, for jobs saved before the
+// admin picked the shift explicitly. New jobs carry `job.shift` directly.
 export function getJobShift(job) {
   const start = new Date(job.startedAt);
   const minutes = start.getHours() * 60 + start.getMinutes();
@@ -453,16 +461,38 @@ export function getJobShift(job) {
   return "afternoon";
 }
 
-// The day a job's shift belongs to. A night shift spans 10pm–5:30am, so work
-// logged after midnight (before the 5:30a morning start) is the tail of the
-// previous evening's night shift and is attributed to that earlier day. This
-// keeps a single night shift in one day-column instead of splitting it across
-// the midnight boundary.
+// The authoritative shift of a job: the one the admin selected when logging it,
+// falling back to the start-time classification for older jobs.
+export function resolveJobShift(job) {
+  return job.shift || getJobShift(job);
+}
+
+// Which AM/PM a bare 12-hour time takes for a given shift, so the admin never
+// picks AM/PM — the selected shift decides it:
+//   night     → 10 & 11 are PM (10–11pm); everything else (12, 1–9) is AM (12–5:45am)
+//   morning   → 12 (noon) & 1 (1pm) are PM; 5:45–11am are AM
+//   afternoon → always PM (2–10pm)
+export function meridiemForShift(hour12, shift) {
+  if (shift === "afternoon") {
+    return "PM";
+  }
+  if (shift === "morning") {
+    return hour12 === 12 || hour12 === 1 ? "PM" : "AM";
+  }
+  // night (default)
+  return hour12 === 10 || hour12 === 11 ? "PM" : "AM";
+}
+
+// The day a job's shift belongs to. A night shift spans 10pm–5:45am, so night
+// work logged after midnight (before the 5:45a boundary) is the tail of the
+// previous evening's night shift and is attributed to that earlier day, keeping
+// one night shift in a single day-column. The roll-back applies to night shifts
+// only — a morning/afternoon job never moves to the previous day.
 export function getShiftDayKey(job) {
   const start = new Date(job.startedAt);
   const minutes = start.getHours() * 60 + start.getMinutes();
 
-  if (minutes < MORNING_START) {
+  if (resolveJobShift(job) === "night" && minutes < MORNING_START) {
     const previousDay = new Date(start);
     previousDay.setDate(previousDay.getDate() - 1);
     return formatDateKey(previousDay);
@@ -476,7 +506,7 @@ export function aggregateShiftTotals(jobs, getValue = (job) => job.totalUnits) {
   const totals = new Map(SHIFTS.map((shift) => [shift.key, 0]));
 
   jobs.forEach((job) => {
-    const key = getJobShift(job);
+    const key = resolveJobShift(job);
     totals.set(key, totals.get(key) + (Number(getValue(job)) || 0));
   });
 
@@ -493,7 +523,7 @@ export function aggregateShiftSeriesByDay(jobs, getValue = (job) => job.totalUni
   const dayTotals = new Map();
 
   jobs.forEach((job) => {
-    const shift = getJobShift(job);
+    const shift = resolveJobShift(job);
     const dayKey = getShiftDayKey(job);
     const day = dayTotals.get(dayKey) ?? new Map(SHIFTS.map((s) => [s.key, 0]));
     day.set(shift, day.get(shift) + (Number(getValue(job)) || 0));
@@ -523,7 +553,7 @@ export function aggregateShiftRateSeriesByDay(jobs) {
   const dayShift = new Map();
 
   jobs.forEach((job) => {
-    const shift = getJobShift(job);
+    const shift = resolveJobShift(job);
     const dayKey = getShiftDayKey(job);
     const day =
       dayShift.get(dayKey) ??
@@ -567,7 +597,7 @@ export function aggregateBenchShiftTotals(jobs, getValue = (job) => job.totalUni
     if (!benchTotals.has(bench)) {
       return;
     }
-    const shift = getJobShift(job);
+    const shift = resolveJobShift(job);
     const perShift = benchTotals.get(bench);
     perShift.set(shift, perShift.get(shift) + (Number(getValue(job)) || 0));
   });
@@ -636,9 +666,14 @@ export function normalizeJob(job) {
     assignedWorkers.length
   );
 
+  const validShift = SHIFTS.some((entry) => entry.key === job.shift);
+
   return {
     ...job,
     jobType,
+    // The admin's selected shift; older jobs (no stored shift) fall back to the
+    // start-time classification so every job carries an authoritative shift.
+    shift: validShift ? job.shift : getJobShift({ startedAt: job.startedAt || endedAt }),
     endedAt,
     dayKey: typeof job.dayKey === "string" && job.dayKey ? job.dayKey : formatDateKey(new Date(endedAt)),
     benchNumber: Number(job.benchNumber) || null,

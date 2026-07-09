@@ -19,6 +19,8 @@ export function getElements() {
     workersTabButton: document.getElementById("workersTabButton"),
     jobTypeToggle: document.getElementById("jobTypeToggle"),
     jobTypeButtons: Array.from(document.querySelectorAll("[data-job-type]")),
+    shiftToggle: document.getElementById("shiftToggle"),
+    shiftButtons: Array.from(document.querySelectorAll("[data-shift]")),
     editBanner: document.getElementById("editBanner"),
     editBannerText: document.getElementById("editBannerText"),
     cancelEditButton: document.getElementById("cancelEditButton"),
@@ -401,6 +403,15 @@ export function setActiveTabButtons(elements, activeTab) {
 export function renderJobTypeToggle(elements, activeType) {
   elements.jobTypeButtons.forEach((button) => {
     const isActive = button.dataset.jobType === activeType;
+    button.classList.toggle("is-active", isActive);
+    button.setAttribute("aria-pressed", String(isActive));
+  });
+}
+
+// Highlight the active shift in the Night/Morning/Afternoon segmented toggle.
+export function renderShiftToggle(elements, shift) {
+  elements.shiftButtons.forEach((button) => {
+    const isActive = button.dataset.shift === shift;
     button.classList.toggle("is-active", isActive);
     button.setAttribute("aria-pressed", String(isActive));
   });

@@ -358,6 +358,27 @@ input[type="number"] {
   cursor: default;
 }
 
+/* Read-only AM/PM indicator: shows the meridiem resolved from the selected
+   shift. Not interactive — the shift decides AM/PM. */
+.ampm-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  min-width: 52px;
+  padding: 0 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--panel-strong);
+  color: var(--accent-dark);
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+
+.ampm-indicator.is-empty {
+  opacity: 0.4;
+}
+
 input:focus,
 select:focus,
 button:focus {

@@ -76,6 +76,16 @@
           </div>
         </div>
 
+        <div class="field">
+          <label id="shiftLabel">Shift</label>
+          <div class="segmented" id="shiftToggle" role="group" aria-labelledby="shiftLabel">
+            <button type="button" class="segmented-option" data-shift="night">🌙 Night</button>
+            <button type="button" class="segmented-option" data-shift="morning">🌅 Morning</button>
+            <button type="button" class="segmented-option" data-shift="afternoon">☀️ Afternoon</button>
+          </div>
+          <p class="hint inline-hint">Pick the shift, then just type the times — AM/PM is set from the shift (Night 10pm–5:45am, Morning 5:45am–1:30pm, Afternoon 2pm–10pm).</p>
+        </div>
+
         <div class="field worker-field hidden" id="workerField">
           <label>Workers on this job</label>
           <details class="worker-picker" id="workerPicker">
@@ -125,7 +135,7 @@
             <label for="startTime">Start time</label>
             <div class="time-input">
               <input id="startTime" type="text" inputmode="numeric" placeholder="e.g. 5:30" autocomplete="off">
-              <button id="startTimeMeridiem" class="ampm-toggle" type="button" aria-label="Toggle AM/PM for start time" disabled>AM</button>
+              <span id="startTimeMeridiem" class="ampm-indicator is-empty" aria-hidden="true">AM</span>
             </div>
           </div>
 
@@ -133,7 +143,7 @@
             <label for="endTime">End time</label>
             <div class="time-input">
               <input id="endTime" type="text" inputmode="numeric" placeholder="e.g. 1:30" autocomplete="off">
-              <button id="endTimeMeridiem" class="ampm-toggle" type="button" aria-label="Toggle AM/PM for end time" disabled>AM</button>
+              <span id="endTimeMeridiem" class="ampm-indicator is-empty" aria-hidden="true">AM</span>
             </div>
           </div>
         </div>
