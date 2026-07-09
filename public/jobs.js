@@ -231,14 +231,17 @@ export function parseFlexibleTime(text) {
 
   let meridiem = null;
   if (hour === 0) {
+    // "0" / "00:56" is an unambiguous 24-hour midnight.
     hour = 12;
     meridiem = "AM";
-  } else if (hour === 12) {
-    meridiem = "PM"; // noon by default; the toggle covers midnight
   } else if (hour > 12) {
+    // 13–23 is an unambiguous 24-hour evening time.
     hour -= 12;
     meridiem = "PM";
   }
+  // A bare 12 is ambiguous (noon vs midnight), so its AM/PM is left unset for
+  // the shift to resolve — e.g. "12:56" is midnight on a night shift but noon
+  // on a morning shift. (1–11 are likewise left to the shift.)
 
   return { hour12: hour, minute, meridiem };
 }
