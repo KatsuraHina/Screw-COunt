@@ -1236,6 +1236,19 @@ select {
   margin-bottom: 18px;
 }
 
+.worker-jobs-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.worker-jobs-head h3 {
+  margin: 0;
+  font-size: 1.02rem;
+}
+
 .worker-jobs h3 {
   margin: 0 0 12px;
   font-size: 1.02rem;

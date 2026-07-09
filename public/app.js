@@ -25,6 +25,7 @@ import {
   formatDateKey,
   from24hString,
   getRangeStartDate,
+  getShiftDayKey,
   getTotalAmount,
   isAdminUser,
   meridiemForShift,
@@ -88,6 +89,8 @@ const state = {
   workerHistory: {
     selectedWorkerId: "all",
     showHidden: false,
+    // Day drilled into by clicking a chart bar (shift-day key), or null for all.
+    selectedDayKey: null,
     charts: { metres: null, screws: null, trussMetresShift: null, wallMetresShift: null, screwsShift: null, benchMetres: null, benchScrews: null }
   },
   currentUser: null,
@@ -853,6 +856,15 @@ function renderWorkerHistoryView() {
     .filter((job) => isAllBenches || job.benchNumber === Number(benchFilter))
     .sort((a, b) => new Date(b.endedAt) - new Date(a.endedAt));
 
+  // Drop a stale day drill-down if the current filters/range no longer contain
+  // that day, so the list can't get stuck showing "no jobs on this day".
+  if (
+    state.workerHistory.selectedDayKey &&
+    !jobs.some((job) => getShiftDayKey(job) === state.workerHistory.selectedDayKey)
+  ) {
+    state.workerHistory.selectedDayKey = null;
+  }
+
   state.workerHistory.charts = renderWorkerHistory(
     elements,
     jobs,
@@ -862,9 +874,19 @@ function renderWorkerHistoryView() {
       onRemoveJob: removeJob,
       onHideJob: setJobHidden,
       onEditJob: startEditJob,
+      onDaySelect: selectHistoryDay,
+      selectedDayKey: state.workerHistory.selectedDayKey,
       showHidden: state.workerHistory.showHidden
     }
   );
+}
+
+// Toggle the chart→list day drill-down. Clicking the already-selected day (or
+// the "Show all days" button, which passes null) clears it back to all days.
+function selectHistoryDay(dayKey) {
+  const next = dayKey && state.workerHistory.selectedDayKey === dayKey ? null : dayKey;
+  state.workerHistory.selectedDayKey = next || null;
+  renderWorkerHistoryView();
 }
 
 async function removeJob(jobId) {
@@ -1363,6 +1385,7 @@ function bindEvents() {
     state.workerHistory.showHidden = elements.showHiddenJobs.checked;
     renderWorkerHistoryView();
   });
+  elements.workerJobsClearDay.addEventListener("click", () => selectHistoryDay(null));
 
   // Truss PDF import: click/keyboard to browse, drag-and-drop, and clear.
   elements.trussDropzone.addEventListener("click", () => elements.trussFileInput.click());

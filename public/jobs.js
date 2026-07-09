@@ -534,6 +534,9 @@ export function aggregateShiftSeriesByDay(jobs, getValue = (job) => job.totalUni
 
   return {
     labels: sortedKeys.map(formatDateLabel),
+    // Raw shift-day keys aligned with `labels`, so a clicked bar index maps
+    // back to the exact day for drill-down.
+    dayKeys: sortedKeys,
     shifts: SHIFTS.map((shift) => ({
       key: shift.key,
       label: shift.label,
@@ -568,6 +571,9 @@ export function aggregateShiftRateSeriesByDay(jobs) {
 
   return {
     labels: sortedKeys.map(formatDateLabel),
+    // Raw shift-day keys aligned with `labels`, so a clicked bar index maps
+    // back to the exact day for drill-down.
+    dayKeys: sortedKeys,
     shifts: SHIFTS.map((shift) => ({
       key: shift.key,
       label: shift.label,

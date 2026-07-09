@@ -389,7 +389,10 @@
       </div>
 
       <aside class="worker-jobs">
-        <h3>Logged jobs</h3>
+        <div class="worker-jobs-head">
+          <h3 id="workerJobsTitle">Logged jobs</h3>
+          <button id="workerJobsClearDay" type="button" class="entry-action hidden">Show all days</button>
+        </div>
         <div class="entries-scroll">
           <p id="workerJobsEmpty" class="entry-empty">No jobs logged for this worker yet.</p>
           <ol id="workerJobsList" class="entry-list"></ol>
