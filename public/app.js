@@ -46,6 +46,7 @@ import {
   renderWorkerAdminVisibility,
   renderWorkerHistory,
   renderWorkerHistorySelect,
+  renderWorkerInsights,
   renderWorkerManagement,
   renderWorkerPicker,
   renderJobTypeToggle,
@@ -874,6 +875,12 @@ function renderWorkerHistoryView() {
   ) {
     state.workerHistory.selectedDayKey = null;
   }
+
+  renderWorkerInsights(
+    elements,
+    jobs.filter((job) => !job.hidden),
+    selectedId
+  );
 
   state.workerHistory.charts = renderWorkerHistory(
     elements,

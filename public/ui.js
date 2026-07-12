@@ -3,6 +3,11 @@ import {
   aggregateHistorySeriesByDay,
   aggregateShiftRateSeriesByDay,
   aggregateShiftSeriesByDay,
+  analyzeCrewCombos,
+  analyzePartnerStats,
+  analyzePersonalBests,
+  analyzeSoloVsTeam,
+  analyzeTrend,
   formatClockTime,
   formatDateLabel,
   formatMinutes,
@@ -47,6 +52,7 @@ export function getElements() {
     workerJobsEmpty: document.getElementById("workerJobsEmpty"),
     workerJobsTitle: document.getElementById("workerJobsTitle"),
     workerJobsClearDay: document.getElementById("workerJobsClearDay"),
+    workerInsights: document.getElementById("workerInsights"),
     tabTitle: document.getElementById("tabTitle"),
     tabDescription: document.getElementById("tabDescription"),
     activeTabLabel: document.getElementById("activeTabLabel"),
@@ -900,6 +906,140 @@ export function renderWorkerHistory(elements, jobs, workerName, charts, handlers
     benchMetres: renderBenchShiftChart(elements.workerBenchMetresChartCanvas, visibleJobs, "m", existing.benchMetres, (job) => job.metres),
     benchScrews: renderBenchShiftChart(elements.workerBenchScrewsChartCanvas, wallJobs, "screws", existing.benchScrews, (job) => job.totalUnits)
   };
+}
+
+function formatJobCount(count) {
+  return count === 1 ? "1 job" : `${count} jobs`;
+}
+
+// One "57.7 m/h · 900 screws/h" fragment from the per-type rates; skips the
+// types with no data (null).
+function formatInsightRates(trussRate, wallRate) {
+  const parts = [];
+  if (trussRate !== null && trussRate !== undefined) {
+    parts.push(`${trussRate.toFixed(2)} m/h`);
+  }
+  if (wallRate !== null && wallRate !== undefined) {
+    parts.push(`${Math.round(wallRate)} screws/h`);
+  }
+  return parts.join(" · ");
+}
+
+// A titled insight card containing ranked rows: [{ title, detail }].
+function buildInsightCard(title, rows) {
+  const card = document.createElement("div");
+  card.className = "insight-card";
+
+  const heading = document.createElement("h3");
+  heading.textContent = title;
+  card.appendChild(heading);
+
+  const list = document.createElement("ol");
+  list.className = "insight-list";
+  rows.forEach((row) => {
+    const item = document.createElement("li");
+    item.className = "insight-row";
+
+    const rowTitle = document.createElement("span");
+    rowTitle.className = "insight-title";
+    rowTitle.textContent = row.title;
+
+    const rowDetail = document.createElement("span");
+    rowDetail.className = "insight-detail";
+    rowDetail.textContent = row.detail;
+
+    item.append(rowTitle, rowDetail);
+    list.appendChild(item);
+  });
+  card.appendChild(list);
+  return card;
+}
+
+// Insight cards for the worker-history view. With a worker selected: best
+// partners, solo vs team, personal bests, and the recent trend. With "All
+// workers": the best crew combos. Cards with no data are omitted and the whole
+// section hides when nothing is computable. `jobs` are the same filtered,
+// hidden-excluded jobs the charts use.
+export function renderWorkerInsights(elements, jobs, selectedWorkerId) {
+  const container = elements.workerInsights;
+  container.innerHTML = "";
+  const cards = [];
+
+  if (selectedWorkerId === "all") {
+    const combos = analyzeCrewCombos(jobs).slice(0, 6);
+    if (combos.length > 0) {
+      cards.push(buildInsightCard(
+        "Best crews",
+        combos.map((combo) => ({
+          title: combo.label,
+          detail: `${formatJobCount(combo.jobs)} · ${formatInsightRates(combo.trussRate, combo.wallRate)}`
+        }))
+      ));
+    }
+  } else {
+    const partners = analyzePartnerStats(jobs, selectedWorkerId).slice(0, 5);
+    if (partners.length > 0) {
+      cards.push(buildInsightCard(
+        "Best partners",
+        partners.map((partner) => ({
+          title: partner.partnerName,
+          detail: `${formatJobCount(partner.jobsTogether)} · ${formatInsightRates(partner.trussRate, partner.wallRate)}`
+        }))
+      ));
+    }
+
+    const { solo, team } = analyzeSoloVsTeam(jobs, selectedWorkerId);
+    const soloTeamRows = [];
+    if (solo.jobs > 0) {
+      soloTeamRows.push({ title: "Alone", detail: `${formatJobCount(solo.jobs)} · ${formatInsightRates(solo.trussRate, solo.wallRate)}` });
+    }
+    if (team.jobs > 0) {
+      soloTeamRows.push({ title: "In a crew", detail: `${formatJobCount(team.jobs)} · ${formatInsightRates(team.trussRate, team.wallRate)}` });
+    }
+    if (soloTeamRows.length > 0) {
+      cards.push(buildInsightCard("Solo vs team", soloTeamRows));
+    }
+
+    const bests = analyzePersonalBests(jobs);
+    const bestRows = [];
+    if (bests.truss.bestDay) {
+      bestRows.push({ title: "Best trusses day", detail: `${bests.truss.bestDay.units.toFixed(2)} m · ${formatDateLabel(bests.truss.bestDay.dayKey)}` });
+    }
+    if (bests.truss.bestRateJob) {
+      bestRows.push({ title: "Fastest trusses job", detail: `${bests.truss.bestRateJob.rate.toFixed(2)} m/h · ${formatDateLabel(bests.truss.bestRateJob.dayKey)}` });
+    }
+    if (bests.wall.bestDay) {
+      bestRows.push({ title: "Best walls day", detail: `${Math.round(bests.wall.bestDay.units)} screws · ${formatDateLabel(bests.wall.bestDay.dayKey)}` });
+    }
+    if (bests.wall.bestRateJob) {
+      bestRows.push({ title: "Fastest walls job", detail: `${Math.round(bests.wall.bestRateJob.rate)} screws/h · ${formatDateLabel(bests.wall.bestRateJob.dayKey)}` });
+    }
+    if (bestRows.length > 0) {
+      cards.push(buildInsightCard("Personal bests", bestRows));
+    }
+
+    const trend = analyzeTrend(jobs);
+    const trendLabel = { up: "improving", down: "declining", flat: "steady" };
+    const trendRows = [];
+    if (trend.truss.direction) {
+      trendRows.push({
+        title: "Trusses",
+        detail: `${trend.truss.priorRate.toFixed(2)} → ${trend.truss.recentRate.toFixed(2)} m/h · ${trendLabel[trend.truss.direction]}`
+      });
+    }
+    if (trend.wall.direction) {
+      trendRows.push({
+        title: "Walls",
+        detail: `${Math.round(trend.wall.priorRate)} → ${Math.round(trend.wall.recentRate)} screws/h · ${trendLabel[trend.wall.direction]}`
+      });
+    }
+    if (trendRows.length > 0) {
+      cards.push(buildInsightCard("Last 14 days vs before", trendRows));
+    }
+  }
+
+  container.classList.toggle("hidden", cards.length === 0);
+  cards.forEach((card) => container.appendChild(card));
 }
 
 // Render the merged list of preloaded jobs (both trusses and walls). Each row
