@@ -22,6 +22,7 @@ import {
   createEmptyDraft,
   createEntry,
   createJobPayload,
+  deriveJobNumber,
   deriveRecentCrews,
   formatDateKey,
   from24hString,
@@ -1123,7 +1124,10 @@ function createPendingJob() {
     totalAmount,
     importMetres: getTickedImportMetres(),
     entries,
-    assignedWorkers: resolveAssignedWorkers(draft.assignedWorkerIds)
+    assignedWorkers: resolveAssignedWorkers(draft.assignedWorkerIds),
+    // Tag the job with its source list's number (e.g. "512621") so it can be
+    // identified on the Charts tab. Empty for manual entries with no import.
+    jobNumber: deriveJobNumber(draft.importJobId)
   });
 }
 

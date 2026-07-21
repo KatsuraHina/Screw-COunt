@@ -384,6 +384,18 @@ function calculatePerWorkerRate(totalUnits, netWorkedMinutes, workerCount) {
   return hoursWorked > 0 ? totalUnits / hoursWorked / workerCount : 0;
 }
 
+// Pull the leading job number out of an imported list's title/id, e.g.
+// "512621-Truss" or "512621-Panel-PACK1" -> "512621". Returns "" for manual
+// entries (no import) or titles with no numeric code. The "1" in "PACK1"
+// won't match — the code is the first run of 3+ digits.
+export function deriveJobNumber(title) {
+  if (!title) {
+    return "";
+  }
+  const match = String(title).match(/\d{3,}/);
+  return match ? match[0] : "";
+}
+
 export function createJobPayload({
   jobType,
   shift = "night",
@@ -398,7 +410,8 @@ export function createJobPayload({
   totalAmount,
   importMetres = 0,
   entries,
-  assignedWorkers
+  assignedWorkers,
+  jobNumber = ""
 }) {
   const rawWorkedMinutes = calculateWorkedMinutes(startTimeValue, endTimeValue, workDateValue);
 
@@ -425,6 +438,9 @@ export function createJobPayload({
     endedAt: end.toISOString(),
     dayKey: formatDateKey(start),
     benchNumber: Number(benchNumber) || null,
+    // The source list's job number (e.g. "512621"), kept so the Charts tab can
+    // show which job each logged row came from. Omitted for manual entries.
+    ...(jobNumber ? { jobNumber } : {}),
     breakMinutes,
     strapMinutes: adjustedStrapMinutes,
     // Kept alongside strapMinutes purely so a later edit can re-populate the
@@ -700,6 +716,9 @@ export function normalizeJob(job) {
     endedAt,
     dayKey: typeof job.dayKey === "string" && job.dayKey ? job.dayKey : formatDateKey(new Date(endedAt)),
     benchNumber: Number(job.benchNumber) || null,
+    // Source list's job number, when the job was logged from an import. Older
+    // jobs predate this field and simply have no number.
+    jobNumber: typeof job.jobNumber === "string" ? job.jobNumber : "",
     breakMinutes: Number(job.breakMinutes) || 0,
     strapMinutes: Number(job.strapMinutes) || 0,
     rawWorkedMinutes: Number(job.rawWorkedMinutes) || 0,

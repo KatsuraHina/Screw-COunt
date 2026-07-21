@@ -819,6 +819,15 @@ export function renderWorkerHistory(elements, jobs, workerName, charts, handlers
     const item = document.createElement("li");
     item.className = job.hidden ? "entry-row is-hidden-job" : "entry-row";
 
+    // Show the source list's job number (e.g. "512621") so each logged row can
+    // be traced back to its job. Only jobs logged from an import carry one.
+    if (job.jobNumber) {
+      const jobNumberBadge = document.createElement("span");
+      jobNumberBadge.className = "entry-job-number";
+      jobNumberBadge.textContent = `#${job.jobNumber}`;
+      item.appendChild(jobNumberBadge);
+    }
+
     const text = document.createElement("span");
     text.className = "entry-text";
     const typeLabel = job.jobType === "walls" ? "Walls" : "Trusses";
