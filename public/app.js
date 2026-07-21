@@ -93,6 +93,9 @@ const state = {
     showHidden: false,
     // Day drilled into by clicking a chart bar (shift-day key), or null for all.
     selectedDayKey: null,
+    // Job type of the drilled-into chart ("walls"/"trusses"), so the list can
+    // show only that type. Null when no day is selected or the chart spans both.
+    selectedJobType: null,
     charts: { metres: null, screws: null, trussMetresShift: null, wallMetresShift: null, screwsShift: null, benchMetres: null, benchScrews: null }
   },
   currentUser: null,
@@ -874,6 +877,7 @@ function renderWorkerHistoryView() {
     !jobs.some((job) => getShiftDayKey(job) === state.workerHistory.selectedDayKey)
   ) {
     state.workerHistory.selectedDayKey = null;
+    state.workerHistory.selectedJobType = null;
   }
 
   state.workerHistory.charts = renderWorkerHistory(
@@ -887,16 +891,24 @@ function renderWorkerHistoryView() {
       onEditJob: startEditJob,
       onDaySelect: selectHistoryDay,
       selectedDayKey: state.workerHistory.selectedDayKey,
+      selectedJobType: state.workerHistory.selectedJobType,
       showHidden: state.workerHistory.showHidden
     }
   );
 }
 
-// Toggle the chart→list day drill-down. Clicking the already-selected day (or
-// the "Show all days" button, which passes null) clears it back to all days.
-function selectHistoryDay(dayKey) {
-  const next = dayKey && state.workerHistory.selectedDayKey === dayKey ? null : dayKey;
-  state.workerHistory.selectedDayKey = next || null;
+// Toggle the chart→list day drill-down. Clicking the already-selected day on
+// the same chart type (or the "Show all days" button, which passes null) clears
+// it back to all days. Clicking the same day on a different chart type instead
+// switches the filter to that type rather than clearing.
+function selectHistoryDay(dayKey, jobType = null) {
+  const type = jobType || null;
+  const sameSelection =
+    Boolean(dayKey) &&
+    state.workerHistory.selectedDayKey === dayKey &&
+    state.workerHistory.selectedJobType === type;
+  state.workerHistory.selectedDayKey = sameSelection ? null : dayKey || null;
+  state.workerHistory.selectedJobType = sameSelection ? null : dayKey ? type : null;
   renderWorkerHistoryView();
 }
 
