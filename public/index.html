@@ -329,8 +329,19 @@
             <option value="30" selected>Last 30 days</option>
             <option value="90">Last 90 days</option>
             <option value="365">Last 12 months</option>
+            <option value="custom">Custom range…</option>
           </select>
         </label>
+        <div class="custom-range hidden" id="workerCustomRange">
+          <label for="workerFromDate">
+            From
+            <input type="date" id="workerFromDate" />
+          </label>
+          <label for="workerToDate">
+            To
+            <input type="date" id="workerToDate" />
+          </label>
+        </div>
         <label class="show-hidden-toggle" for="showHiddenJobs">
           <input id="showHiddenJobs" type="checkbox">
           <span>Show hidden jobs</span>

@@ -1200,6 +1200,19 @@ button:disabled {
   font-size: 0.95rem;
 }
 
+/* From/To pickers for the "Custom range" period, laid out alongside the other
+   history controls and revealed only when custom is selected. */
+.custom-range {
+  display: flex;
+  gap: 12px;
+  align-items: end;
+  flex-wrap: wrap;
+}
+
+.custom-range input[type="date"] {
+  min-width: 150px;
+}
+
 select {
   min-width: 160px;
   padding: 12px 14px;

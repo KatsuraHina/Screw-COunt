@@ -16,6 +16,7 @@ import {
   BREAK_24,
   JOB_TYPES,
   adjustStrapForBreakOverflow,
+  buildDayKeyRange,
   calculateBreakMinutes,
   calculateStrapMinutes,
   calculateWorkedMinutes,
@@ -883,18 +884,32 @@ function renderWorkerHistoryView() {
   );
   state.workerHistory.selectedWorkerId = selectedId;
 
+  // Show the From/To pickers only when the "Custom range…" period is chosen.
+  elements.workerCustomRange.classList.toggle(
+    "hidden",
+    elements.workerRangeSelect.value !== "custom"
+  );
+
   const isAll = selectedId === "all";
   const worker = state.workers.find((item) => item.id === selectedId);
-  const rangeStart = getRangeStartDate(Number(elements.workerRangeSelect.value));
+  const { start: rangeStart, end: rangeEnd } = resolveWorkerRange();
   const benchFilter = elements.benchFilterSelect.value;
   const isAllBenches = benchFilter === "all";
   const jobs = state.savedJobs
-    .filter((job) => new Date(job.endedAt) >= rangeStart)
+    .filter((job) => {
+      const ended = new Date(job.endedAt);
+      return ended >= rangeStart && ended <= rangeEnd;
+    })
     .filter((job) =>
       isAll ? job.assignedWorkerIds.length > 0 : job.assignedWorkerIds.includes(selectedId)
     )
     .filter((job) => isAllBenches || job.benchNumber === Number(benchFilter))
     .sort((a, b) => new Date(b.endedAt) - new Date(a.endedAt));
+
+  // Continuous x-axis: plot every day in the range so quiet days show as gaps.
+  // Skip it for very wide ranges (a year of daily bars is unreadable) and let
+  // the charts fall back to present-days-only.
+  const axisDayKeys = buildAxisDayKeys(rangeStart, rangeEnd);
 
   // Drop a stale day drill-down if the current filters/range no longer contain
   // that day, so the list can't get stuck showing "no jobs on this day".
@@ -918,9 +933,60 @@ function renderWorkerHistoryView() {
       onDaySelect: selectHistoryDay,
       selectedDayKey: state.workerHistory.selectedDayKey,
       selectedJobType: state.workerHistory.selectedJobType,
-      showHidden: state.workerHistory.showHidden
+      showHidden: state.workerHistory.showHidden,
+      axisDayKeys
     }
   );
+}
+
+// The period shown on the Charts tab: either a rolling window ending today
+// ("Last N days") or an explicit custom From–To range. Invalid/empty custom
+// dates fall back to the last selected numeric window (default 30 days), and a
+// reversed From/To is swapped so the range is always ascending.
+function resolveWorkerRange() {
+  const endOfToday = new Date();
+  endOfToday.setHours(23, 59, 59, 999);
+
+  if (elements.workerRangeSelect.value === "custom") {
+    const fromValue = elements.workerFromDate.value;
+    const toValue = elements.workerToDate.value;
+    if (fromValue && toValue) {
+      let start = startOfDay(new Date(`${fromValue}T00:00:00`));
+      let end = new Date(`${toValue}T23:59:59.999`);
+      if (start > end) {
+        [start, end] = [endOfDay(new Date(`${toValue}T00:00:00`)), start];
+      }
+      return { start, end };
+    }
+    // Custom picked but not fully filled in yet — show the last 30 days.
+    return { start: getRangeStartDate(30), end: endOfToday };
+  }
+
+  return { start: getRangeStartDate(Number(elements.workerRangeSelect.value)), end: endOfToday };
+}
+
+function startOfDay(date) {
+  const copy = new Date(date);
+  copy.setHours(0, 0, 0, 0);
+  return copy;
+}
+
+function endOfDay(date) {
+  const copy = new Date(date);
+  copy.setHours(23, 59, 59, 999);
+  return copy;
+}
+
+// Beyond this many days a daily x-axis is unreadable, so the charts drop the
+// gap-filled continuous axis and plot only the days that have jobs.
+const MAX_FILL_DAYS = 92;
+
+function buildAxisDayKeys(rangeStart, rangeEnd) {
+  const spanDays = Math.round((startOfDay(rangeEnd) - startOfDay(rangeStart)) / (24 * 60 * 60 * 1000)) + 1;
+  if (spanDays < 1 || spanDays > MAX_FILL_DAYS) {
+    return null;
+  }
+  return buildDayKeyRange(rangeStart, rangeEnd);
 }
 
 // Toggle the chart→list day drill-down. Clicking the already-selected day on
@@ -1438,7 +1504,22 @@ function bindEvents() {
     state.workerHistory.selectedWorkerId = elements.workerHistorySelect.value;
     renderWorkerHistoryView();
   });
-  elements.workerRangeSelect.addEventListener("change", renderWorkerHistoryView);
+  elements.workerRangeSelect.addEventListener("change", () => {
+    // Prefill the custom pickers with the current 30-day window the first time
+    // "Custom range…" is chosen, so the charts don't blank while both dates are
+    // still empty.
+    if (
+      elements.workerRangeSelect.value === "custom" &&
+      !elements.workerFromDate.value &&
+      !elements.workerToDate.value
+    ) {
+      elements.workerToDate.value = formatDateKey(new Date());
+      elements.workerFromDate.value = formatDateKey(getRangeStartDate(30));
+    }
+    renderWorkerHistoryView();
+  });
+  elements.workerFromDate.addEventListener("change", renderWorkerHistoryView);
+  elements.workerToDate.addEventListener("change", renderWorkerHistoryView);
   elements.benchFilterSelect.addEventListener("change", renderWorkerHistoryView);
   elements.showHiddenJobs.addEventListener("change", () => {
     state.workerHistory.showHidden = elements.showHiddenJobs.checked;

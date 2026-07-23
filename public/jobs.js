@@ -552,7 +552,10 @@ export function aggregateShiftTotals(jobs, getValue = (job) => job.totalUnits) {
 // Daily amount per shift: one row per day, with a separate value for each
 // shift (morning/afternoon/night). Lets you read how much each shift produced
 // on each individual day, rather than one accumulated total per shift type.
-export function aggregateShiftSeriesByDay(jobs, getValue = (job) => job.totalUnits) {
+// `axisDayKeys`, when supplied, is the full ordered list of day keys to plot,
+// so days with no jobs still appear as gaps (zero bars) — a continuous time
+// axis. Omit it to fall back to only the days that actually have jobs.
+export function aggregateShiftSeriesByDay(jobs, getValue = (job) => job.totalUnits, axisDayKeys = null) {
   const dayTotals = new Map();
 
   jobs.forEach((job) => {
@@ -563,7 +566,7 @@ export function aggregateShiftSeriesByDay(jobs, getValue = (job) => job.totalUni
     dayTotals.set(dayKey, day);
   });
 
-  const sortedKeys = Array.from(dayTotals.keys()).sort((a, b) => a.localeCompare(b));
+  const sortedKeys = resolveAxisDayKeys(dayTotals, axisDayKeys);
 
   return {
     labels: sortedKeys.map(formatDateLabel),
@@ -573,11 +576,40 @@ export function aggregateShiftSeriesByDay(jobs, getValue = (job) => job.totalUni
     shifts: SHIFTS.map((shift) => ({
       key: shift.key,
       label: shift.label,
-      values: sortedKeys.map((dayKey) =>
-        Number(dayTotals.get(dayKey).get(shift.key).toFixed(2))
-      )
+      values: sortedKeys.map((dayKey) => {
+        const day = dayTotals.get(dayKey);
+        return Number((day ? day.get(shift.key) : 0).toFixed(2));
+      })
     }))
   };
+}
+
+// Ordered list of YYYY-MM-DD keys for every calendar day in [startDate,
+// endDate] inclusive — the continuous x-axis for the shift charts. Guarded
+// against a reversed range and capped so a huge span can't spin forever.
+export function buildDayKeyRange(startDate, endDate) {
+  const cursor = new Date(startDate);
+  cursor.setHours(0, 0, 0, 0);
+  const last = new Date(endDate);
+  last.setHours(0, 0, 0, 0);
+
+  const keys = [];
+  let guard = 0;
+  while (cursor <= last && guard < 4000) {
+    keys.push(formatDateKey(cursor));
+    cursor.setDate(cursor.getDate() + 1);
+    guard += 1;
+  }
+  return keys;
+}
+
+// Pick the axis keys for a day-bucketed chart: the caller's continuous range
+// when given (so quiet days show), otherwise just the present days sorted.
+function resolveAxisDayKeys(dayTotals, axisDayKeys) {
+  if (Array.isArray(axisDayKeys) && axisDayKeys.length > 0) {
+    return axisDayKeys;
+  }
+  return Array.from(dayTotals.keys()).sort((a, b) => a.localeCompare(b));
 }
 
 // Rate (units per worker-hour) per shift: one row per shift-day, with a value
@@ -585,7 +617,7 @@ export function aggregateShiftSeriesByDay(jobs, getValue = (job) => job.totalUni
 // jobs are grouped by getShiftDayKey (which rolls early-morning work back to the
 // previous evening) rather than by calendar day — keeping a night shift as one
 // column. Rate = units / worker-hours within each shift.
-export function aggregateShiftRateSeriesByDay(jobs) {
+export function aggregateShiftRateSeriesByDay(jobs, axisDayKeys = null) {
   const dayShift = new Map();
 
   jobs.forEach((job) => {
@@ -600,7 +632,7 @@ export function aggregateShiftRateSeriesByDay(jobs) {
     dayShift.set(dayKey, day);
   });
 
-  const sortedKeys = Array.from(dayShift.keys()).sort((a, b) => a.localeCompare(b));
+  const sortedKeys = resolveAxisDayKeys(dayShift, axisDayKeys);
 
   return {
     labels: sortedKeys.map(formatDateLabel),
@@ -611,7 +643,11 @@ export function aggregateShiftRateSeriesByDay(jobs) {
       key: shift.key,
       label: shift.label,
       values: sortedKeys.map((dayKey) => {
-        const bucket = dayShift.get(dayKey).get(shift.key);
+        const day = dayShift.get(dayKey);
+        const bucket = day ? day.get(shift.key) : null;
+        if (!bucket) {
+          return 0;
+        }
         const workerHours = bucket.workerMinutes / 60;
         const rate = workerHours > 0 ? bucket.units / workerHours : 0;
         return Number(rate.toFixed(2));

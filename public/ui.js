@@ -30,6 +30,9 @@ export function getElements() {
     workerHistoryPanel: document.getElementById("workerHistoryPanel"),
     workerHistorySelect: document.getElementById("workerHistorySelect"),
     workerRangeSelect: document.getElementById("workerRangeSelect"),
+    workerCustomRange: document.getElementById("workerCustomRange"),
+    workerFromDate: document.getElementById("workerFromDate"),
+    workerToDate: document.getElementById("workerToDate"),
     benchFilterSelect: document.getElementById("benchFilterSelect"),
     showHiddenJobs: document.getElementById("showHiddenJobs"),
     whJobs: document.getElementById("whJobs"),
@@ -600,7 +603,7 @@ function dayDrillOptions(dayKeys, onDaySelect, jobTypeFilter = null) {
 // Grouped bar chart of the daily amount (metres or screws) per shift. The
 // x-axis is each day; within a day there is one bar per shift so you can see
 // how much each shift produced day by day, not one accumulated total.
-function renderShiftChart(canvas, jobs, unit, currentChart, getValue, onDaySelect, jobTypeFilter = null) {
+function renderShiftChart(canvas, jobs, unit, currentChart, getValue, onDaySelect, jobTypeFilter = null, axisDayKeys = null) {
   const ChartLibrary = window.Chart;
   if (currentChart) {
     currentChart.destroy();
@@ -609,7 +612,7 @@ function renderShiftChart(canvas, jobs, unit, currentChart, getValue, onDaySelec
     return null;
   }
 
-  const series = aggregateShiftSeriesByDay(jobs, getValue);
+  const series = aggregateShiftSeriesByDay(jobs, getValue, axisDayKeys);
   const decimals = unit === "screws" ? 0 : 2;
 
   const datasets = activeShiftSeries(series.shifts).map((shift) => ({
@@ -660,7 +663,7 @@ function renderShiftChart(canvas, jobs, unit, currentChart, getValue, onDaySelec
 // x-axis is each shift-day; within it there is one bar per shift so you can
 // read each shift's output rate. Overnight shifts stay in one column (grouped
 // by shift-day, not calendar day).
-function renderShiftRateChart(canvas, jobs, unit, currentChart, onDaySelect, jobTypeFilter = null) {
+function renderShiftRateChart(canvas, jobs, unit, currentChart, onDaySelect, jobTypeFilter = null, axisDayKeys = null) {
   const ChartLibrary = window.Chart;
   if (currentChart) {
     currentChart.destroy();
@@ -669,7 +672,7 @@ function renderShiftRateChart(canvas, jobs, unit, currentChart, onDaySelect, job
     return null;
   }
 
-  const series = aggregateShiftRateSeriesByDay(jobs);
+  const series = aggregateShiftRateSeriesByDay(jobs, axisDayKeys);
 
   const datasets = activeShiftSeries(series.shifts).map((shift) => ({
     label: shift.label,
@@ -907,19 +910,22 @@ export function renderWorkerHistory(elements, jobs, workerName, charts, handlers
   const existing = charts || {};
 
   const onDaySelect = handlers.onDaySelect;
+  // Continuous x-axis for the day charts (fills quiet days with zero bars); null
+  // when the range is too wide to plot every day, falling back to present days.
+  const axisDayKeys = handlers.axisDayKeys || null;
 
   return {
     // Output rate per shift (overnight shifts stay in one column, not split
     // across two calendar days). Clicking a day drills the list into that day.
     // Each shift chart is job-type-specific, so drilling into a day also narrows
     // the list to that type (e.g. the screws chart shows walls only, not trusses).
-    metres: renderShiftRateChart(elements.workerMetresChartCanvas, trussJobs, "m", existing.metres, onDaySelect, "trusses"),
-    screws: renderShiftRateChart(elements.workerScrewsChartCanvas, wallJobs, "screws", existing.screws, onDaySelect, "walls"),
+    metres: renderShiftRateChart(elements.workerMetresChartCanvas, trussJobs, "m", existing.metres, onDaySelect, "trusses", axisDayKeys),
+    screws: renderShiftRateChart(elements.workerScrewsChartCanvas, wallJobs, "screws", existing.screws, onDaySelect, "walls", axisDayKeys),
     // Metres are split by job type: trusses' metres are their units, while wall
     // metres come from the panels' lineal M. Screws stay wall-only.
-    trussMetresShift: renderShiftChart(elements.workerTrussMetresShiftChartCanvas, trussJobs, "m", existing.trussMetresShift, (job) => job.metres, onDaySelect, "trusses"),
-    wallMetresShift: renderShiftChart(elements.workerWallMetresShiftChartCanvas, wallJobs, "m", existing.wallMetresShift, (job) => job.metres, onDaySelect, "walls"),
-    screwsShift: renderShiftChart(elements.workerScrewsShiftChartCanvas, wallJobs, "screws", existing.screwsShift, (job) => job.totalUnits, onDaySelect, "walls"),
+    trussMetresShift: renderShiftChart(elements.workerTrussMetresShiftChartCanvas, trussJobs, "m", existing.trussMetresShift, (job) => job.metres, onDaySelect, "trusses", axisDayKeys),
+    wallMetresShift: renderShiftChart(elements.workerWallMetresShiftChartCanvas, wallJobs, "m", existing.wallMetresShift, (job) => job.metres, onDaySelect, "walls", axisDayKeys),
+    screwsShift: renderShiftChart(elements.workerScrewsShiftChartCanvas, wallJobs, "screws", existing.screwsShift, (job) => job.totalUnits, onDaySelect, "walls", axisDayKeys),
     // Per-bench totals: metres spans all jobs (trusses + wall-panel metres),
     // screws stay wall-only.
     benchMetres: renderBenchShiftChart(elements.workerBenchMetresChartCanvas, visibleJobs, "m", existing.benchMetres, (job) => job.metres),
