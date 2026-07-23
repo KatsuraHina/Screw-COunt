@@ -4,11 +4,107 @@ import {
   aggregateShiftRateSeriesByDay,
   aggregateShiftSeriesByDay,
   formatClockTime,
+  formatDateKey,
   formatDateLabel,
   formatMinutes,
   getShiftDayKey,
   summarizeWorkerJobs
 } from "./jobs.js";
+
+const CALENDAR_WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const CALENDAR_MONTHS = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December"
+];
+
+// Human-readable label for the range trigger button. Shows one calendar the
+// admin picks a start and end day from, so the button reflects the current
+// selection ("18 Jul – 24 Jul 2026") or prompts when nothing is chosen yet.
+export function formatRangeLabel(startKey, endKey) {
+  if (startKey && endKey) {
+    return `${formatDateLabel(startKey)} – ${formatDateLabel(endKey)}`;
+  }
+  if (startKey) {
+    return `${formatDateLabel(startKey)} – …`;
+  }
+  return "Select dates";
+}
+
+// Render a single month calendar the admin taps to choose a start day then an
+// end day. `startKey`/`endKey` (YYYY-MM-DD) highlight the current selection and
+// the days between. `handlers` gets onPrevMonth/onNextMonth/onPickDay(dayKey).
+export function renderRangeCalendar(container, viewYear, viewMonth, startKey, endKey, handlers) {
+  container.innerHTML = "";
+
+  const head = document.createElement("div");
+  head.className = "calendar-head";
+
+  const prev = document.createElement("button");
+  prev.type = "button";
+  prev.className = "calendar-nav";
+  prev.textContent = "‹";
+  prev.setAttribute("aria-label", "Previous month");
+  prev.addEventListener("click", () => handlers.onPrevMonth?.());
+
+  const title = document.createElement("span");
+  title.className = "calendar-title";
+  title.textContent = `${CALENDAR_MONTHS[viewMonth]} ${viewYear}`;
+
+  const next = document.createElement("button");
+  next.type = "button";
+  next.className = "calendar-nav";
+  next.textContent = "›";
+  next.setAttribute("aria-label", "Next month");
+  next.addEventListener("click", () => handlers.onNextMonth?.());
+
+  head.append(prev, title, next);
+  container.appendChild(head);
+
+  const grid = document.createElement("div");
+  grid.className = "calendar-grid";
+
+  CALENDAR_WEEKDAYS.forEach((weekday) => {
+    const cell = document.createElement("span");
+    cell.className = "calendar-weekday";
+    cell.textContent = weekday;
+    grid.appendChild(cell);
+  });
+
+  // Blank cells before the 1st so weekdays line up. JS getDay() is Sun=0; shift
+  // to a Monday-first week.
+  const firstDow = (new Date(viewYear, viewMonth, 1).getDay() + 6) % 7;
+  for (let i = 0; i < firstDow; i += 1) {
+    const blank = document.createElement("span");
+    blank.className = "calendar-day is-empty";
+    grid.appendChild(blank);
+  }
+
+  const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
+  const todayKey = formatDateKey(new Date());
+  for (let day = 1; day <= daysInMonth; day += 1) {
+    const key = formatDateKey(new Date(viewYear, viewMonth, day));
+    const cell = document.createElement("button");
+    cell.type = "button";
+    cell.className = "calendar-day";
+    cell.textContent = String(day);
+    if (key === todayKey) {
+      cell.classList.add("is-today");
+    }
+    if (startKey && key === startKey) {
+      cell.classList.add("is-start");
+    }
+    if (endKey && key === endKey) {
+      cell.classList.add("is-end");
+    }
+    if (startKey && endKey && key > startKey && key < endKey) {
+      cell.classList.add("in-range");
+    }
+    cell.addEventListener("click", () => handlers.onPickDay?.(key));
+    grid.appendChild(cell);
+  }
+
+  container.appendChild(grid);
+}
 
 export function getElements() {
   return {
@@ -31,8 +127,9 @@ export function getElements() {
     workerHistorySelect: document.getElementById("workerHistorySelect"),
     workerRangeSelect: document.getElementById("workerRangeSelect"),
     workerCustomRange: document.getElementById("workerCustomRange"),
-    workerFromDate: document.getElementById("workerFromDate"),
-    workerToDate: document.getElementById("workerToDate"),
+    workerRangeTrigger: document.getElementById("workerRangeTrigger"),
+    workerRangeText: document.getElementById("workerRangeText"),
+    workerCalendar: document.getElementById("workerCalendar"),
     benchFilterSelect: document.getElementById("benchFilterSelect"),
     showHiddenJobs: document.getElementById("showHiddenJobs"),
     whJobs: document.getElementById("whJobs"),
@@ -982,6 +1079,8 @@ export function renderImportList(elements, rows, config, onToggle) {
   rows.forEach((row, index) => {
     const item = document.createElement("li");
     item.className = "truss-row";
+    // Lets the drag-to-select gesture map the row under the pointer to its row.
+    item.dataset.index = String(index);
 
     const label = document.createElement("label");
     label.className = "truss-option";

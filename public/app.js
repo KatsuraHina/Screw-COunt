@@ -53,6 +53,8 @@ import {
   renderShiftToggle,
   renderImportLibrary,
   renderImportList,
+  renderRangeCalendar,
+  formatRangeLabel,
   setActiveTabButtons,
   setImportLabels,
   setImportStatus,
@@ -96,6 +98,11 @@ const state = {
     // Job type of the drilled-into chart ("walls"/"trusses"), so the list can
     // show only that type. Null when no day is selected or the chart spans both.
     selectedJobType: null,
+    // Custom period chosen from the calendar (YYYY-MM-DD keys), the calendar's
+    // open state, and which month it is currently showing.
+    customRange: { start: null, end: null },
+    calendarOpen: false,
+    calendarView: null,
     charts: { metres: null, screws: null, trussMetresShift: null, wallMetresShift: null, screwsShift: null, benchMetres: null, benchScrews: null }
   },
   currentUser: null,
@@ -755,6 +762,91 @@ function toggleImportRow(index, done) {
   }
 }
 
+// Drag-to-select for the import checklist (mouse/pen only — touch keeps its
+// native scroll). Press on a row and drag down/up to tick (or untick) every row
+// the pointer passes over, in one stroke. `setTo` is decided from the row you
+// started on: from an unticked row it ticks, from a ticked row it unticks.
+let importDrag = null;
+let suppressImportClick = false;
+
+function handleImportPointerDown(event) {
+  if (event.pointerType === "touch") {
+    return;
+  }
+  const row = event.target.closest(".truss-row");
+  if (!row || !elements.trussList.contains(row)) {
+    return;
+  }
+  const index = Number(row.dataset.index);
+  const rows = getActiveDraft().importRows;
+  if (!Array.isArray(rows) || !rows[index]) {
+    return;
+  }
+  // Don't tick yet: a plain click is left to the checkbox's own handler. The
+  // drag only kicks in once the pointer reaches a different row.
+  suppressImportClick = false;
+  importDrag = { originIndex: index, setTo: !rows[index].done, active: false, changed: new Set() };
+}
+
+function handleImportPointerMove(event) {
+  if (!importDrag) {
+    return;
+  }
+  const under = document.elementFromPoint(event.clientX, event.clientY);
+  const row = under && under.closest(".truss-row");
+  if (!row || !elements.trussList.contains(row)) {
+    return;
+  }
+  const index = Number(row.dataset.index);
+  if (!importDrag.active) {
+    if (index === importDrag.originIndex) {
+      return;
+    }
+    // First move onto another row: now it's a drag, so include the row we
+    // started on (a plain click won't fire once the pointer has moved away).
+    importDrag.active = true;
+    applyImportDragTo(importDrag.originIndex);
+  }
+  applyImportDragTo(index);
+}
+
+function applyImportDragTo(index) {
+  const rows = getActiveDraft().importRows;
+  if (!rows || !rows[index] || rows[index].done === importDrag.setTo) {
+    return;
+  }
+  rows[index].done = importDrag.setTo;
+  importDrag.changed.add(index);
+  // Update just this row's checkbox during the drag; the list is re-rendered
+  // once at the end so the stroke stays smooth.
+  const checkbox = elements.trussList.querySelector(
+    `.truss-row[data-index="${index}"] input[type="checkbox"]`
+  );
+  if (checkbox) {
+    checkbox.checked = importDrag.setTo;
+  }
+}
+
+function endImportDrag() {
+  if (!importDrag) {
+    return;
+  }
+  const wasActive = importDrag.active;
+  const changed = importDrag.changed.size;
+  importDrag = null;
+  if (!wasActive) {
+    return;
+  }
+  // A drag that ends back on its origin still fires a click there; swallow it so
+  // the row isn't toggled a second time.
+  suppressImportClick = true;
+  if (changed > 0) {
+    persistImportRows(state.activeTab);
+    renderImportSection();
+    renderCalculatorSection();
+  }
+}
+
 // Tick every imported row at once (or untick them all if they're already all
 // ticked), so the whole loaded list can be marked done in one tap.
 function toggleAllImportRows() {
@@ -883,11 +975,14 @@ function renderWorkerHistoryView() {
   );
   state.workerHistory.selectedWorkerId = selectedId;
 
-  // Show the From/To pickers only when the "Custom range…" period is chosen.
-  elements.workerCustomRange.classList.toggle(
-    "hidden",
-    elements.workerRangeSelect.value !== "custom"
-  );
+  // Show the calendar picker only when the "Custom range…" period is chosen.
+  const isCustom = elements.workerRangeSelect.value === "custom";
+  elements.workerCustomRange.classList.toggle("hidden", !isCustom);
+  if (isCustom) {
+    renderWorkerRangeControl();
+  } else {
+    closeWorkerCalendar();
+  }
 
   const isAll = selectedId === "all";
   const worker = state.workers.find((item) => item.id === selectedId);
@@ -932,26 +1027,101 @@ function renderWorkerHistoryView() {
   );
 }
 
+// Update the range trigger's label and, when open, repaint the calendar. Cheap
+// (no chart work) so a first day-pick can refresh the calendar without redrawing
+// the whole Charts view.
+function renderWorkerRangeControl() {
+  const { start, end } = state.workerHistory.customRange;
+  elements.workerRangeText.textContent = formatRangeLabel(start, end);
+  elements.workerRangeTrigger.setAttribute("aria-expanded", String(state.workerHistory.calendarOpen));
+  elements.workerCalendar.classList.toggle("hidden", !state.workerHistory.calendarOpen);
+
+  if (!state.workerHistory.calendarOpen) {
+    return;
+  }
+
+  const view = resolveCalendarView();
+  renderRangeCalendar(elements.workerCalendar, view.year, view.month, start, end, {
+    onPrevMonth: () => stepCalendarMonth(-1),
+    onNextMonth: () => stepCalendarMonth(1),
+    onPickDay: pickCalendarDay
+  });
+}
+
+// Which month the calendar shows: the explicit view if the admin navigated, else
+// the selected start's month, else the current month.
+function resolveCalendarView() {
+  if (state.workerHistory.calendarView) {
+    return state.workerHistory.calendarView;
+  }
+  const anchor = state.workerHistory.customRange.start
+    ? new Date(`${state.workerHistory.customRange.start}T00:00:00`)
+    : new Date();
+  return { year: anchor.getFullYear(), month: anchor.getMonth() };
+}
+
+function stepCalendarMonth(delta) {
+  const view = resolveCalendarView();
+  const next = new Date(view.year, view.month + delta, 1);
+  state.workerHistory.calendarView = { year: next.getFullYear(), month: next.getMonth() };
+  renderWorkerRangeControl();
+}
+
+// First pick sets the start (and clears any old end); the second pick completes
+// the range and applies it. The two days are ordered so either click order works.
+function pickCalendarDay(dayKey) {
+  const range = state.workerHistory.customRange;
+  if (!range.start || (range.start && range.end)) {
+    range.start = dayKey;
+    range.end = null;
+    renderWorkerRangeControl();
+    return;
+  }
+
+  const [start, end] = dayKey < range.start ? [dayKey, range.start] : [range.start, dayKey];
+  range.start = start;
+  range.end = end;
+  state.workerHistory.calendarOpen = false;
+  renderWorkerHistoryView();
+}
+
+function toggleWorkerCalendar() {
+  const nowOpen = !state.workerHistory.calendarOpen;
+  state.workerHistory.calendarOpen = nowOpen;
+  // Reset the shown month to follow the current selection each time it opens.
+  if (nowOpen) {
+    state.workerHistory.calendarView = null;
+  }
+  renderWorkerRangeControl();
+}
+
+function closeWorkerCalendar() {
+  if (!state.workerHistory.calendarOpen) {
+    return;
+  }
+  state.workerHistory.calendarOpen = false;
+  renderWorkerRangeControl();
+}
+
 // The period shown on the Charts tab: either a rolling window ending today
-// ("Last N days") or an explicit custom From–To range. Invalid/empty custom
-// dates fall back to the last selected numeric window (default 30 days), and a
-// reversed From/To is swapped so the range is always ascending.
+// ("Last N days") or an explicit custom range chosen from the calendar. An
+// unfinished custom range falls back to the last 30 days; the two picked days
+// are ordered so the range is always ascending.
 function resolveWorkerRange() {
   const endOfToday = new Date();
   endOfToday.setHours(23, 59, 59, 999);
 
   if (elements.workerRangeSelect.value === "custom") {
-    const fromValue = elements.workerFromDate.value;
-    const toValue = elements.workerToDate.value;
-    if (fromValue && toValue) {
-      const a = startOfDay(new Date(`${fromValue}T00:00:00`));
-      const b = startOfDay(new Date(`${toValue}T00:00:00`));
-      // Whichever date is earlier is the start; a reversed From/To still works.
+    const { start: startKey, end: endKey } = state.workerHistory.customRange;
+    if (startKey && endKey) {
+      const a = startOfDay(new Date(`${startKey}T00:00:00`));
+      const b = startOfDay(new Date(`${endKey}T00:00:00`));
+      // Whichever day is earlier is the start, so the two picks work either way.
       const earlier = a <= b ? a : b;
       const later = a <= b ? b : a;
       return { start: startOfDay(earlier), end: endOfDay(later) };
     }
-    // Custom picked but not fully filled in yet — show the last 30 days.
+    // Custom picked but not fully chosen yet — show the last 30 days.
     return { start: getRangeStartDate(30), end: endOfToday };
   }
 
@@ -1486,21 +1656,32 @@ function bindEvents() {
     renderWorkerHistoryView();
   });
   elements.workerRangeSelect.addEventListener("change", () => {
-    // Prefill the custom pickers with the current 30-day window the first time
-    // "Custom range…" is chosen, so the charts don't blank while both dates are
-    // still empty.
+    // Seed a fresh custom range with the last 30 days so the charts aren't blank
+    // before the admin picks their own start/end from the calendar.
     if (
       elements.workerRangeSelect.value === "custom" &&
-      !elements.workerFromDate.value &&
-      !elements.workerToDate.value
+      !state.workerHistory.customRange.start &&
+      !state.workerHistory.customRange.end
     ) {
-      elements.workerToDate.value = formatDateKey(new Date());
-      elements.workerFromDate.value = formatDateKey(getRangeStartDate(30));
+      state.workerHistory.customRange = {
+        start: formatDateKey(getRangeStartDate(30)),
+        end: formatDateKey(new Date())
+      };
     }
     renderWorkerHistoryView();
   });
-  elements.workerFromDate.addEventListener("change", renderWorkerHistoryView);
-  elements.workerToDate.addEventListener("change", renderWorkerHistoryView);
+  elements.workerRangeTrigger.addEventListener("click", (event) => {
+    event.stopPropagation();
+    toggleWorkerCalendar();
+  });
+  // Clicks inside the calendar shouldn't reach the outside-click closer below.
+  elements.workerCalendar.addEventListener("click", (event) => event.stopPropagation());
+  document.addEventListener("click", closeWorkerCalendar);
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      closeWorkerCalendar();
+    }
+  });
   elements.benchFilterSelect.addEventListener("change", renderWorkerHistoryView);
   elements.showHiddenJobs.addEventListener("change", () => {
     state.workerHistory.showHidden = elements.showHiddenJobs.checked;
@@ -1536,6 +1717,22 @@ function bindEvents() {
     handleImportFile(event.dataTransfer.files[0]);
   });
   elements.trussTickAllButton.addEventListener("click", toggleAllImportRows);
+  // Drag-to-select ticking across the import checklist (mouse/pen).
+  elements.trussList.addEventListener("pointerdown", handleImportPointerDown);
+  elements.trussList.addEventListener("pointermove", handleImportPointerMove);
+  elements.trussList.addEventListener(
+    "click",
+    (event) => {
+      if (suppressImportClick) {
+        event.preventDefault();
+        event.stopPropagation();
+        suppressImportClick = false;
+      }
+    },
+    true
+  );
+  document.addEventListener("pointerup", endImportDrag);
+  document.addEventListener("pointercancel", endImportDrag);
   elements.trussClearButton.addEventListener("click", clearImport);
 
   // Worker picker search: filter list live, clear search when picker closes,
