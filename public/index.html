@@ -332,16 +332,14 @@
             <option value="custom">Custom range…</option>
           </select>
         </label>
-        <div class="custom-range hidden" id="workerCustomRange">
-          <label for="workerFromDate">
-            From
-            <input type="date" id="workerFromDate" />
-          </label>
-          <label for="workerToDate">
-            To
-            <input type="date" id="workerToDate" />
-          </label>
-        </div>
+        <label class="custom-range hidden" id="workerCustomRange" for="workerFromDate">
+          Date range
+          <span class="custom-range-inputs">
+            <input type="date" id="workerFromDate" aria-label="Start date" />
+            <span class="custom-range-sep" aria-hidden="true">→</span>
+            <input type="date" id="workerToDate" aria-label="End date" />
+          </span>
+        </label>
         <label class="show-hidden-toggle" for="showHiddenJobs">
           <input id="showHiddenJobs" type="checkbox">
           <span>Show hidden jobs</span>

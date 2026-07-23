@@ -16,7 +16,6 @@ import {
   BREAK_24,
   JOB_TYPES,
   adjustStrapForBreakOverflow,
-  buildDayKeyRange,
   calculateBreakMinutes,
   calculateStrapMinutes,
   calculateWorkedMinutes,
@@ -906,11 +905,6 @@ function renderWorkerHistoryView() {
     .filter((job) => isAllBenches || job.benchNumber === Number(benchFilter))
     .sort((a, b) => new Date(b.endedAt) - new Date(a.endedAt));
 
-  // Continuous x-axis: plot every day in the range so quiet days show as gaps.
-  // Skip it for very wide ranges (a year of daily bars is unreadable) and let
-  // the charts fall back to present-days-only.
-  const axisDayKeys = buildAxisDayKeys(rangeStart, rangeEnd);
-
   // Drop a stale day drill-down if the current filters/range no longer contain
   // that day, so the list can't get stuck showing "no jobs on this day".
   if (
@@ -933,8 +927,7 @@ function renderWorkerHistoryView() {
       onDaySelect: selectHistoryDay,
       selectedDayKey: state.workerHistory.selectedDayKey,
       selectedJobType: state.workerHistory.selectedJobType,
-      showHidden: state.workerHistory.showHidden,
-      axisDayKeys
+      showHidden: state.workerHistory.showHidden
     }
   );
 }
@@ -951,12 +944,12 @@ function resolveWorkerRange() {
     const fromValue = elements.workerFromDate.value;
     const toValue = elements.workerToDate.value;
     if (fromValue && toValue) {
-      let start = startOfDay(new Date(`${fromValue}T00:00:00`));
-      let end = new Date(`${toValue}T23:59:59.999`);
-      if (start > end) {
-        [start, end] = [endOfDay(new Date(`${toValue}T00:00:00`)), start];
-      }
-      return { start, end };
+      const a = startOfDay(new Date(`${fromValue}T00:00:00`));
+      const b = startOfDay(new Date(`${toValue}T00:00:00`));
+      // Whichever date is earlier is the start; a reversed From/To still works.
+      const earlier = a <= b ? a : b;
+      const later = a <= b ? b : a;
+      return { start: startOfDay(earlier), end: endOfDay(later) };
     }
     // Custom picked but not fully filled in yet — show the last 30 days.
     return { start: getRangeStartDate(30), end: endOfToday };
@@ -975,18 +968,6 @@ function endOfDay(date) {
   const copy = new Date(date);
   copy.setHours(23, 59, 59, 999);
   return copy;
-}
-
-// Beyond this many days a daily x-axis is unreadable, so the charts drop the
-// gap-filled continuous axis and plot only the days that have jobs.
-const MAX_FILL_DAYS = 92;
-
-function buildAxisDayKeys(rangeStart, rangeEnd) {
-  const spanDays = Math.round((startOfDay(rangeEnd) - startOfDay(rangeStart)) / (24 * 60 * 60 * 1000)) + 1;
-  if (spanDays < 1 || spanDays > MAX_FILL_DAYS) {
-    return null;
-  }
-  return buildDayKeyRange(rangeStart, rangeEnd);
 }
 
 // Toggle the chart→list day drill-down. Clicking the already-selected day on

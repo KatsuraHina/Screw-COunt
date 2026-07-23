@@ -1200,17 +1200,32 @@ button:disabled {
   font-size: 0.95rem;
 }
 
-/* From/To pickers for the "Custom range" period, laid out alongside the other
-   history controls and revealed only when custom is selected. */
-.custom-range {
+/* The "Custom range" period picker: a single control holding the start and end
+   dates joined by an arrow, revealed only when custom is selected. Uses the
+   same label grid as the other history controls so it lines up with them. */
+.custom-range-inputs {
   display: flex;
-  gap: 12px;
-  align-items: end;
-  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: #fff;
 }
 
-.custom-range input[type="date"] {
-  min-width: 150px;
+.custom-range-inputs input[type="date"] {
+  width: auto;
+  min-width: 132px;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 6px;
+  background: transparent;
+}
+
+.custom-range-sep {
+  color: var(--muted);
+  font-weight: 700;
+  flex: 0 0 auto;
 }
 
 select {
