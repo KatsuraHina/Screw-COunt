@@ -403,7 +403,16 @@ function renderHistorySection() {
     return;
   }
 
-  state.charts = renderHistory(elements, getHistoryJobs(), state.charts, getActiveConfig());
+  // The per-job history charts belong to a job-type tab (trusses/walls). On the
+  // Charts ("workers") tab there is no active config, so skip them — otherwise
+  // callers that fire this after acting from the Charts tab (hide/delete a job)
+  // would pass an undefined config into renderHistory and crash.
+  const config = getActiveConfig();
+  if (!config) {
+    return;
+  }
+
+  state.charts = renderHistory(elements, getHistoryJobs(), state.charts, config);
 }
 
 function renderApp() {
