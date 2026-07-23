@@ -80,6 +80,7 @@ export function getElements() {
     trussListWrap: document.getElementById("trussListWrap"),
     trussList: document.getElementById("trussList"),
     trussSelectedSummary: document.getElementById("trussSelectedSummary"),
+    trussTickAllButton: document.getElementById("trussTickAllButton"),
     trussClearButton: document.getElementById("trussClearButton"),
     amountLabel: document.getElementById("amountLabel"),
     amountInput: document.getElementById("amountInput"),
@@ -1008,6 +1009,13 @@ export function renderImportList(elements, rows, config, onToggle) {
   elements.trussSelectedSummary.textContent = hasRows
     ? `${ticked.length} of ${rows.length} ticked · ${config.format(tickedTotal)}`
     : `${ticked.length} of ${rows.length} ticked`;
+
+  // The tick-all control flips to "Untick all" once every row is ticked, so the
+  // one button both selects and clears the whole list.
+  if (elements.trussTickAllButton) {
+    const allTicked = hasRows && ticked.length === rows.length;
+    elements.trussTickAllButton.textContent = allTicked ? "Untick all" : "Tick all";
+  }
 }
 
 export function setImportLabels(elements, label) {

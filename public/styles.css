@@ -1094,6 +1094,13 @@ button:disabled {
   gap: 12px;
 }
 
+.truss-list-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
 .truss-list {
   list-style: none;
   margin: 0;

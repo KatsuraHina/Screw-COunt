@@ -746,6 +746,23 @@ function toggleImportRow(index, done) {
   }
 }
 
+// Tick every imported row at once (or untick them all if they're already all
+// ticked), so the whole loaded list can be marked done in one tap.
+function toggleAllImportRows() {
+  const draft = getActiveDraft();
+  const rows = draft.importRows;
+  if (!Array.isArray(rows) || rows.length === 0) {
+    return;
+  }
+  const markDone = !rows.every((row) => row.done);
+  rows.forEach((row) => {
+    row.done = markDone;
+  });
+  persistImportRows(state.activeTab);
+  renderImportSection();
+  renderCalculatorSection();
+}
+
 async function handleImportFile(file) {
   if (!file) {
     return;
@@ -1447,6 +1464,7 @@ function bindEvents() {
     elements.trussDropzone.classList.remove("is-dragover");
     handleImportFile(event.dataTransfer.files[0]);
   });
+  elements.trussTickAllButton.addEventListener("click", toggleAllImportRows);
   elements.trussClearButton.addEventListener("click", clearImport);
 
   // Worker picker search: filter list live, clear search when picker closes,
