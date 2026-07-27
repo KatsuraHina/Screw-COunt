@@ -10,6 +10,38 @@ export function isSuperAdmin(user) {
   return Boolean(user?.email) && user.email.toLowerCase() === SUPER_ADMIN_EMAIL;
 }
 
+// Auth rebrand: people sign in with a username + password. Firebase only offers
+// email/password, so a plain username is mapped to a synthetic email under this
+// domain. An input that already contains "@" (e.g. the owner's real address) is
+// used verbatim, so the existing email login keeps working unchanged.
+export const USERNAME_EMAIL_DOMAIN = "bbscount.app";
+
+export function usernameToAuthEmail(input) {
+  const value = String(input ?? "").trim().toLowerCase();
+  if (!value) {
+    return "";
+  }
+  return value.includes("@") ? value : `${value}@${USERNAME_EMAIL_DOMAIN}`;
+}
+
+// Reverse of the above, for display: show just the username for synthetic
+// emails, but leave a real email address (the owner's) as-is.
+export function authEmailToUsername(email) {
+  const value = String(email ?? "").trim();
+  const suffix = `@${USERNAME_EMAIL_DOMAIN}`;
+  return value.toLowerCase().endsWith(suffix) ? value.slice(0, -suffix.length) : value;
+}
+
+// A username is letters/numbers/dot/underscore/hyphen (2+). An input with "@" is
+// taken as a full email (the owner path) and checked as one instead.
+export function isValidUsername(input) {
+  const value = String(input ?? "").trim().toLowerCase();
+  if (value.includes("@")) {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+  }
+  return /^[a-z0-9._-]{2,}$/.test(value);
+}
+
 export const JOB_TYPES = {
   trusses: {
     key: "trusses",

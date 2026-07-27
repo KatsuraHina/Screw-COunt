@@ -3,6 +3,7 @@ import {
   aggregateHistorySeriesByDay,
   aggregateShiftRateSeriesByDay,
   aggregateShiftSeriesByDay,
+  authEmailToUsername,
   formatClockTime,
   formatDateKey,
   formatDateLabel,
@@ -249,7 +250,7 @@ export function renderAuthState(elements, user) {
   elements.rangeSelect.disabled = !isSignedIn;
 
   if (isSignedIn) {
-    elements.currentUserEmail.textContent = user.email ?? "Signed-in user";
+    elements.currentUserEmail.textContent = user.email ? authEmailToUsername(user.email) : "Signed-in user";
     return;
   }
 
@@ -522,7 +523,8 @@ export function renderAdminManagement(elements, admins, superEmail, handlers) {
 
     const name = document.createElement("span");
     name.className = "worker-name";
-    name.textContent = email;
+    // Show the username; the owner's real email stays as-is.
+    name.textContent = authEmailToUsername(email);
 
     item.appendChild(name);
 

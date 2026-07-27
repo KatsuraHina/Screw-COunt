@@ -186,15 +186,15 @@ export function formatAuthError(error) {
   const errorCode = typeof error?.code === "string" ? error.code.replace("auth/", "") : "";
 
   if (errorCode === "invalid-credential" || errorCode === "wrong-password" || errorCode === "user-not-found") {
-    return "The email or password is incorrect.";
+    return "The username or password is incorrect.";
   }
 
   if (errorCode === "invalid-email") {
-    return "Enter a valid email address.";
+    return "Enter a valid username.";
   }
 
   if (errorCode === "email-already-in-use") {
-    return "That email already has an account. Try logging in instead.";
+    return "That username is already taken. Try logging in instead.";
   }
 
   if (errorCode === "weak-password") {

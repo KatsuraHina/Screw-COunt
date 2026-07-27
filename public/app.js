@@ -34,11 +34,13 @@ import {
   getShiftDayKey,
   getTotalAmount,
   isSuperAdmin,
+  isValidUsername,
   meridiemForShift,
   normalizeJob,
   parseFlexibleTime,
   SUPER_ADMIN_EMAIL,
-  to24hString
+  to24hString,
+  usernameToAuthEmail
 } from "./jobs.js";
 import { deriveImportTitle, detectJobTypeFromName, parseCutListPdf } from "./pdf-import.js";
 import {
@@ -1671,23 +1673,22 @@ function setAdminStatus(message, tone = "hint") {
   elements.adminStatus.className = tone === "warning" || tone === "success" ? `hint ${tone}` : "hint";
 }
 
-function isValidEmail(email) {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-}
-
 async function addAdmin() {
-  const email = elements.adminEmailInput.value.trim().toLowerCase();
+  const username = elements.adminEmailInput.value.trim();
 
-  if (!isValidEmail(email)) {
-    setAdminStatus("Enter a valid email address.", "warning");
+  if (!isValidUsername(username)) {
+    setAdminStatus("Enter a valid username.", "warning");
     return;
   }
+  // Map the username to the account identity Firebase uses (a synthetic email);
+  // the owner's real email passes through unchanged.
+  const email = usernameToAuthEmail(username);
   if (email === SUPER_ADMIN_EMAIL) {
-    setAdminStatus("That address is already the owner.", "warning");
+    setAdminStatus("That is already the owner.", "warning");
     return;
   }
   if (state.admins.some((admin) => String(admin.email).toLowerCase() === email)) {
-    setAdminStatus(`${email} is already an admin.`, "warning");
+    setAdminStatus(`${username} is already an admin.`, "warning");
     return;
   }
 
@@ -1696,7 +1697,7 @@ async function addAdmin() {
     state.admins.push({ email });
     elements.adminEmailInput.value = "";
     renderAdminsSection();
-    setAdminStatus(`${email} can now sign in as an admin.`, "success");
+    setAdminStatus(`${username} can now sign in as an admin.`, "success");
   } catch (error) {
     console.error(error);
     setAdminStatus(formatFirestoreError(error), "warning");

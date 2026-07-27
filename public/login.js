@@ -4,9 +4,10 @@ import {
   loginWithEmail,
   subscribeToAuthChanges
 } from "./firebase-service.js";
+import { isValidUsername, usernameToAuthEmail } from "./jobs.js";
 
 const elements = {
-  emailInput: document.getElementById("emailInput"),
+  usernameInput: document.getElementById("usernameInput"),
   passwordInput: document.getElementById("passwordInput"),
   loginButton: document.getElementById("loginButton"),
   createAccountButton: document.getElementById("createAccountButton"),
@@ -21,8 +22,12 @@ function setAuthStatus(message, tone = "hint") {
 }
 
 function getCredentials() {
+  const username = elements.usernameInput.value.trim();
   return {
-    email: elements.emailInput.value.trim(),
+    username,
+    // Usernames map to a synthetic email for Firebase; the owner's real email
+    // (anything with an "@") is used as-is so their login is unchanged.
+    email: usernameToAuthEmail(username),
     password: elements.passwordInput.value
   };
 }
@@ -37,10 +42,14 @@ function redirectToCalculator() {
 }
 
 async function handleLogin() {
-  const { email, password } = getCredentials();
+  const { username, email, password } = getCredentials();
 
-  if (!email || !password) {
-    setAuthStatus("Enter both email and password to log in.", "warning");
+  if (!username || !password) {
+    setAuthStatus("Enter both username and password to log in.", "warning");
+    return;
+  }
+  if (!isValidUsername(username)) {
+    setAuthStatus("Usernames use letters, numbers, dots, underscores or hyphens.", "warning");
     return;
   }
 
@@ -56,10 +65,14 @@ async function handleLogin() {
 }
 
 async function handleCreateAccount() {
-  const { email, password } = getCredentials();
+  const { username, email, password } = getCredentials();
 
-  if (!email || !password) {
-    setAuthStatus("Enter both email and password to create an account.", "warning");
+  if (!username || !password) {
+    setAuthStatus("Enter both username and password to create an account.", "warning");
+    return;
+  }
+  if (!isValidUsername(username)) {
+    setAuthStatus("Usernames use letters, numbers, dots, underscores or hyphens.", "warning");
     return;
   }
 
