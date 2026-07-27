@@ -938,6 +938,20 @@ button:disabled {
 .worker-name {
   flex: 1;
   font-weight: 700;
+  word-break: break-word;
+}
+
+/* Non-removable "Owner" tag on the permanent super-admin row. */
+.admin-owner-tag {
+  flex: 0 0 auto;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: rgba(181, 83, 47, 0.14);
+  color: var(--accent-dark);
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
 .dropzone {

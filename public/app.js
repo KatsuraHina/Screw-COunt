@@ -1,11 +1,15 @@
 import {
+  addAdminRecord,
   addWorkerRecord,
   deleteJobRecord,
   deleteWorkerRecord,
   formatFirestoreError,
+  isEmailAdmin,
+  loadAdminRecords,
   loadJobRecords,
   loadWorkerRecords,
   logoutCurrentUser,
+  removeAdminRecord,
   saveJobRecord,
   setJobHiddenRecord,
   subscribeToAuthChanges,
@@ -29,10 +33,11 @@ import {
   getRangeStartDate,
   getShiftDayKey,
   getTotalAmount,
-  isAdminUser,
+  isSuperAdmin,
   meridiemForShift,
   normalizeJob,
   parseFlexibleTime,
+  SUPER_ADMIN_EMAIL,
   to24hString
 } from "./jobs.js";
 import { deriveImportTitle, detectJobTypeFromName, parseCutListPdf } from "./pdf-import.js";
@@ -45,6 +50,7 @@ import {
   renderHistory,
   renderTabState,
   renderWorkerAdminVisibility,
+  renderAdminManagement,
   renderWorkerHistory,
   renderWorkerHistorySelect,
   renderWorkerManagement,
@@ -83,6 +89,7 @@ const state = {
   },
   savedJobs: [],
   workers: [],
+  admins: [],
   importLibrary: {
     trusses: [],
     walls: []
@@ -1499,7 +1506,8 @@ async function loadSavedJobs() {
   }
 
   try {
-    const jobs = await loadJobRecords(state.currentUser);
+    // Admins load the shared pool (every job); workers only their own.
+    const jobs = await loadJobRecords(state.currentUser, { all: state.isAdmin });
     state.savedJobs = jobs.map(normalizeJob);
     refreshActiveHistory();
   } catch (error) {
@@ -1528,24 +1536,56 @@ async function handleLogout() {
 
 function handleAuthChanged(user) {
   state.currentUser = user;
-  state.isAdmin = isAdminUser(user);
+  // The super-admin resolves instantly; roster admins are confirmed by an async
+  // Firestore check below. Start from the synchronous answer so the UI is right
+  // for the common (super-admin) case without waiting on the network.
+  state.isAdmin = isSuperAdmin(user);
   renderAuthState(elements, user);
-  renderWorkerAdminVisibility(elements, state.isAdmin);
+  applyAdminState();
 
   // Load this user's own imports (and drop the previous user's) so imports stay
   // private across accounts on a shared device.
   syncImportsForUser();
-
-  // The Charts tab is admin-only; fall back to the calculator if access is lost.
-  if (!state.isAdmin && state.activeTab === "workers") {
-    state.activeTab = "trusses";
-  }
 
   // Re-render so admin-specific panel visibility (hidden trusses/screw charts) applies.
   renderApp();
 
   loadSavedJobs();
   loadWorkers();
+  loadAdmins();
+
+  // Non-super-admins might still be on the admin roster — confirm asynchronously,
+  // then re-apply if it changes their access (guarding against a fast re-login).
+  if (user && !state.isAdmin) {
+    resolveRosterAdmin(user);
+  }
+}
+
+// Re-apply everything that depends on admin status: panel visibility, and a
+// fallback off the admin-only Charts tab if access was lost.
+function applyAdminState() {
+  renderWorkerAdminVisibility(elements, state.isAdmin);
+  if (!state.isAdmin && state.activeTab === "workers") {
+    state.activeTab = "trusses";
+  }
+}
+
+async function resolveRosterAdmin(user) {
+  try {
+    const granted = await isEmailAdmin(user.email);
+    // Ignore a stale result if the signed-in user changed while we waited.
+    if (!granted || state.currentUser !== user || state.isAdmin) {
+      return;
+    }
+    state.isAdmin = true;
+    applyAdminState();
+    renderApp();
+    loadSavedJobs();
+    loadWorkers();
+    loadAdmins();
+  } catch (error) {
+    console.error(error);
+  }
 }
 
 function renderWorkersSection() {
@@ -1571,12 +1611,111 @@ async function loadWorkers() {
   }
 
   try {
-    const workers = await loadWorkerRecords(state.currentUser);
-    state.workers = workers.sort((a, b) => a.name.localeCompare(b.name));
+    // Admins share one worker pool, so load every worker (rules permit this only
+    // for admins). De-dupe by name in case two admins added the same person.
+    const workers = await loadWorkerRecords(state.currentUser, { all: true });
+    state.workers = dedupeWorkersByName(workers).sort((a, b) => a.name.localeCompare(b.name));
     renderWorkersSection();
   } catch (error) {
     console.error(error);
     setWorkerStatus(elements, formatFirestoreError(error), "warning");
+  }
+}
+
+// With a shared pool, two admins can create a worker of the same name. Keep the
+// first of each name so the roster and picker don't show duplicates.
+function dedupeWorkersByName(workers) {
+  const seen = new Set();
+  const unique = [];
+  workers.forEach((worker) => {
+    const key = String(worker.name).trim().toLowerCase();
+    if (seen.has(key)) {
+      return;
+    }
+    seen.add(key);
+    unique.push(worker);
+  });
+  return unique;
+}
+
+// --- Admin roster management (admin-only) ---
+
+async function loadAdmins() {
+  if (!state.isAdmin || !state.currentUser) {
+    state.admins = [];
+    return;
+  }
+  try {
+    state.admins = await loadAdminRecords();
+    renderAdminsSection();
+  } catch (error) {
+    console.error(error);
+    setAdminStatus(formatFirestoreError(error), "warning");
+  }
+}
+
+function renderAdminsSection() {
+  if (!state.isAdmin) {
+    return;
+  }
+  renderAdminManagement(elements, state.admins, SUPER_ADMIN_EMAIL, {
+    onRemoveAdmin: removeAdmin
+  });
+}
+
+function setAdminStatus(message, tone = "hint") {
+  if (!elements.adminStatus) {
+    return;
+  }
+  elements.adminStatus.textContent = message;
+  elements.adminStatus.className = tone === "warning" || tone === "success" ? `hint ${tone}` : "hint";
+}
+
+function isValidEmail(email) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+async function addAdmin() {
+  const email = elements.adminEmailInput.value.trim().toLowerCase();
+
+  if (!isValidEmail(email)) {
+    setAdminStatus("Enter a valid email address.", "warning");
+    return;
+  }
+  if (email === SUPER_ADMIN_EMAIL) {
+    setAdminStatus("That address is already the owner.", "warning");
+    return;
+  }
+  if (state.admins.some((admin) => String(admin.email).toLowerCase() === email)) {
+    setAdminStatus(`${email} is already an admin.`, "warning");
+    return;
+  }
+
+  try {
+    await addAdminRecord(email, state.currentUser);
+    state.admins.push({ email });
+    elements.adminEmailInput.value = "";
+    renderAdminsSection();
+    setAdminStatus(`${email} can now sign in as an admin.`, "success");
+  } catch (error) {
+    console.error(error);
+    setAdminStatus(formatFirestoreError(error), "warning");
+  }
+}
+
+async function removeAdmin(email) {
+  const key = String(email).toLowerCase();
+  if (key === SUPER_ADMIN_EMAIL) {
+    return;
+  }
+  try {
+    await removeAdminRecord(key);
+    state.admins = state.admins.filter((admin) => String(admin.email).toLowerCase() !== key);
+    renderAdminsSection();
+    setAdminStatus(`Removed ${key}.`, "success");
+  } catch (error) {
+    console.error(error);
+    setAdminStatus(formatFirestoreError(error), "warning");
   }
 }
 
@@ -1699,6 +1838,13 @@ function bindEvents() {
     if (event.key === "Enter") {
       event.preventDefault();
       addWorker();
+    }
+  });
+  elements.addAdminButton.addEventListener("click", addAdmin);
+  elements.adminEmailInput.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      addAdmin();
     }
   });
   elements.addAmountButton.addEventListener("click", addEntry);

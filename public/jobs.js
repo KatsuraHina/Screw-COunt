@@ -1,10 +1,13 @@
 export const BREAK_15 = 15;
 export const BREAK_24 = 24;
 
-export const ADMIN_EMAIL = "mick.malaluan@gmail.com";
+// The permanent super-admin: always an admin and can never be removed, so a
+// mistake in the `admins` collection can never lock everyone out. Additional
+// admins are granted via the `admins` Firestore collection (see isEmailAdmin).
+export const SUPER_ADMIN_EMAIL = "mick.malaluan@gmail.com";
 
-export function isAdminUser(user) {
-  return Boolean(user?.email) && user.email.toLowerCase() === ADMIN_EMAIL;
+export function isSuperAdmin(user) {
+  return Boolean(user?.email) && user.email.toLowerCase() === SUPER_ADMIN_EMAIL;
 }
 
 export const JOB_TYPES = {

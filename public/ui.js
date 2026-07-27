@@ -165,6 +165,12 @@ export function getElements() {
     workerList: document.getElementById("workerList"),
     workerEmpty: document.getElementById("workerEmpty"),
     workerStatus: document.getElementById("workerStatus"),
+    adminManage: document.getElementById("adminManage"),
+    adminEmailInput: document.getElementById("adminEmailInput"),
+    addAdminButton: document.getElementById("addAdminButton"),
+    adminList: document.getElementById("adminList"),
+    adminEmpty: document.getElementById("adminEmpty"),
+    adminStatus: document.getElementById("adminStatus"),
     workerPicker: document.getElementById("workerPicker"),
     workerPickerSummary: document.getElementById("workerPickerSummary"),
     workerPickerSearch: document.getElementById("workerPickerSearch"),
@@ -492,6 +498,50 @@ export function renderWorkerAdminVisibility(elements, isAdmin) {
   elements.workerManage.classList.toggle("hidden", !isAdmin);
   elements.workerField.classList.toggle("hidden", !isAdmin);
   elements.workersTabButton.classList.toggle("hidden", !isAdmin);
+  if (elements.adminManage) {
+    elements.adminManage.classList.toggle("hidden", !isAdmin);
+  }
+}
+
+// Admin roster management (admin-only). Mirrors renderWorkerManagement, but the
+// permanent super-admin (`superEmail`) shows an "Owner" tag and no Remove button
+// so it can never be removed.
+export function renderAdminManagement(elements, admins, superEmail, handlers) {
+  elements.adminList.innerHTML = "";
+  const superKey = String(superEmail).toLowerCase();
+
+  // Always show the super-admin first, even if it has no roster doc.
+  const emails = admins.map((admin) => String(admin.email).toLowerCase());
+  const ordered = [superKey, ...emails.filter((email) => email !== superKey).sort()];
+
+  elements.adminEmpty.hidden = ordered.length > 0;
+
+  ordered.forEach((email) => {
+    const item = document.createElement("li");
+    item.className = "worker-row";
+
+    const name = document.createElement("span");
+    name.className = "worker-name";
+    name.textContent = email;
+
+    item.appendChild(name);
+
+    if (email === superKey) {
+      const tag = document.createElement("span");
+      tag.className = "admin-owner-tag";
+      tag.textContent = "Owner";
+      item.appendChild(tag);
+    } else {
+      const removeButton = document.createElement("button");
+      removeButton.type = "button";
+      removeButton.className = "entry-remove";
+      removeButton.textContent = "Remove";
+      removeButton.addEventListener("click", () => handlers.onRemoveAdmin(email));
+      item.appendChild(removeButton);
+    }
+
+    elements.adminList.appendChild(item);
+  });
 }
 
 // Show the worker-history view (Charts tab) and the calculator/job history.

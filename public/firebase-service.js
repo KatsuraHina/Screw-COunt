@@ -11,10 +11,12 @@ import {
   collection,
   deleteDoc,
   doc,
+  getDoc,
   getDocs,
   getFirestore,
   query,
   serverTimestamp,
+  setDoc,
   updateDoc,
   where
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
@@ -58,8 +60,11 @@ export async function saveJobRecord(job, user) {
   };
 }
 
-export async function loadJobRecords(user) {
-  const jobsQuery = query(collection(db, "jobs"), where("userId", "==", user.uid));
+// Admins load the whole shared pool (no owner filter); everyone else only their
+// own jobs. The rules only permit the unfiltered query for admins.
+export async function loadJobRecords(user, { all = false } = {}) {
+  const jobsCollection = collection(db, "jobs");
+  const jobsQuery = all ? jobsCollection : query(jobsCollection, where("userId", "==", user.uid));
   const snapshot = await getDocs(jobsQuery);
 
   return snapshot.docs.map((docSnapshot) => ({
@@ -93,8 +98,11 @@ export async function addWorkerRecord(name, user) {
   return { id: docRef.id, name };
 }
 
-export async function loadWorkerRecords(user) {
-  const workersQuery = query(collection(db, "workers"), where("userId", "==", user.uid));
+export async function loadWorkerRecords(user, { all = false } = {}) {
+  const workersCollection = collection(db, "workers");
+  const workersQuery = all
+    ? workersCollection
+    : query(workersCollection, where("userId", "==", user.uid));
   const snapshot = await getDocs(workersQuery);
 
   return snapshot.docs.map((docSnapshot) => ({
@@ -105,6 +113,47 @@ export async function loadWorkerRecords(user) {
 
 export async function deleteWorkerRecord(workerId) {
   await deleteDoc(doc(db, "workers", workerId));
+}
+
+// --- Admin roster (the `admins` collection, keyed by lowercased email) ---
+
+function adminEmailKey(email) {
+  return String(email).trim().toLowerCase();
+}
+
+// Whether a specific email is currently granted admin via the roster. Each user
+// is allowed to read their own admin doc, so this works before we know they're
+// an admin.
+export async function isEmailAdmin(email) {
+  const key = adminEmailKey(email);
+  if (!key) {
+    return false;
+  }
+  const snapshot = await getDoc(doc(db, "admins", key));
+  return snapshot.exists();
+}
+
+// The full admin roster — admin-only (the rules block a non-admin list).
+export async function loadAdminRecords() {
+  const snapshot = await getDocs(collection(db, "admins"));
+  return snapshot.docs.map((docSnapshot) => ({
+    email: docSnapshot.data().email ?? docSnapshot.id,
+    ...docSnapshot.data()
+  }));
+}
+
+export async function addAdminRecord(email, user) {
+  const key = adminEmailKey(email);
+  await setDoc(doc(db, "admins", key), {
+    email: key,
+    addedBy: user?.email ?? "",
+    addedAt: serverTimestamp()
+  });
+  return { email: key };
+}
+
+export async function removeAdminRecord(email) {
+  await deleteDoc(doc(db, "admins", adminEmailKey(email)));
 }
 
 export function formatFirestoreError(error) {

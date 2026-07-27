@@ -1,26 +1,50 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    // The permanent super-admin (always an admin, can never be removed) plus
+    // anyone whose lowercased email has a doc in the `admins` collection.
+    function isAdmin() {
+      return request.auth != null && (
+        request.auth.token.email.lower() == 'mick.malaluan@gmail.com'
+        || exists(/databases/$(database)/documents/admins/$(request.auth.token.email.lower()))
+      );
+    }
+
+    // Admin roster. A signed-in user may read only their own email's doc (to
+    // learn whether they are an admin); listing everyone and adding/removing is
+    // admin-only. Docs are keyed by the lowercased email.
+    match /admins/{email} {
+      allow get: if request.auth != null && email == request.auth.token.email.lower();
+      allow list: if isAdmin();
+      allow create, delete: if isAdmin();
+      allow update: if false;
+    }
+
     match /jobs/{jobId} {
-      allow read: if request.auth != null && resource.data.userId == request.auth.uid;
+      // Owners see their own jobs; admins share the whole pool.
+      allow read: if request.auth != null
+        && (resource.data.userId == request.auth.uid || isAdmin());
       allow create: if request.auth != null
         && request.resource.data.userId == request.auth.uid
         && request.resource.data.userEmail is string;
-      allow delete: if request.auth != null && resource.data.userId == request.auth.uid;
-      // Owners may edit their own jobs (correcting times, amounts, crew, etc.)
-      // or toggle `hidden`, but may never reassign ownership.
+      allow delete: if request.auth != null
+        && (resource.data.userId == request.auth.uid || isAdmin());
+      // Owners and admins may edit a job (times, amounts, crew, hidden) but the
+      // ownership fields can never be reassigned.
       allow update: if request.auth != null
-        && resource.data.userId == request.auth.uid
+        && (resource.data.userId == request.auth.uid || isAdmin())
         && request.resource.data.userId == resource.data.userId
         && request.resource.data.userEmail == resource.data.userEmail;
     }
 
     match /workers/{workerId} {
-      allow read: if request.auth != null && resource.data.userId == request.auth.uid;
+      allow read: if request.auth != null
+        && (resource.data.userId == request.auth.uid || isAdmin());
       allow create: if request.auth != null
         && request.resource.data.userId == request.auth.uid
         && request.resource.data.name is string;
-      allow delete: if request.auth != null && resource.data.userId == request.auth.uid;
+      allow delete: if request.auth != null
+        && (resource.data.userId == request.auth.uid || isAdmin());
       allow update: if false;
     }
 
