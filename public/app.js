@@ -444,8 +444,10 @@ function renderApp() {
     return;
   }
 
-  // The admin doesn't use the per-job trusses/screw charts, so hide that panel for them.
-  const showJobHistory = !state.isAdmin;
+  // The per-job trusses/screw charts need saved jobs, so only show that panel
+  // when signed in (it would otherwise be an empty chart box) and not for the
+  // admin (who uses the aggregate Charts tab instead).
+  const showJobHistory = !state.isAdmin && Boolean(state.currentUser);
   toggleWorkersView(elements, false, showJobHistory);
   renderTabState(elements, getActiveConfig(), state.activeTab);
   renderJobTypeToggle(elements, state.activeTab);

@@ -739,6 +739,20 @@ button:disabled {
   margin: 0;
 }
 
+/* Keep the Manage workers / Manage admins dropdowns together as one neat,
+   right-aligned cluster instead of scattering across the header row. */
+.manage-actions {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.manage-actions .worker-manage > summary {
+  white-space: nowrap;
+}
+
 /* Compact disclosure dropdowns (Manage workers + per-job worker picker) */
 .worker-manage,
 .worker-picker {

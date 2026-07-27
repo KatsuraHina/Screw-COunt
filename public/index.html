@@ -47,36 +47,38 @@
         <div class="work-details-head">
           <h2>Work Details</h2>
 
-          <details class="worker-manage hidden" id="workerManage">
-            <summary>Manage workers</summary>
-            <div class="worker-manage-body">
-              <div class="worker-add-row">
-                <input id="workerNameInput" type="text" placeholder="Add a worker" autocomplete="off">
-                <button id="addWorkerButton" type="button">Add</button>
+          <div class="manage-actions">
+            <details class="worker-manage hidden" id="workerManage">
+              <summary>Manage workers</summary>
+              <div class="worker-manage-body">
+                <div class="worker-add-row">
+                  <input id="workerNameInput" type="text" placeholder="Add a worker" autocomplete="off">
+                  <button id="addWorkerButton" type="button">Add</button>
+                </div>
+                <div class="worker-list-scroll">
+                  <ul id="workerList" class="worker-list"></ul>
+                  <p id="workerEmpty" class="entry-empty">No workers yet.</p>
+                </div>
+                <p id="workerStatus" class="hint"></p>
               </div>
-              <div class="worker-list-scroll">
-                <ul id="workerList" class="worker-list"></ul>
-                <p id="workerEmpty" class="entry-empty">No workers yet.</p>
-              </div>
-              <p id="workerStatus" class="hint"></p>
-            </div>
-          </details>
+            </details>
 
-          <details class="worker-manage hidden" id="adminManage">
-            <summary>Manage admins</summary>
-            <div class="worker-manage-body">
-              <p class="hint">Admins can log jobs, manage workers, and see the charts. They share the same data as you.</p>
-              <div class="worker-add-row">
-                <input id="adminEmailInput" type="text" placeholder="Add admin by username" autocomplete="off" autocapitalize="none" spellcheck="false">
-                <button id="addAdminButton" type="button">Add</button>
+            <details class="worker-manage hidden" id="adminManage">
+              <summary>Manage admins</summary>
+              <div class="worker-manage-body">
+                <p class="hint">Admins can log jobs, manage workers, and see the charts. They share the same data as you.</p>
+                <div class="worker-add-row">
+                  <input id="adminEmailInput" type="text" placeholder="Add admin by username" autocomplete="off" autocapitalize="none" spellcheck="false">
+                  <button id="addAdminButton" type="button">Add</button>
+                </div>
+                <div class="worker-list-scroll">
+                  <ul id="adminList" class="worker-list"></ul>
+                  <p id="adminEmpty" class="entry-empty">No extra admins yet.</p>
+                </div>
+                <p id="adminStatus" class="hint"></p>
               </div>
-              <div class="worker-list-scroll">
-                <ul id="adminList" class="worker-list"></ul>
-                <p id="adminEmpty" class="entry-empty">No extra admins yet.</p>
-              </div>
-              <p id="adminStatus" class="hint"></p>
-            </div>
-          </details>
+            </details>
+          </div>
         </div>
 
         <div class="edit-banner hidden" id="editBanner">
