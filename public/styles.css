@@ -172,14 +172,20 @@ body {
 }
 
 .tab-strip {
-  display: inline-grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  /* Flex, not a fixed 2-column grid, so the strip collapses to just the visible
+     tabs — a non-admin (only "Log job") gets no empty second cell where the
+     hidden "Charts" tab would sit. */
+  display: inline-flex;
   gap: 8px;
   margin-bottom: 22px;
   padding: 8px;
   border-radius: 18px;
   background: rgba(255, 250, 242, 0.74);
   border: 1px solid rgba(221, 199, 163, 0.8);
+}
+
+.tab-strip .tab-button {
+  flex: 0 1 auto;
 }
 
 .tab-button {
