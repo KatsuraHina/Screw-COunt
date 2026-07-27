@@ -201,6 +201,8 @@ export function getElements() {
     rateLabel: document.getElementById("rateLabel"),
     rateOutput: document.getElementById("rate"),
     statusMessage: document.getElementById("statusMessage"),
+    formAlert: document.getElementById("formAlert"),
+    formAlertText: document.getElementById("formAlertText"),
     historyTitle: document.getElementById("historyTitle"),
     totalChartTitle: document.getElementById("totalChartTitle"),
     rateChartTitle: document.getElementById("rateChartTitle"),
@@ -212,6 +214,23 @@ export function getElements() {
 export function setStatus(elements, message, tone = "hint") {
   elements.statusMessage.textContent = message;
   elements.statusMessage.className = tone === "warning" || tone === "success" ? `hint ${tone}` : "hint";
+}
+
+// Show the big red "you missed a required field" alert under the End job button,
+// re-triggering the shake each time so a repeated tap still draws the eye.
+export function showFormWarning(elements, message) {
+  elements.formAlertText.textContent = message;
+  elements.formAlert.classList.remove("hidden");
+  elements.formAlert.classList.remove("shake");
+  // Force reflow so the animation restarts even when the alert is already shown.
+  void elements.formAlert.offsetWidth;
+  elements.formAlert.classList.add("shake");
+}
+
+export function clearFormWarning(elements) {
+  elements.formAlert.classList.add("hidden");
+  elements.formAlert.classList.remove("shake");
+  elements.formAlertText.textContent = "";
 }
 
 export function renderAuthState(elements, user) {

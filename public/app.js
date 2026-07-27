@@ -55,6 +55,8 @@ import {
   renderImportList,
   renderRangeCalendar,
   formatRangeLabel,
+  showFormWarning,
+  clearFormWarning,
   setActiveTabButtons,
   setImportLabels,
   setImportStatus,
@@ -1321,6 +1323,45 @@ function addEntry() {
   showAddFeedback(amount, config);
 }
 
+// Inputs currently outlined red by the missing-field alert, so they can be
+// cleared together when the alert is dismissed.
+let flaggedFields = [];
+
+// Join a list into readable prose: "a, b and c".
+function joinWithAnd(items) {
+  if (items.length <= 1) {
+    return items[0] ?? "";
+  }
+  return `${items.slice(0, -1).join(", ")} and ${items[items.length - 1]}`;
+}
+
+// Show the big alert, outline the offending fields, and scroll the first one
+// into view so the fix is obvious even on a long form.
+function showFormValidationWarning(message, fields) {
+  showFormWarning(elements, message);
+  clearFieldHighlights();
+  fields.forEach((field) => {
+    if (field) {
+      field.classList.add("input-error");
+      flaggedFields.push(field);
+    }
+  });
+  const firstField = flaggedFields[0];
+  if (firstField && typeof firstField.scrollIntoView === "function") {
+    firstField.scrollIntoView({ behavior: "smooth", block: "center" });
+  }
+}
+
+function clearFieldHighlights() {
+  flaggedFields.forEach((field) => field.classList.remove("input-error"));
+  flaggedFields = [];
+}
+
+function clearFormValidationWarning() {
+  clearFormWarning(elements);
+  clearFieldHighlights();
+}
+
 function createPendingJob() {
   const draft = getActiveDraft();
   const entries = getCombinedEntries();
@@ -1338,32 +1379,44 @@ function createPendingJob() {
   const actionLabel = editing ? "saving your changes" : "ending and saving a job";
 
   if (!state.currentUser) {
-    setStatus(elements, "Sign in before saving a job.", "warning");
+    showFormValidationWarning("Sign in before saving a job.", []);
     return null;
   }
 
+  // Collect every missing required field so one warning lists them all, instead
+  // of surfacing them one tap at a time.
+  const missing = [];
+  const errorFields = [];
+
   if (!draft.startTime) {
-    setStatus(elements, `Enter a start time before ${actionLabel}.`, "warning");
-    return null;
+    missing.push("a start time");
+    errorFields.push(elements.startTimeInput);
   }
 
   const benchNumber = Number(elements.benchSelect.value);
   if (!Number.isInteger(benchNumber) || benchNumber < 1 || benchNumber > 19) {
-    setStatus(elements, `Select a bench (1–19) before ${actionLabel}.`, "warning");
-    return null;
+    missing.push("a bench number");
+    errorFields.push(elements.benchSelect);
   }
 
   // Live count (empty end time = "now") only makes sense for a job happening
   // today. A forgotten/back-dated job must have an explicit end time.
   if (!draft.endTime && draft.workDate && draft.workDate !== formatDateKey(new Date())) {
-    setStatus(elements, "Enter an end time for a past job — live count only works for today.", "warning");
-    return null;
+    missing.push("an end time (past jobs can't use the live count)");
+    errorFields.push(elements.endTimeInput);
   }
 
   if (totalAmount <= 0) {
-    setStatus(elements, config.saveWarning, "warning");
+    missing.push(`some ${config.unitLabel.toLowerCase()}`);
+    errorFields.push(elements.amountInput);
+  }
+
+  if (missing.length > 0) {
+    showFormValidationWarning(`Before ${actionLabel}, add ${joinWithAnd(missing)}.`, errorFields);
     return null;
   }
+
+  clearFormValidationWarning();
 
   return createJobPayload({
     jobType: state.activeTab,
@@ -1605,6 +1658,8 @@ function switchTab(nextTab) {
   if (JOB_TYPES[nextTab]) {
     state.lastJobType = nextTab;
   }
+  // Don't carry a missing-field alert across to the other tab.
+  clearFormValidationWarning();
   renderApp();
 }
 
@@ -1648,6 +1703,17 @@ function bindEvents() {
   });
   elements.addAmountButton.addEventListener("click", addEntry);
   elements.endJobButton.addEventListener("click", saveJob);
+  // Dismiss the missing-field alert as soon as the admin edits any flagged field.
+  [
+    elements.benchSelect,
+    elements.startTimeInput,
+    elements.endTimeInput,
+    elements.amountInput,
+    elements.workDateInput
+  ].forEach((field) => {
+    field.addEventListener("input", clearFormValidationWarning);
+    field.addEventListener("change", clearFormValidationWarning);
+  });
   elements.cancelEditButton.addEventListener("click", cancelEditJob);
   elements.logoutButton.addEventListener("click", handleLogout);
   elements.rangeSelect.addEventListener("change", renderHistorySection);

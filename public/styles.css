@@ -534,6 +534,47 @@ button:disabled {
   font-size: 0.95rem;
 }
 
+/* Big, hard-to-miss alert shown under the End job button when a required field
+   (bench, start/end time, amount) is missing. */
+.form-alert {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 14px;
+  padding: 16px 18px;
+  border-radius: 16px;
+  border: 2px solid #c0392b;
+  background: #fdecea;
+  color: #96271b;
+  font-weight: 800;
+  font-size: 1.08rem;
+  line-height: 1.35;
+  box-shadow: 0 12px 26px rgba(192, 57, 43, 0.2);
+}
+
+.form-alert-icon {
+  font-size: 1.7rem;
+  line-height: 1;
+  flex: 0 0 auto;
+}
+
+.form-alert.shake {
+  animation: form-alert-shake 0.4s ease;
+}
+
+@keyframes form-alert-shake {
+  0%, 100% { transform: translateX(0); }
+  20%, 60% { transform: translateX(-7px); }
+  40%, 80% { transform: translateX(7px); }
+}
+
+/* Red outline on the specific field(s) the alert is about. */
+.input-error,
+.input-error:focus {
+  border-color: #c0392b !important;
+  box-shadow: 0 0 0 3px rgba(192, 57, 43, 0.22) !important;
+}
+
 .inline-hint {
   margin-top: 10px;
 }
