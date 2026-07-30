@@ -574,6 +574,24 @@ button:disabled {
   40%, 80% { transform: translateX(7px); }
 }
 
+/* Green success variant: shown when a job is saved/updated. */
+.form-alert.is-success {
+  border-color: #2e7d32;
+  background: #e7f6ea;
+  color: #1b5e20;
+  box-shadow: 0 12px 26px rgba(46, 125, 50, 0.2);
+}
+
+.form-alert.pop {
+  animation: form-alert-pop 0.35s ease;
+}
+
+@keyframes form-alert-pop {
+  0% { transform: scale(0.96); opacity: 0.35; }
+  60% { transform: scale(1.02); }
+  100% { transform: scale(1); opacity: 1; }
+}
+
 /* Red outline on the specific field(s) the alert is about. */
 .input-error,
 .input-error:focus {

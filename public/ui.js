@@ -209,6 +209,7 @@ export function getElements() {
     rateOutput: document.getElementById("rate"),
     statusMessage: document.getElementById("statusMessage"),
     formAlert: document.getElementById("formAlert"),
+    formAlertIcon: document.getElementById("formAlertIcon"),
     formAlertText: document.getElementById("formAlertText"),
     historyTitle: document.getElementById("historyTitle"),
     totalChartTitle: document.getElementById("totalChartTitle"),
@@ -223,20 +224,51 @@ export function setStatus(elements, message, tone = "hint") {
   elements.statusMessage.className = tone === "warning" || tone === "success" ? `hint ${tone}` : "hint";
 }
 
-// Show the big red "you missed a required field" alert under the End job button,
-// re-triggering the shake each time so a repeated tap still draws the eye.
-export function showFormWarning(elements, message) {
-  elements.formAlertText.textContent = message;
-  elements.formAlert.classList.remove("hidden");
-  elements.formAlert.classList.remove("shake");
-  // Force reflow so the animation restarts even when the alert is already shown.
+// The big alert under the End job button doubles as the missing-field warning
+// (red) and the job-saved confirmation (green). A pending success auto-hide is
+// tracked so a new alert cancels it.
+let formAlertTimer = null;
+
+function cancelFormAlertTimer() {
+  if (formAlertTimer !== null) {
+    clearTimeout(formAlertTimer);
+    formAlertTimer = null;
+  }
+}
+
+// Restart the entrance animation even when the alert is already showing, so a
+// repeated action still draws the eye.
+function replayFormAlert(elements, animation) {
+  elements.formAlert.classList.remove("hidden", "shake", "pop");
   void elements.formAlert.offsetWidth;
-  elements.formAlert.classList.add("shake");
+  elements.formAlert.classList.add(animation);
+}
+
+// Red "you missed a required field" alert.
+export function showFormWarning(elements, message) {
+  cancelFormAlertTimer();
+  elements.formAlert.classList.remove("is-success");
+  elements.formAlertIcon.textContent = "⚠";
+  elements.formAlertText.textContent = message;
+  replayFormAlert(elements, "shake");
+}
+
+// Green "job saved" confirmation; auto-clears after a few seconds.
+export function showFormSuccess(elements, message) {
+  cancelFormAlertTimer();
+  elements.formAlert.classList.add("is-success");
+  elements.formAlertIcon.textContent = "✓";
+  elements.formAlertText.textContent = message;
+  replayFormAlert(elements, "pop");
+  formAlertTimer = setTimeout(() => {
+    clearFormWarning(elements);
+  }, 5000);
 }
 
 export function clearFormWarning(elements) {
+  cancelFormAlertTimer();
   elements.formAlert.classList.add("hidden");
-  elements.formAlert.classList.remove("shake");
+  elements.formAlert.classList.remove("shake", "pop", "is-success");
   elements.formAlertText.textContent = "";
 }
 

@@ -64,6 +64,7 @@ import {
   renderRangeCalendar,
   formatRangeLabel,
   showFormWarning,
+  showFormSuccess,
   clearFormWarning,
   setActiveTabButtons,
   setImportLabels,
@@ -1486,12 +1487,14 @@ async function saveJob() {
       renderApp();
       renderHistorySection();
       setStatus(elements, `${getActiveConfig().label} job updated.`, "success");
+      showFormSuccess(elements, `${getActiveConfig().label} job updated!`);
     } else {
       const savedJob = await saveJobRecord(job, state.currentUser);
       state.savedJobs.unshift(normalizeJob(savedJob));
       resetDraftForNextCrew();
       renderHistorySection();
       setStatus(elements, `${getActiveConfig().label} job saved. Shift details kept — pick the next crew and bench.`);
+      showFormSuccess(elements, `${getActiveConfig().label} job saved!`);
     }
   } catch (error) {
     console.error(error);
