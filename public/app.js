@@ -64,7 +64,7 @@ import {
   renderRangeCalendar,
   formatRangeLabel,
   showFormWarning,
-  showFormSuccess,
+  showSaveToast,
   clearFormWarning,
   setActiveTabButtons,
   setImportLabels,
@@ -1301,8 +1301,10 @@ function resetDraftForNextCrew() {
   next.workDate = previous.workDate;
   next.startTime = previous.startTime;
   next.endTime = previous.endTime;
-  next.break15Checked = previous.break15Checked;
-  next.break24Checked = previous.break24Checked;
+  // Breaks are per-job, so a saved job clears its ticked breaks — the next crew
+  // starts with none rather than inheriting the last job's breaks.
+  next.break15Checked = false;
+  next.break24Checked = false;
   next.importRows = (previous.importRows ?? []).map((row) =>
     row.done ? { ...row, done: false, loggedCount: (row.loggedCount || 0) + 1 } : { ...row }
   );
@@ -1487,14 +1489,14 @@ async function saveJob() {
       renderApp();
       renderHistorySection();
       setStatus(elements, `${getActiveConfig().label} job updated.`, "success");
-      showFormSuccess(elements, `${getActiveConfig().label} job updated!`);
+      showSaveToast(elements, `${getActiveConfig().label} job updated!`);
     } else {
       const savedJob = await saveJobRecord(job, state.currentUser);
       state.savedJobs.unshift(normalizeJob(savedJob));
       resetDraftForNextCrew();
       renderHistorySection();
       setStatus(elements, `${getActiveConfig().label} job saved. Shift details kept — pick the next crew and bench.`);
-      showFormSuccess(elements, `${getActiveConfig().label} job saved!`);
+      showSaveToast(elements, `${getActiveConfig().label} job saved!`);
     }
   } catch (error) {
     console.error(error);

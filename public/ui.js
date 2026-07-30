@@ -211,6 +211,8 @@ export function getElements() {
     formAlert: document.getElementById("formAlert"),
     formAlertIcon: document.getElementById("formAlertIcon"),
     formAlertText: document.getElementById("formAlertText"),
+    saveToast: document.getElementById("saveToast"),
+    saveToastText: document.getElementById("saveToastText"),
     historyTitle: document.getElementById("historyTitle"),
     totalChartTitle: document.getElementById("totalChartTitle"),
     rateChartTitle: document.getElementById("rateChartTitle"),
@@ -224,52 +226,49 @@ export function setStatus(elements, message, tone = "hint") {
   elements.statusMessage.className = tone === "warning" || tone === "success" ? `hint ${tone}` : "hint";
 }
 
-// The big alert under the End job button doubles as the missing-field warning
-// (red) and the job-saved confirmation (green). A pending success auto-hide is
-// tracked so a new alert cancels it.
-let formAlertTimer = null;
-
-function cancelFormAlertTimer() {
-  if (formAlertTimer !== null) {
-    clearTimeout(formAlertTimer);
-    formAlertTimer = null;
-  }
-}
-
-// Restart the entrance animation even when the alert is already showing, so a
-// repeated action still draws the eye.
-function replayFormAlert(elements, animation) {
-  elements.formAlert.classList.remove("hidden", "shake", "pop");
-  void elements.formAlert.offsetWidth;
-  elements.formAlert.classList.add(animation);
-}
-
-// Red "you missed a required field" alert.
+// Red "you missed a required field" alert under the End job button, re-triggering
+// the shake each time so a repeated tap still draws the eye.
 export function showFormWarning(elements, message) {
-  cancelFormAlertTimer();
-  elements.formAlert.classList.remove("is-success");
-  elements.formAlertIcon.textContent = "⚠";
   elements.formAlertText.textContent = message;
-  replayFormAlert(elements, "shake");
-}
-
-// Green "job saved" confirmation; auto-clears after a few seconds.
-export function showFormSuccess(elements, message) {
-  cancelFormAlertTimer();
-  elements.formAlert.classList.add("is-success");
-  elements.formAlertIcon.textContent = "✓";
-  elements.formAlertText.textContent = message;
-  replayFormAlert(elements, "pop");
-  formAlertTimer = setTimeout(() => {
-    clearFormWarning(elements);
-  }, 5000);
+  elements.formAlert.classList.remove("hidden", "shake");
+  // Force reflow so the animation restarts even when the alert is already shown.
+  void elements.formAlert.offsetWidth;
+  elements.formAlert.classList.add("shake");
 }
 
 export function clearFormWarning(elements) {
-  cancelFormAlertTimer();
   elements.formAlert.classList.add("hidden");
-  elements.formAlert.classList.remove("shake", "pop", "is-success");
+  elements.formAlert.classList.remove("shake");
   elements.formAlertText.textContent = "";
+}
+
+// A prominent centred pop-up confirming a job was saved/updated. It floats over
+// the page (more visible than an inline banner) and auto-dismisses.
+let saveToastTimer = null;
+
+export function showSaveToast(elements, message) {
+  const toast = elements.saveToast;
+  if (!toast) {
+    return;
+  }
+  if (saveToastTimer !== null) {
+    clearTimeout(saveToastTimer);
+    saveToastTimer = null;
+  }
+  elements.saveToastText.textContent = message;
+  toast.hidden = false;
+  toast.classList.remove("is-leaving", "show");
+  void toast.offsetWidth;
+  toast.classList.add("show");
+
+  saveToastTimer = setTimeout(() => {
+    toast.classList.add("is-leaving");
+    saveToastTimer = setTimeout(() => {
+      toast.hidden = true;
+      toast.classList.remove("show", "is-leaving");
+      saveToastTimer = null;
+    }, 320);
+  }, 2600);
 }
 
 export function renderAuthState(elements, user) {

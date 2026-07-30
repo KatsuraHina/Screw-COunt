@@ -574,22 +574,59 @@ button:disabled {
   40%, 80% { transform: translateX(7px); }
 }
 
-/* Green success variant: shown when a job is saved/updated. */
-.form-alert.is-success {
-  border-color: #2e7d32;
+/* Centred pop-up confirming a job was saved — floats over the page so it's
+   unmissable, then auto-dismisses. */
+.save-toast {
+  position: fixed;
+  top: 28px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 18px 30px;
+  border-radius: 18px;
+  border: 2px solid #2e7d32;
   background: #e7f6ea;
   color: #1b5e20;
-  box-shadow: 0 12px 26px rgba(46, 125, 50, 0.2);
+  font-weight: 800;
+  font-size: 1.25rem;
+  box-shadow: 0 22px 48px rgba(27, 94, 32, 0.32);
+  pointer-events: none;
+  max-width: calc(100vw - 32px);
 }
 
-.form-alert.pop {
-  animation: form-alert-pop 0.35s ease;
+.save-toast[hidden] {
+  display: none;
 }
 
-@keyframes form-alert-pop {
-  0% { transform: scale(0.96); opacity: 0.35; }
-  60% { transform: scale(1.02); }
-  100% { transform: scale(1); opacity: 1; }
+.save-toast-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  background: #2e7d32;
+  color: #fff;
+  font-size: 1.15rem;
+}
+
+.save-toast.show {
+  animation: save-toast-pop 0.4s cubic-bezier(0.18, 0.9, 0.32, 1.2);
+}
+
+.save-toast.is-leaving {
+  opacity: 0;
+  transform: translate(-50%, -12px);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+@keyframes save-toast-pop {
+  0% { transform: translate(-50%, -16px) scale(0.9); opacity: 0; }
+  100% { transform: translate(-50%, 0) scale(1); opacity: 1; }
 }
 
 /* Red outline on the specific field(s) the alert is about. */
