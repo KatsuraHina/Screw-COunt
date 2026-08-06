@@ -152,6 +152,8 @@ export function getElements() {
     tabDescription: document.getElementById("tabDescription"),
     activeTabLabel: document.getElementById("activeTabLabel"),
     workDateInput: document.getElementById("workDate"),
+    dateModeToggle: document.getElementById("dateModeToggle"),
+    dateModeButtons: Array.from(document.querySelectorAll("[data-date-mode]")),
     benchSelect: document.getElementById("benchNumber"),
     startTimeInput: document.getElementById("startTime"),
     startTimeMeridiem: document.getElementById("startTimeMeridiem"),
@@ -617,6 +619,15 @@ export function renderJobTypeToggle(elements, activeType) {
 export function renderShiftToggle(elements, shift) {
   elements.shiftButtons.forEach((button) => {
     const isActive = button.dataset.shift === shift;
+    button.classList.toggle("is-active", isActive);
+    button.setAttribute("aria-pressed", String(isActive));
+  });
+}
+
+// Highlight the active work-date mode in the Auto/Manual segmented toggle.
+export function renderDateModeToggle(elements, mode) {
+  elements.dateModeButtons.forEach((button) => {
+    const isActive = button.dataset.dateMode === mode;
     button.classList.toggle("is-active", isActive);
     button.setAttribute("aria-pressed", String(isActive));
   });

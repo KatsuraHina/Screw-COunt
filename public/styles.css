@@ -330,6 +330,17 @@ input[type="number"] {
   max-width: 420px;
 }
 
+/* In Auto mode the work date is locked — show it as a read-only value. */
+#workDate:disabled {
+  background: var(--panel-strong);
+  color: var(--muted);
+  cursor: default;
+}
+
+#dateModeToggle {
+  margin-bottom: 10px;
+}
+
 /* Smart time entry: a text field with an AM/PM toggle button beside it. */
 .time-input {
   display: flex;

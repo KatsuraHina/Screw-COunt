@@ -20,6 +20,7 @@ import {
   BREAK_24,
   JOB_TYPES,
   adjustStrapForBreakOverflow,
+  autoWorkDateKey,
   calculateBreakMinutes,
   calculateStrapMinutes,
   calculateWorkedMinutes,
@@ -59,6 +60,7 @@ import {
   renderWorkerPicker,
   renderJobTypeToggle,
   renderShiftToggle,
+  renderDateModeToggle,
   renderImportLibrary,
   renderImportList,
   renderRangeCalendar,
@@ -208,7 +210,11 @@ const SMART_TIME_FIELDS = [
 // canonical 24-hour value straight into the draft as the user edits them.
 function syncDraftFromInputs() {
   const draft = getActiveDraft();
-  draft.workDate = elements.workDateInput.value;
+  // In auto mode the date is controlled (locked to the shift-aware date), so only
+  // read the field back into the draft when the admin is entering it manually.
+  if (draft.dateMode === "manual") {
+    draft.workDate = elements.workDateInput.value;
+  }
   draft.benchNumber = elements.benchSelect.value;
   draft.pendingAmount = elements.amountInput.value;
   draft.break15Checked = elements.break15Input.checked;
@@ -271,15 +277,46 @@ function handleShiftChange(shift) {
   draft.shift = shift;
   reapplyShiftToTimes();
   renderShiftToggle(elements, shift);
+  // Switching to/from Night can change the auto date (early-morning night → the
+  // previous day), so refresh the locked date field.
+  if (draft.dateMode !== "manual") {
+    renderWorkDateField();
+  }
   SMART_TIME_FIELDS.forEach(({ input, toggle, key }) => {
     renderSmartTimeField(elements[input], elements[toggle], draft[key]);
   });
   renderCalculatorSection();
 }
 
+// The work date is either automatic (locked to the shift-aware current date) or
+// manual (an editable date the admin picks for a back-dated job).
+function renderWorkDateField() {
+  const draft = getActiveDraft();
+  const manual = draft.dateMode === "manual";
+  if (!manual) {
+    // Keep the auto date current for the selected shift (Night in the early
+    // morning resolves to the previous evening's date).
+    draft.workDate = autoWorkDateKey(draft.shift);
+  }
+  elements.workDateInput.value = draft.workDate;
+  elements.workDateInput.disabled = !manual;
+  renderDateModeToggle(elements, manual ? "manual" : "auto");
+}
+
+function handleDateModeChange(mode) {
+  const draft = getActiveDraft();
+  const nextMode = mode === "manual" ? "manual" : "auto";
+  if (draft.dateMode === nextMode) {
+    return;
+  }
+  draft.dateMode = nextMode;
+  renderWorkDateField();
+  renderCalculatorSection();
+}
+
 function loadDraftIntoInputs() {
   const draft = getActiveDraft();
-  elements.workDateInput.value = draft.workDate;
+  renderWorkDateField();
   elements.benchSelect.value = draft.benchNumber;
   SMART_TIME_FIELDS.forEach(({ input, toggle, key }) => {
     renderSmartTimeField(elements[input], elements[toggle], draft[key]);
@@ -1264,6 +1301,9 @@ function startEditJob(job) {
 
   const editedDraft = createEmptyDraft();
   editedDraft.shift = job.shift || "night";
+  // Editing an existing job: show its own (fixed, historical) date in Manual mode
+  // rather than auto-jumping to the current shift-day.
+  editedDraft.dateMode = "manual";
   editedDraft.workDate = formatDateKey(startDate);
   editedDraft.benchNumber = job.benchNumber ? String(job.benchNumber) : "";
   editedDraft.startTime = formatClockKey(startDate);
@@ -1318,6 +1358,9 @@ function resetDraftForNextCrew() {
   const previous = getActiveDraft();
   const next = createEmptyDraft();
   next.shift = previous.shift;
+  // Keep the admin's date mode for the next crew: Auto recomputes the shift-aware
+  // date, Manual keeps the date they entered.
+  next.dateMode = previous.dateMode;
   next.workDate = previous.workDate;
   next.startTime = previous.startTime;
   next.endTime = previous.endTime;
@@ -1433,9 +1476,10 @@ function createPendingJob() {
     errorFields.push(elements.benchSelect);
   }
 
-  // Live count (empty end time = "now") only makes sense for a job happening
-  // today. A forgotten/back-dated job must have an explicit end time.
-  if (!draft.endTime && draft.workDate && draft.workDate !== formatDateKey(new Date())) {
+  // Live count (empty end time = "now") only makes sense for a job happening on
+  // the current shift-day (today, or the previous evening for an early-morning
+  // night shift). A genuinely back-dated job must have an explicit end time.
+  if (!draft.endTime && draft.workDate && draft.workDate !== autoWorkDateKey(draft.shift)) {
     missing.push("an end time (past jobs can't use the live count)");
     errorFields.push(elements.endTimeInput);
   }
@@ -2004,6 +2048,9 @@ function bindEvents() {
   // and is stored as the job's shift.
   elements.shiftButtons.forEach((button) => {
     button.addEventListener("click", () => handleShiftChange(button.dataset.shift));
+  });
+  elements.dateModeButtons.forEach((button) => {
+    button.addEventListener("click", () => handleDateModeChange(button.dataset.dateMode));
   });
 }
 
