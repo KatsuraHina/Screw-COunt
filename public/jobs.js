@@ -374,8 +374,8 @@ export function from24hString(hhmm) {
 
 export function createEmptyDraft() {
   return {
-    // "auto" keeps the work date on the shift-aware current date (see
-    // autoWorkDateKey); "manual" lets the admin pick any date for a back-dated job.
+    // "auto" keeps the work date on the current date; "manual" lets the admin
+    // pick any date for a back-dated job.
     dateMode: "auto",
     workDate: autoWorkDateKey("night"),
     benchNumber: "",
@@ -517,17 +517,13 @@ const NIGHT_START = 22 * 60; // 22:00
 const MORNING_START = 5 * 60 + 45; // 05:45
 const AFTERNOON_START = 13 * 60 + 30; // 13:30 (folds the 1:30–2pm gap into afternoon)
 
-// The automatic work date for a job being logged now. For a Night shift entered
-// in the early morning (before 5:45am), the shift began the previous evening, so
-// the work date is yesterday — matching how getShiftDayKey groups overnight work.
-// Every other case is simply today.
+// The automatic work date is simply the calendar date the job is being logged
+// on. No shift roll-back: a night shift that starts after midnight (e.g. 1:23am)
+// belongs to that same morning's date, and rolling back a day dated such jobs
+// wrong. Overnight grouping for the charts is handled separately by
+// getShiftDayKey from each job's start time, so the stored work date stays the
+// real date. (`shift` is accepted but unused, keeping call sites stable.)
 export function autoWorkDateKey(shift, now = new Date()) {
-  const minutes = now.getHours() * 60 + now.getMinutes();
-  if (shift === "night" && minutes < MORNING_START) {
-    const previous = new Date(now);
-    previous.setDate(previous.getDate() - 1);
-    return formatDateKey(previous);
-  }
   return formatDateKey(now);
 }
 

@@ -277,11 +277,6 @@ function handleShiftChange(shift) {
   draft.shift = shift;
   reapplyShiftToTimes();
   renderShiftToggle(elements, shift);
-  // Switching to/from Night can change the auto date (early-morning night → the
-  // previous day), so refresh the locked date field.
-  if (draft.dateMode !== "manual") {
-    renderWorkDateField();
-  }
   SMART_TIME_FIELDS.forEach(({ input, toggle, key }) => {
     renderSmartTimeField(elements[input], elements[toggle], draft[key]);
   });
@@ -1476,9 +1471,8 @@ function createPendingJob() {
     errorFields.push(elements.benchSelect);
   }
 
-  // Live count (empty end time = "now") only makes sense for a job happening on
-  // the current shift-day (today, or the previous evening for an early-morning
-  // night shift). A genuinely back-dated job must have an explicit end time.
+  // Live count (empty end time = "now") only makes sense for a job happening
+  // today. A genuinely back-dated job must have an explicit end time.
   if (!draft.endTime && draft.workDate && draft.workDate !== autoWorkDateKey(draft.shift)) {
     missing.push("an end time (past jobs can't use the live count)");
     errorFields.push(elements.endTimeInput);
