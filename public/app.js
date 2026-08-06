@@ -977,14 +977,34 @@ function clearImport() {
   setImportStatus(elements, "");
 }
 
+// Workers to offer in the Charts dropdown: the current roster plus anyone who
+// appears on a saved job but has since been removed. Deleting a worker only
+// takes them off the roster and the new-job picker — their logged history stays
+// fully visible in the charts, so the chart area is unaffected by a deletion.
+function getHistoryWorkers() {
+  const byId = new Map();
+  state.workers.forEach((worker) => {
+    byId.set(worker.id, { id: worker.id, name: worker.name, removed: false });
+  });
+  state.savedJobs.forEach((job) => {
+    (job.assignedWorkers || []).forEach((worker) => {
+      if (worker && worker.id && !byId.has(worker.id)) {
+        byId.set(worker.id, { id: worker.id, name: worker.name || "Removed worker", removed: true });
+      }
+    });
+  });
+  return Array.from(byId.values()).sort((a, b) => a.name.localeCompare(b.name));
+}
+
 function renderWorkerHistoryView() {
   if (!state.isAdmin) {
     return;
   }
 
+  const historyWorkers = getHistoryWorkers();
   const selectedId = renderWorkerHistorySelect(
     elements,
-    state.workers,
+    historyWorkers,
     state.workerHistory.selectedWorkerId
   );
   state.workerHistory.selectedWorkerId = selectedId;
@@ -999,7 +1019,7 @@ function renderWorkerHistoryView() {
   }
 
   const isAll = selectedId === "all";
-  const worker = state.workers.find((item) => item.id === selectedId);
+  const worker = historyWorkers.find((item) => item.id === selectedId);
   const { start: rangeStart, end: rangeEnd } = resolveWorkerRange();
   const benchFilter = elements.benchFilterSelect.value;
   const isAllBenches = benchFilter === "all";

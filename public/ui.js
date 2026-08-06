@@ -636,7 +636,9 @@ export function renderWorkerHistorySelect(elements, workers, selectedId) {
   workers.forEach((worker) => {
     const option = document.createElement("option");
     option.value = worker.id;
-    option.textContent = worker.name;
+    // Ex-roster workers who still have logged jobs stay selectable so their
+    // history remains viewable; flag them so it's clear they were removed.
+    option.textContent = worker.removed ? `${worker.name} (removed)` : worker.name;
     select.appendChild(option);
   });
 
