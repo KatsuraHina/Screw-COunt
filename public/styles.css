@@ -1217,6 +1217,12 @@ button:disabled {
   margin-top: 4px;
 }
 
+/* The imported job checklist can be long (dozens of rows), so give it a much
+   taller scroll area than the shared 220px default — it showed only ~4 rows. */
+.truss-list-wrap .entries-scroll {
+  max-height: min(520px, 60vh);
+}
+
 .truss-list-head {
   display: flex;
   align-items: center;
