@@ -277,6 +277,11 @@ function handleShiftChange(shift) {
   draft.shift = shift;
   reapplyShiftToTimes();
   renderShiftToggle(elements, shift);
+  // The shift flips the start time's AM/PM (e.g. 10:00 → 10pm on Night), which
+  // can change the auto work date, so refresh the locked date field.
+  if (draft.dateMode !== "manual") {
+    renderWorkDateField();
+  }
   SMART_TIME_FIELDS.forEach(({ input, toggle, key }) => {
     renderSmartTimeField(elements[input], elements[toggle], draft[key]);
   });
@@ -289,9 +294,9 @@ function renderWorkDateField() {
   const draft = getActiveDraft();
   const manual = draft.dateMode === "manual";
   if (!manual) {
-    // Keep the auto date current for the selected shift (Night in the early
-    // morning resolves to the previous evening's date).
-    draft.workDate = autoWorkDateKey(draft.shift);
+    // Derive the date from the start time: a 10pm start logged after midnight
+    // dates to the previous evening; an after-midnight start to that morning.
+    draft.workDate = autoWorkDateKey(draft.startTime);
   }
   elements.workDateInput.value = draft.workDate;
   elements.workDateInput.disabled = !manual;
@@ -1471,9 +1476,10 @@ function createPendingJob() {
     errorFields.push(elements.benchSelect);
   }
 
-  // Live count (empty end time = "now") only makes sense for a job happening
-  // today. A genuinely back-dated job must have an explicit end time.
-  if (!draft.endTime && draft.workDate && draft.workDate !== autoWorkDateKey(draft.shift)) {
+  // Live count (empty end time = "now") only makes sense for a job on the
+  // current shift-day (the date the entered start time last occurred). A
+  // genuinely back-dated job must have an explicit end time.
+  if (!draft.endTime && draft.workDate && draft.workDate !== autoWorkDateKey(draft.startTime)) {
     missing.push("an end time (past jobs can't use the live count)");
     errorFields.push(elements.endTimeInput);
   }
@@ -1894,6 +1900,10 @@ function bindEvents() {
     const indicatorEl = elements[toggle];
     inputEl.addEventListener("change", () => {
       applySmartTimeInput(inputEl, indicatorEl, key);
+      // The start time drives the auto work date, so refresh the locked date.
+      if (key === "startTime" && getActiveDraft().dateMode !== "manual") {
+        renderWorkDateField();
+      }
       renderCalculatorSection();
     });
   });

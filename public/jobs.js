@@ -374,10 +374,11 @@ export function from24hString(hhmm) {
 
 export function createEmptyDraft() {
   return {
-    // "auto" keeps the work date on the current date; "manual" lets the admin
-    // pick any date for a back-dated job.
+    // "auto" derives the work date from the start time (see autoWorkDateKey);
+    // "manual" lets the admin pick any date for a back-dated job. No start time
+    // yet, so it begins on today.
     dateMode: "auto",
-    workDate: autoWorkDateKey("night"),
+    workDate: autoWorkDateKey(""),
     benchNumber: "",
     // The admin picks the shift up front; it resolves the AM/PM of the entered
     // times and is stored as the job's authoritative shift. Night is the default
@@ -517,14 +518,24 @@ const NIGHT_START = 22 * 60; // 22:00
 const MORNING_START = 5 * 60 + 45; // 05:45
 const AFTERNOON_START = 13 * 60 + 30; // 13:30 (folds the 1:30–2pm gap into afternoon)
 
-// The automatic work date is simply the calendar date the job is being logged
-// on. No shift roll-back: a night shift that starts after midnight (e.g. 1:23am)
-// belongs to that same morning's date, and rolling back a day dated such jobs
-// wrong. Overnight grouping for the charts is handled separately by
-// getShiftDayKey from each job's start time, so the stored work date stays the
-// real date. (`shift` is accepted but unused, keeping call sites stable.)
-export function autoWorkDateKey(shift, now = new Date()) {
-  return formatDateKey(now);
+// The automatic work date is the calendar date on which the entered start time
+// most recently fell, at or before now. So a shift started 10pm and logged at
+// 4am the next morning dates to the previous day (the evening it began), while
+// one started 1:23am logged that same morning dates to that day. With no start
+// time entered yet it's simply today. Overnight grouping for the charts is still
+// handled by getShiftDayKey from each job's start time.
+export function autoWorkDateKey(startTime24, now = new Date()) {
+  if (typeof startTime24 !== "string" || !/^\d{1,2}:\d{2}$/.test(startTime24)) {
+    return formatDateKey(now);
+  }
+  const [hour, minute] = startTime24.split(":").map(Number);
+  const candidate = new Date(now);
+  candidate.setHours(hour, minute, 0, 0);
+  if (candidate.getTime() > now.getTime()) {
+    // That time hasn't come round yet today, so it last occurred yesterday.
+    candidate.setDate(candidate.getDate() - 1);
+  }
+  return formatDateKey(candidate);
 }
 
 // Fallback shift classification from the start time, for jobs saved before the
