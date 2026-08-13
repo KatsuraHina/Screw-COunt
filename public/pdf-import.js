@@ -52,12 +52,37 @@ function isHeaderRow(text) {
 }
 
 // Job titles are reliable markers: wall packs always carry "PACK" (PACK3,
-// PACK100, ...) and truss jobs always carry "TRUSS". PACK is checked first.
+// PACK100, ...) and truss jobs always carry "TRUSS". PACK is checked first (a
+// wall pack from a company called "…Trusses" would otherwise match TRUSS too).
 export function detectJobTypeFromText(text) {
   if (/PACK/i.test(text)) {
     return "walls";
   }
   if (/TRUSS/i.test(text)) {
+    return "trusses";
+  }
+  return null;
+}
+
+// The strongest signal is the item numbers themselves: wall panels are
+// W-prefixed (W065) and trusses are T-prefixed (T017). Whichever prefix
+// dominates the parsed rows decides the type — this is read from the actual cut
+// list, so it doesn't depend on where the PACK/TRUSS wording lands on the page.
+export function detectJobTypeFromRows(rows) {
+  let walls = 0;
+  let trusses = 0;
+  (rows || []).forEach((row) => {
+    const first = String(row?.number ?? "").trim().charAt(0).toUpperCase();
+    if (first === "W") {
+      walls += 1;
+    } else if (first === "T") {
+      trusses += 1;
+    }
+  });
+  if (walls > trusses) {
+    return "walls";
+  }
+  if (trusses > walls) {
     return "trusses";
   }
   return null;
@@ -109,7 +134,9 @@ export async function parseCutListPdf(file) {
   const pdf = await pdfjsLib.getDocument({ data: buffer }).promise;
 
   const trusses = [];
-  const titleTexts = [];
+  // Every row's text, so PACK/TRUSS is found wherever it sits on the page (some
+  // wall PDFs put the pack name below the header, so a title-only scan missed it).
+  const allTexts = [];
   let headerSeen = false;
 
   for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
@@ -127,6 +154,7 @@ export async function parseCutListPdf(file) {
 
     rows.forEach((row) => {
       const text = rowText(row);
+      allTexts.push(text);
 
       if (isHeaderRow(text)) {
         headerSeen = true;
@@ -134,10 +162,6 @@ export async function parseCutListPdf(file) {
       }
 
       if (!headerSeen) {
-        // Title area above the table — where the PACK/TRUSS job name lives.
-        // (Excludes the table header itself, whose "Pack Number Completed"
-        // column on wall PDFs would otherwise always match.)
-        titleTexts.push(text);
         return;
       }
 
@@ -153,5 +177,8 @@ export async function parseCutListPdf(file) {
   }
 
   trusses.sort((a, b) => a.no - b.no);
-  return { rows: trusses, jobType: detectJobTypeFromText(titleTexts.join(" ")) };
+  // Prefer the item-number prefixes (W/T — read from the data), falling back to
+  // the PACK/TRUSS wording anywhere in the PDF.
+  const jobType = detectJobTypeFromRows(trusses) || detectJobTypeFromText(allTexts.join(" "));
+  return { rows: trusses, jobType };
 }

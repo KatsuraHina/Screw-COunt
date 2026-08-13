@@ -948,10 +948,10 @@ async function handleImportFile(file) {
       return;
     }
 
-    // The job title tells us what the PDF is: wall packs carry "PACK", truss
-    // jobs carry "TRUSS" (filename checked first, then the PDF's title text).
-    // If it belongs on the other tab, switch there and import into that tab.
-    const detectedJobType = detectJobTypeFromName(file.name) || contentJobType;
+    // Trust the PDF's own contents first (the item numbers — W-panels vs
+    // T-trusses — then the PACK/TRUSS wording); fall back to the filename only
+    // when the contents are inconclusive. If it belongs on the other tab, switch.
+    const detectedJobType = contentJobType || detectJobTypeFromName(file.name);
     let switchNote = "";
     if (JOB_TYPES[detectedJobType] && detectedJobType !== state.activeTab) {
       switchTab(detectedJobType);
