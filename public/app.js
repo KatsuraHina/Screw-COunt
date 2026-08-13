@@ -21,6 +21,7 @@ import {
   JOB_TYPES,
   adjustStrapForBreakOverflow,
   autoWorkDateKey,
+  benchFromAuthEmail,
   calculateBreakMinutes,
   calculateStrapMinutes,
   calculateWorkedMinutes,
@@ -95,6 +96,9 @@ const state = {
   savedJobs: [],
   workers: [],
   admins: [],
+  // The bench a worker signed in as (1–19), or null for admins / logged out.
+  // In bench mode the app shows only the logging form with this bench locked.
+  benchNumber: null,
   importLibrary: {
     trusses: [],
     walls: []
@@ -215,7 +219,8 @@ function syncDraftFromInputs() {
   if (draft.dateMode === "manual") {
     draft.workDate = elements.workDateInput.value;
   }
-  draft.benchNumber = elements.benchSelect.value;
+  // Bench workers stay pinned to their signed-in bench; admins read the picker.
+  draft.benchNumber = isBenchUser() ? String(state.benchNumber) : elements.benchSelect.value;
   draft.pendingAmount = elements.amountInput.value;
   draft.break15Checked = elements.break15Input.checked;
   draft.break24Checked = elements.break24Input.checked;
@@ -317,6 +322,14 @@ function handleDateModeChange(mode) {
 function loadDraftIntoInputs() {
   const draft = getActiveDraft();
   renderWorkDateField();
+  // Bench workers log everything against the bench they signed in as, so lock the
+  // field to it. Admins pick the bench freely.
+  if (isBenchUser()) {
+    draft.benchNumber = String(state.benchNumber);
+    elements.benchSelect.disabled = true;
+  } else {
+    elements.benchSelect.disabled = false;
+  }
   elements.benchSelect.value = draft.benchNumber;
   SMART_TIME_FIELDS.forEach(({ input, toggle, key }) => {
     renderSmartTimeField(elements[input], elements[toggle], draft[key]);
@@ -484,8 +497,8 @@ function renderApp() {
 
   // The per-job trusses/screw charts need saved jobs, so only show that panel
   // when signed in (it would otherwise be an empty chart box) and not for the
-  // admin (who uses the aggregate Charts tab instead).
-  const showJobHistory = !state.isAdmin && Boolean(state.currentUser);
+  // admin (aggregate Charts tab) or a bench worker (logging form only).
+  const showJobHistory = !state.isAdmin && Boolean(state.currentUser) && !isBenchUser();
   toggleWorkersView(elements, false, showJobHistory);
   renderTabState(elements, getActiveConfig(), state.activeTab);
   renderJobTypeToggle(elements, state.activeTab);
@@ -1607,8 +1620,14 @@ async function handleLogout() {
   }
 }
 
+function isBenchUser() {
+  return state.benchNumber !== null;
+}
+
 function handleAuthChanged(user) {
   state.currentUser = user;
+  // A bench account (worker) puts the app in locked bench mode; admins/others get null.
+  state.benchNumber = benchFromAuthEmail(user?.email);
   // The super-admin resolves instantly; roster admins are confirmed by an async
   // Firestore check below. Start from the synchronous answer so the UI is right
   // for the common (super-admin) case without waiting on the network.

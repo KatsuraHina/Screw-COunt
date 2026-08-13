@@ -18,25 +18,40 @@
     </section>
 
     <section class="auth-page-card">
-      <h2>Log In Or Register</h2>
-      <p class="hint auth-intro">Use the same username each time so your saved jobs stay under your account.</p>
-
-      <div class="field">
-        <label for="usernameInput">Username</label>
-        <input id="usernameInput" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="Enter username">
+      <div id="benchPanel">
+        <h2>Select Your Bench</h2>
+        <p class="hint auth-intro">Tap your bench number to start logging jobs.</p>
+        <div class="bench-grid" id="benchGrid"></div>
+        <p class="auth-alt">
+          Admin? <button type="button" class="link-button" id="showAdminLogin">Log in with username</button>
+        </p>
       </div>
 
-      <div class="field">
-        <label for="passwordInput">Password</label>
-        <input id="passwordInput" type="password" autocomplete="current-password" placeholder="Enter password">
+      <div id="adminPanel" class="hidden">
+        <h2>Admin Log In</h2>
+        <p class="hint auth-intro">Admins sign in with a username and password.</p>
+
+        <div class="field">
+          <label for="usernameInput">Username</label>
+          <input id="usernameInput" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="Enter username">
+        </div>
+
+        <div class="field">
+          <label for="passwordInput">Password</label>
+          <input id="passwordInput" type="password" autocomplete="current-password" placeholder="Enter password">
+        </div>
+
+        <div class="button-row auth-button-row">
+          <button id="loginButton" type="button">Log in</button>
+          <button id="createAccountButton" class="secondary-button" type="button">Create account</button>
+        </div>
+
+        <p class="auth-alt">
+          <button type="button" class="link-button" id="showBenchPicker">← Back to bench select</button>
+        </p>
       </div>
 
-      <div class="button-row auth-button-row">
-        <button id="loginButton" type="button">Log in</button>
-        <button id="createAccountButton" class="secondary-button" type="button">Create account</button>
-      </div>
-
-      <p id="authStatusMessage" class="hint">Log in with an existing account, or create a new one to get started.</p>
+      <p id="authStatusMessage" class="hint">Tap your bench to get started.</p>
     </section>
   </main>
 

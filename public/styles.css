@@ -152,6 +152,68 @@ body {
   margin-bottom: 16px;
 }
 
+/* Login bench picker: a tappable grid of bench numbers (the default worker login). */
+.bench-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.bench-tile {
+  aspect-ratio: 1 / 1;
+  width: 100%;
+  min-width: 0;
+  padding: 0;
+  border: 1px solid rgba(143, 63, 34, 0.34);
+  border-radius: 14px;
+  background: rgba(255, 250, 242, 0.92);
+  color: var(--accent-dark);
+  font-size: 1.35rem;
+  font-weight: 800;
+  box-shadow: none;
+}
+
+.bench-tile:hover {
+  background: linear-gradient(135deg, var(--accent), var(--accent-dark));
+  color: #fffaf2;
+  box-shadow: 0 10px 22px rgba(143, 63, 34, 0.22);
+}
+
+/* Small text link to swap between the bench picker and the admin login. */
+.auth-alt {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+.link-button {
+  width: auto;
+  min-width: 0;
+  padding: 0;
+  border: none;
+  background: none;
+  box-shadow: none;
+  color: var(--accent-dark);
+  font: inherit;
+  font-weight: 700;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.link-button:hover {
+  transform: none;
+  box-shadow: none;
+  background: none;
+}
+
+/* In bench mode the Bench field is locked to the signed-in bench. */
+#benchNumber:disabled {
+  background: var(--panel-strong);
+  color: var(--muted);
+  cursor: default;
+}
+
 .app {
   width: min(1400px, 100%);
   background: rgba(255, 250, 242, 0.92);

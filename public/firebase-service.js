@@ -21,6 +21,7 @@ import {
   where
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 import { firebaseConfig, firebaseProjectId } from "./firebase-config.js";
+import { BENCH_PASSWORD, benchAuthEmail } from "./jobs.js";
 
 const firebaseApp = initializeApp(firebaseConfig);
 const db = getFirestore(firebaseApp);
@@ -38,6 +39,32 @@ export async function loginWithEmail(email, password) {
 
 export async function logoutCurrentUser() {
   await signOut(auth);
+}
+
+// Sign in as a bench: reuse the bench's shared account, creating it the first
+// time it's tapped. Workers never type credentials — the bench is the login.
+export async function signInBench(benchNumber) {
+  const email = benchAuthEmail(benchNumber);
+  try {
+    const credential = await signInWithEmailAndPassword(auth, email, BENCH_PASSWORD);
+    return credential.user;
+  } catch (error) {
+    const code = typeof error?.code === "string" ? error.code : "";
+    if (code.includes("user-not-found") || code.includes("invalid-credential")) {
+      try {
+        const created = await createUserWithEmailAndPassword(auth, email, BENCH_PASSWORD);
+        return created.user;
+      } catch (createError) {
+        // Another device created it first — sign in to the now-existing account.
+        if (typeof createError?.code === "string" && createError.code.includes("email-already-in-use")) {
+          const retry = await signInWithEmailAndPassword(auth, email, BENCH_PASSWORD);
+          return retry.user;
+        }
+        throw createError;
+      }
+    }
+    throw error;
+  }
 }
 
 export function subscribeToAuthChanges(callback) {

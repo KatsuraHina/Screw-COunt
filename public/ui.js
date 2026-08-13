@@ -4,6 +4,7 @@ import {
   aggregateShiftRateSeriesByDay,
   aggregateShiftSeriesByDay,
   authEmailToUsername,
+  benchFromAuthEmail,
   formatClockTime,
   formatDateKey,
   formatDateLabel,
@@ -283,7 +284,10 @@ export function renderAuthState(elements, user) {
   elements.rangeSelect.disabled = !isSignedIn;
 
   if (isSignedIn) {
-    elements.currentUserEmail.textContent = user.email ? authEmailToUsername(user.email) : "Signed-in user";
+    const bench = benchFromAuthEmail(user.email);
+    elements.currentUserEmail.textContent = bench !== null
+      ? `Bench ${bench}`
+      : user.email ? authEmailToUsername(user.email) : "Signed-in user";
     return;
   }
 

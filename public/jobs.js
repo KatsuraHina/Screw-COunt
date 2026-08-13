@@ -32,6 +32,30 @@ export function authEmailToUsername(email) {
   return value.toLowerCase().endsWith(suffix) ? value.slice(0, -suffix.length) : value;
 }
 
+// Workers sign in by tapping their bench instead of typing credentials. Each
+// bench is backed by its own Firebase account under a dedicated domain (distinct
+// from the admin username domain so the two never collide). Access is open, so
+// the password is a fixed constant — a bench account is never an admin, so the
+// rules keep it to its own jobs.
+export const BENCH_EMAIL_DOMAIN = "benches.bbscount.app";
+export const BENCH_PASSWORD = "bench-count-shared";
+
+export function benchAuthEmail(benchNumber) {
+  return `bench-${benchNumber}@${BENCH_EMAIL_DOMAIN}`;
+}
+
+// The bench number for a bench account's email, or null for anything else
+// (admins, logged-out). Used to switch the app into locked bench mode.
+export function benchFromAuthEmail(email) {
+  const value = String(email ?? "").trim().toLowerCase();
+  const match = value.match(/^bench-(\d+)@benches\.bbscount\.app$/);
+  if (!match) {
+    return null;
+  }
+  const bench = Number(match[1]);
+  return BENCH_NUMBERS.includes(bench) ? bench : null;
+}
+
 // A username is letters/numbers/dot/underscore/hyphen (2+). An input with "@" is
 // taken as a full email (the owner path) and checked as one instead.
 export function isValidUsername(input) {
