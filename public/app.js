@@ -1592,10 +1592,13 @@ async function loadSavedJobs() {
   }
 
   try {
-    // Admins load the shared pool (every job); workers only their own.
+    // Admins load the shared pool (every job); workers only their own — so a
+    // bench worker's recent-crew suggestions are scoped to that bench's jobs.
     const jobs = await loadJobRecords(state.currentUser, { all: state.isAdmin });
     state.savedJobs = jobs.map(normalizeJob);
     refreshActiveHistory();
+    // Recent-crew chips come from savedJobs, so refresh the picker once loaded.
+    renderWorkerPickerSection();
   } catch (error) {
     console.error(error);
     setStatus(elements, formatFirestoreError(error), "warning");
@@ -1656,7 +1659,9 @@ function handleAuthChanged(user) {
 // Re-apply everything that depends on admin status: panel visibility, and a
 // fallback off the admin-only Charts tab if access was lost.
 function applyAdminState() {
-  renderWorkerAdminVisibility(elements, state.isAdmin);
+  // Admins and bench workers can both pick workers for a job; the admin-only
+  // management/charts panels stay admin-only.
+  renderWorkerAdminVisibility(elements, state.isAdmin, state.isAdmin || isBenchUser());
   if (!state.isAdmin && state.activeTab === "workers") {
     state.activeTab = "trusses";
   }
@@ -1696,18 +1701,25 @@ function renderWorkersSection() {
 }
 
 async function loadWorkers() {
-  if (!state.isAdmin || !state.currentUser) {
+  // Admins and bench workers both need the roster (bench workers pick their name);
+  // logged-out or other users get none.
+  if (!state.currentUser || (!state.isAdmin && !isBenchUser())) {
     state.workers = [];
     renderWorkerPickerSection();
     return;
   }
 
   try {
-    // Admins share one worker pool, so load every worker (rules permit this only
-    // for admins). De-dupe by name in case two admins added the same person.
+    // The worker roster is shared, so load every worker. De-dupe by name in case
+    // the same person was added twice.
     const workers = await loadWorkerRecords(state.currentUser, { all: true });
     state.workers = dedupeWorkersByName(workers).sort((a, b) => a.name.localeCompare(b.name));
-    renderWorkersSection();
+    if (state.isAdmin) {
+      renderWorkersSection();
+    } else {
+      // Bench worker: just refresh the picker (no admin management panel).
+      renderWorkerPickerSection();
+    }
   } catch (error) {
     console.error(error);
     setWorkerStatus(elements, formatFirestoreError(error), "warning");

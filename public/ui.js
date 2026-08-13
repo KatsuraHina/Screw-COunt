@@ -532,9 +532,12 @@ export function setWorkerStatus(elements, message, tone = "hint") {
   elements.workerStatus.className = tone === "warning" || tone === "success" ? `hint ${tone}` : "hint";
 }
 
-export function renderWorkerAdminVisibility(elements, isAdmin) {
+// `showWorkerPicker` controls the "Workers on this job" field independently of
+// the admin-only panels, so bench workers can pick their name without seeing the
+// admin management/charts panels.
+export function renderWorkerAdminVisibility(elements, isAdmin, showWorkerPicker = isAdmin) {
   elements.workerManage.classList.toggle("hidden", !isAdmin);
-  elements.workerField.classList.toggle("hidden", !isAdmin);
+  elements.workerField.classList.toggle("hidden", !showWorkerPicker);
   elements.workersTabButton.classList.toggle("hidden", !isAdmin);
   if (elements.adminManage) {
     elements.adminManage.classList.toggle("hidden", !isAdmin);
