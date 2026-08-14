@@ -1073,6 +1073,8 @@ function renderWorkerHistoryView() {
   const { start: rangeStart, end: rangeEnd } = resolveWorkerRange();
   const benchFilter = elements.benchFilterSelect.value;
   const isAllBenches = benchFilter === "all";
+  const shiftFilter = elements.shiftFilterSelect.value;
+  const isAllShifts = shiftFilter === "all";
   const jobs = state.savedJobs
     .filter((job) => {
       const ended = new Date(job.endedAt);
@@ -1082,6 +1084,7 @@ function renderWorkerHistoryView() {
       isAll ? job.assignedWorkerIds.length > 0 : job.assignedWorkerIds.includes(selectedId)
     )
     .filter((job) => isAllBenches || job.benchNumber === Number(benchFilter))
+    .filter((job) => isAllShifts || job.shift === shiftFilter)
     .sort((a, b) => new Date(b.endedAt) - new Date(a.endedAt));
 
   // Drop a stale day drill-down if the current filters/range no longer contain
@@ -2002,6 +2005,7 @@ function bindEvents() {
     }
   });
   elements.benchFilterSelect.addEventListener("change", renderWorkerHistoryView);
+  elements.shiftFilterSelect.addEventListener("change", renderWorkerHistoryView);
   elements.showHiddenJobs.addEventListener("change", () => {
     state.workerHistory.showHidden = elements.showHiddenJobs.checked;
     renderWorkerHistoryView();

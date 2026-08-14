@@ -133,6 +133,7 @@ export function getElements() {
     workerRangeText: document.getElementById("workerRangeText"),
     workerCalendar: document.getElementById("workerCalendar"),
     benchFilterSelect: document.getElementById("benchFilterSelect"),
+    shiftFilterSelect: document.getElementById("shiftFilterSelect"),
     showHiddenJobs: document.getElementById("showHiddenJobs"),
     whJobs: document.getElementById("whJobs"),
     whAvgMetres: document.getElementById("whAvgMetres"),
