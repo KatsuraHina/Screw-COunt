@@ -25,8 +25,21 @@
   --danger: #ff6b5a;
   --good: #4ade80;
 
-  --paper: #f2f5f7;       /* chart worksheets — ui.js locks axis text dark */
-  --paper-ink: #2d3743;
+  /* Chart palette — ui.js reads these at render time. */
+  --chart-ink: #edf2f7;
+  --chart-grid: rgba(148, 166, 184, 0.16);
+  --chart-series: #ffb020;
+  --chart-series-fill: rgba(255, 176, 32, 0.08);
+  --chart-series-edge: #c98407;
+  --chart-point: #131a22;
+
+  /* Shift bars need three hues that stay apart on a dark ground. */
+  --shift-morning: #ffb020;
+  --shift-morning-edge: #c98407;
+  --shift-afternoon: #4fc3f7;
+  --shift-afternoon-edge: #0288d1;
+  --shift-night: #a78bfa;
+  --shift-night-edge: #7c3aed;
 
   --bg: var(--steel-950);
   --panel: var(--steel-900);
@@ -62,6 +75,20 @@
     --danger: #c02f1d;
     --good: #16794a;
     --shadow: 0 12px 28px rgba(22, 32, 43, 0.12);
+
+    --chart-ink: #16202b;
+    --chart-grid: rgba(86, 101, 115, 0.18);
+    --chart-series: #a35c00;
+    --chart-series-fill: rgba(163, 92, 0, 0.14);
+    --chart-series-edge: #7a4500;
+    --chart-point: #ffffff;
+
+    --shift-morning: #b06a00;
+    --shift-morning-edge: #7a4900;
+    --shift-afternoon: #0277bd;
+    --shift-afternoon-edge: #015384;
+    --shift-night: #6d3fd4;
+    --shift-night-edge: #4c25a3;
   }
 }
 
@@ -367,6 +394,14 @@ select {
 }
 
 select:disabled { color: var(--slate-dim); cursor: not-allowed; opacity: 0.6; }
+
+/* The dropdown list is painted by the OS, which does not inherit the select's
+   colours. Without this the options render as chalk text on a white popup. */
+option,
+optgroup {
+  color: var(--text);
+  background-color: var(--steel-800);
+}
 
 #benchNumber { font-variant-numeric: tabular-nums; }
 
@@ -836,8 +871,7 @@ button:focus-visible { outline: 3px solid var(--hivis); outline-offset: 2px; }
 .success { color: var(--good); font-weight: 500; }
 
 /* --------------------------------------------------------------------------
-   History — chart cards are light "worksheets" pinned on the dark board,
-   because ui.js hardcodes the axis/tick color to #2d2417.
+   History
    -------------------------------------------------------------------------- */
 
 .history-panel {
@@ -891,8 +925,8 @@ button:focus-visible { outline: 3px solid var(--hivis); outline-offset: 2px; }
 
 .chart-wrap {
   padding: 14px 14px 8px;
-  background: var(--paper);
-  border: 1px solid var(--steel-700);
+  background: var(--steel-850);
+  border: 1px solid var(--border);
   border-radius: var(--radius);
 }
 
@@ -903,8 +937,8 @@ button:focus-visible { outline: 3px solid var(--hivis); outline-offset: 2px; }
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--paper-ink);
-  border-bottom: 1px solid rgba(45, 55, 67, 0.16);
+  color: var(--slate);
+  border-bottom: 1px solid var(--border);
 }
 
 .chart-wrap canvas { max-width: 100%; }

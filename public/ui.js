@@ -7,6 +7,50 @@ import {
   summarizeWorkerJobs
 } from "./jobs.js";
 
+/* Chart colours are read from the stylesheet rather than hardcoded, so the
+   graphs follow the theme instead of drifting from it. Read at render time so
+   a light/dark switch is picked up by the next render. */
+function themeColor(name, fallback) {
+  const value = getComputedStyle(document.documentElement).getPropertyValue(name);
+  return value.trim() || fallback;
+}
+
+function chartInk() {
+  return {
+    text: themeColor("--chart-ink", "#edf2f7"),
+    grid: themeColor("--chart-grid", "rgba(148, 166, 184, 0.16)"),
+    series: themeColor("--chart-series", "#ffb020"),
+    seriesFill: themeColor("--chart-series-fill", "rgba(255, 176, 32, 0.16)"),
+    seriesEdge: themeColor("--chart-series-edge", "#c98407"),
+    point: themeColor("--chart-point", "#131a22")
+  };
+}
+
+function rateAxisStyle() {
+  return {
+    color: chartInk().text,
+    font: { size: 13, weight: "600" },
+    padding: 8
+  };
+}
+
+function shiftBarColors() {
+  return {
+    morning: {
+      bg: themeColor("--shift-morning", "#ffb020"),
+      border: themeColor("--shift-morning-edge", "#c98407")
+    },
+    afternoon: {
+      bg: themeColor("--shift-afternoon", "#4fc3f7"),
+      border: themeColor("--shift-afternoon-edge", "#0288d1")
+    },
+    night: {
+      bg: themeColor("--shift-night", "#a78bfa"),
+      border: themeColor("--shift-night-edge", "#7c3aed")
+    }
+  };
+}
+
 export function getElements() {
   return {
     loginLink: document.getElementById("loginLink"),
@@ -206,8 +250,9 @@ export function renderHistory(elements, jobs, currentCharts, config) {
   const ChartLibrary = window.Chart;
   const aggregated = aggregateHistorySeriesByDay(jobs);
   const totalDecimals = config.key === "trusses" ? 2 : 0;
+  const ink = chartInk();
   const axisTickStyle = {
-    color: "#2d2417",
+    color: ink.text,
     font: {
       size: 13,
       weight: "600"
@@ -215,7 +260,7 @@ export function renderHistory(elements, jobs, currentCharts, config) {
     padding: 8
   };
   const gridStyle = {
-    color: "rgba(111, 96, 75, 0.14)",
+    color: ink.grid,
     drawBorder: false
   };
 
@@ -240,8 +285,8 @@ export function renderHistory(elements, jobs, currentCharts, config) {
           {
             label: config.unitLabel,
             data: aggregated.totalValues,
-            backgroundColor: "rgba(181, 83, 47, 0.88)",
-            borderColor: "rgba(143, 63, 34, 1)",
+            backgroundColor: ink.series,
+            borderColor: ink.seriesEdge,
             borderWidth: 1,
             borderRadius: 12,
             borderSkipped: false
@@ -292,14 +337,14 @@ export function renderHistory(elements, jobs, currentCharts, config) {
           {
             label: config.rateLabel,
             data: aggregated.rateValues,
-            borderColor: "rgba(181, 83, 47, 1)",
-            backgroundColor: "rgba(181, 83, 47, 0.14)",
+            borderColor: ink.series,
+            backgroundColor: ink.seriesFill,
             fill: true,
             tension: 0.32,
             pointRadius: 4,
             pointHoverRadius: 5,
-            pointBackgroundColor: "rgba(255, 250, 242, 1)",
-            pointBorderColor: "rgba(143, 63, 34, 1)",
+            pointBackgroundColor: ink.point,
+            pointBorderColor: ink.series,
             pointBorderWidth: 2
           }
         ]
@@ -506,13 +551,8 @@ function formatJobRate(job) {
     : `${job.rate.toFixed(2)} m/h`;
 }
 
-const RATE_AXIS_STYLE = {
-  color: "#2d2417",
-  font: { size: 13, weight: "600" },
-  padding: 8
-};
-
 function renderRateChart(canvas, jobs, unit, currentChart) {
+  const ink = chartInk();
   const ChartLibrary = window.Chart;
   if (currentChart) {
     currentChart.destroy();
@@ -531,16 +571,16 @@ function renderRateChart(canvas, jobs, unit, currentChart) {
         {
           label: `${unit}/hour`,
           data: aggregated.rateValues,
-          borderColor: "rgba(181, 83, 47, 1)",
-          backgroundColor: "rgba(181, 83, 47, 0.14)",
+          borderColor: ink.series,
+          backgroundColor: ink.seriesFill,
           fill: true,
           tension: 0.32,
           pointRadius: 4,
           pointHoverRadius: 7,
           pointHitRadius: 16,
-          pointBackgroundColor: "rgba(255, 250, 242, 1)",
-          pointHoverBackgroundColor: "rgba(181, 83, 47, 1)",
-          pointBorderColor: "rgba(143, 63, 34, 1)",
+          pointBackgroundColor: ink.point,
+          pointHoverBackgroundColor: ink.series,
+          pointBorderColor: ink.series,
           pointBorderWidth: 2
         }
       ]
@@ -564,28 +604,24 @@ function renderRateChart(canvas, jobs, unit, currentChart) {
       scales: {
         y: {
           beginAtZero: true,
-          grid: { color: "rgba(111, 96, 75, 0.14)", drawBorder: false },
-          ticks: { ...RATE_AXIS_STYLE, callback: (value) => `${value} ${unit}/h` }
+          grid: { color: ink.grid, drawBorder: false },
+          ticks: { ...rateAxisStyle(), callback: (value) => `${value} ${unit}/h` }
         },
         x: {
           grid: { display: false },
-          ticks: RATE_AXIS_STYLE
+          ticks: rateAxisStyle()
         }
       }
     }
   });
 }
 
-const SHIFT_BAR_COLORS = {
-  morning:   { bg: "rgba(245, 158, 11, 0.85)",  border: "rgba(180, 113, 6, 1)" },
-  afternoon: { bg: "rgba(181, 83, 47, 0.88)",   border: "rgba(143, 63, 34, 1)" },
-  night:     { bg: "rgba(99, 102, 241, 0.85)",  border: "rgba(67, 56, 202, 1)" }
-};
-
 // Grouped bar chart of the daily amount (metres or screws) per shift. The
 // x-axis is each day; within a day there is one bar per shift so you can see
 // how much each shift produced day by day, not one accumulated total.
 function renderShiftChart(canvas, jobs, unit, currentChart, getValue) {
+  const ink = chartInk();
+  const shiftColors = shiftBarColors();
   const ChartLibrary = window.Chart;
   if (currentChart) {
     currentChart.destroy();
@@ -600,8 +636,8 @@ function renderShiftChart(canvas, jobs, unit, currentChart, getValue) {
   const datasets = series.shifts.map((shift) => ({
     label: shift.label,
     data: shift.values,
-    backgroundColor: SHIFT_BAR_COLORS[shift.key]?.bg ?? "rgba(181,83,47,0.88)",
-    borderColor: SHIFT_BAR_COLORS[shift.key]?.border ?? "rgba(143,63,34,1)",
+    backgroundColor: shiftColors[shift.key]?.bg ?? ink.series,
+    borderColor: shiftColors[shift.key]?.border ?? ink.seriesEdge,
     borderWidth: 1,
     borderRadius: 8,
     borderSkipped: false
@@ -617,7 +653,7 @@ function renderShiftChart(canvas, jobs, unit, currentChart, getValue) {
       responsive: true,
       maintainAspectRatio: false,
       plugins: {
-        legend: { display: true, labels: { ...RATE_AXIS_STYLE } },
+        legend: { display: true, labels: { ...rateAxisStyle() } },
         tooltip: {
           callbacks: {
             label: (context) =>
@@ -628,12 +664,12 @@ function renderShiftChart(canvas, jobs, unit, currentChart, getValue) {
       scales: {
         y: {
           beginAtZero: true,
-          grid: { color: "rgba(111, 96, 75, 0.14)", drawBorder: false },
-          ticks: { ...RATE_AXIS_STYLE, callback: (value) => `${Number(value).toFixed(decimals)} ${unit}` }
+          grid: { color: ink.grid, drawBorder: false },
+          ticks: { ...rateAxisStyle(), callback: (value) => `${Number(value).toFixed(decimals)} ${unit}` }
         },
         x: {
           grid: { display: false },
-          ticks: RATE_AXIS_STYLE
+          ticks: rateAxisStyle()
         }
       }
     }
@@ -643,6 +679,7 @@ function renderShiftChart(canvas, jobs, unit, currentChart, getValue) {
 // Bar chart of total units (metres or screws) produced on each bench (1–19).
 // One bar per bench; benches with no jobs show as zero.
 function renderBenchChart(canvas, jobs, unit, currentChart, getValue) {
+  const ink = chartInk();
   const ChartLibrary = window.Chart;
   if (currentChart) {
     currentChart.destroy();
@@ -663,8 +700,8 @@ function renderBenchChart(canvas, jobs, unit, currentChart, getValue) {
         {
           label: `Total ${unit}`,
           data: aggregated.values,
-          backgroundColor: "rgba(181, 83, 47, 0.88)",
-          borderColor: "rgba(143, 63, 34, 1)",
+          backgroundColor: ink.series,
+          borderColor: ink.seriesEdge,
           borderWidth: 1,
           borderRadius: 8,
           borderSkipped: false
@@ -686,13 +723,13 @@ function renderBenchChart(canvas, jobs, unit, currentChart, getValue) {
       scales: {
         y: {
           beginAtZero: true,
-          grid: { color: "rgba(111, 96, 75, 0.14)", drawBorder: false },
-          ticks: { ...RATE_AXIS_STYLE, callback: (value) => `${Number(value).toFixed(decimals)} ${unit}` }
+          grid: { color: ink.grid, drawBorder: false },
+          ticks: { ...rateAxisStyle(), callback: (value) => `${Number(value).toFixed(decimals)} ${unit}` }
         },
         x: {
           grid: { display: false },
           // Show every bench (1–19); don't let Chart.js drop labels to save space.
-          ticks: { ...RATE_AXIS_STYLE, autoSkip: false }
+          ticks: { ...rateAxisStyle(), autoSkip: false }
         }
       }
     }

@@ -1,0 +1,17 @@
+[debug] [2026-08-20T11:14:44.828Z] ----------------------------------------------------------------------
+[debug] [2026-08-20T11:14:44.830Z] Command:       C:\Program Files\nodejs\node.exe C:\Users\User\AppData\Roaming\npm\node_modules\firebase-tools\lib\bin\firebase.js deploy --only hosting
+[debug] [2026-08-20T11:14:44.830Z] CLI Version:   15.28.1
+[debug] [2026-08-20T11:14:44.830Z] Platform:      win32
+[debug] [2026-08-20T11:14:44.830Z] Node Version:  v24.18.0
+[debug] [2026-08-20T11:14:44.830Z] Detected Agent: unknown
+[debug] [2026-08-20T11:14:44.830Z] Time:          Thu Aug 20 2026 19:14:44 GMT+0800 (Australian Western Standard Time)
+[debug] [2026-08-20T11:14:44.830Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2026-08-20T11:14:45.949Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-08-20T11:14:45.949Z] > authorizing via signed-in user (mick.malaluan@gmail.com)
+[debug] [2026-08-20T11:14:45.949Z] [iam] checking project bbs-count-2 for permissions ["firebase.projects.get","firebasehosting.sites.update"]
+[debug] [2026-08-20T11:14:45.956Z] Checked if tokens are valid: true, expires at: 1787227273700
+[debug] [2026-08-20T11:14:45.957Z] Checked if tokens are valid: true, expires at: 1787227273700
+[debug] [2026-08-20T11:14:45.957Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/bbs-count-2:testIamPermissions [none]
+[debug] [2026-08-20T11:14:45.957Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/bbs-count-2:testIamPermissions  x-goog-user-project=bbs-count-2
+[debug] [2026-08-20T11:14:45.957Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/bbs-count-2:testIamPermissions {"permissions":["firebase.projects.get","firebasehosting.sites.update"]}
