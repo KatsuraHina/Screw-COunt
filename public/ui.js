@@ -13,6 +13,50 @@ import {
   summarizeWorkerJobs
 } from "./jobs.js";
 
+/* Chart colours are read from the stylesheet rather than hardcoded, so the
+   graphs follow the theme instead of drifting from it. Read at render time so
+   a light/dark switch is picked up by the next render. */
+function themeColor(name, fallback) {
+  const value = getComputedStyle(document.documentElement).getPropertyValue(name);
+  return value.trim() || fallback;
+}
+
+function chartInk() {
+  return {
+    text: themeColor("--chart-ink", "#edf2f7"),
+    grid: themeColor("--chart-grid", "rgba(148, 166, 184, 0.16)"),
+    series: themeColor("--chart-series", "#ffb020"),
+    seriesFill: themeColor("--chart-series-fill", "rgba(255, 176, 32, 0.16)"),
+    seriesEdge: themeColor("--chart-series-edge", "#c98407"),
+    point: themeColor("--chart-point", "#131a22")
+  };
+}
+
+function rateAxisStyle() {
+  return {
+    color: chartInk().text,
+    font: { size: 13, weight: "600" },
+    padding: 8
+  };
+}
+
+function shiftBarColors() {
+  return {
+    morning: {
+      bg: themeColor("--shift-morning", "#ffb020"),
+      border: themeColor("--shift-morning-edge", "#c98407")
+    },
+    afternoon: {
+      bg: themeColor("--shift-afternoon", "#4fc3f7"),
+      border: themeColor("--shift-afternoon-edge", "#0288d1")
+    },
+    night: {
+      bg: themeColor("--shift-night", "#a78bfa"),
+      border: themeColor("--shift-night-edge", "#7c3aed")
+    }
+  };
+}
+
 const CALENDAR_WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const CALENDAR_MONTHS = [
   "January", "February", "March", "April", "May", "June",
@@ -384,7 +428,7 @@ export function renderHistory(elements, jobs, currentCharts, config) {
   const aggregated = aggregateHistorySeriesByDay(jobs);
   const totalDecimals = config.key === "trusses" ? 2 : 0;
   const axisTickStyle = {
-    color: "#2d2417",
+    color: chartInk().text,
     font: {
       size: 13,
       weight: "600"
@@ -392,7 +436,7 @@ export function renderHistory(elements, jobs, currentCharts, config) {
     padding: 8
   };
   const gridStyle = {
-    color: "rgba(111, 96, 75, 0.14)",
+    color: chartInk().grid,
     drawBorder: false
   };
 
@@ -417,8 +461,8 @@ export function renderHistory(elements, jobs, currentCharts, config) {
           {
             label: config.unitLabel,
             data: aggregated.totalValues,
-            backgroundColor: "rgba(181, 83, 47, 0.88)",
-            borderColor: "rgba(143, 63, 34, 1)",
+            backgroundColor: chartInk().series,
+            borderColor: chartInk().seriesEdge,
             borderWidth: 1,
             borderRadius: 12,
             borderSkipped: false
@@ -469,14 +513,14 @@ export function renderHistory(elements, jobs, currentCharts, config) {
           {
             label: config.rateLabel,
             data: aggregated.rateValues,
-            borderColor: "rgba(181, 83, 47, 1)",
-            backgroundColor: "rgba(181, 83, 47, 0.14)",
+            borderColor: chartInk().series,
+            backgroundColor: chartInk().seriesFill,
             fill: true,
             tension: 0.32,
             pointRadius: 4,
             pointHoverRadius: 5,
-            pointBackgroundColor: "rgba(255, 250, 242, 1)",
-            pointBorderColor: "rgba(143, 63, 34, 1)",
+            pointBackgroundColor: chartInk().point,
+            pointBorderColor: chartInk().seriesEdge,
             pointBorderWidth: 2
           }
         ]
@@ -769,17 +813,7 @@ function formatJobRate(job) {
     : `${job.rate.toFixed(2)} m/h`;
 }
 
-const RATE_AXIS_STYLE = {
-  color: "#2d2417",
-  font: { size: 13, weight: "600" },
-  padding: 8
-};
 
-const SHIFT_BAR_COLORS = {
-  morning:   { bg: "rgba(245, 158, 11, 0.85)",  border: "rgba(180, 113, 6, 1)" },
-  afternoon: { bg: "rgba(181, 83, 47, 0.88)",   border: "rgba(143, 63, 34, 1)" },
-  night:     { bg: "rgba(99, 102, 241, 0.85)",  border: "rgba(67, 56, 202, 1)" }
-};
 
 // Keep only the shifts that actually have data across the range. A shift with
 // no jobs anywhere would otherwise still claim a slot inside every date group,
@@ -838,8 +872,8 @@ function renderShiftChart(canvas, jobs, unit, currentChart, getValue, onDaySelec
   const datasets = activeShiftSeries(series.shifts).map((shift) => ({
     label: shift.label,
     data: shift.values,
-    backgroundColor: SHIFT_BAR_COLORS[shift.key]?.bg ?? "rgba(181,83,47,0.88)",
-    borderColor: SHIFT_BAR_COLORS[shift.key]?.border ?? "rgba(143,63,34,1)",
+    backgroundColor: shiftBarColors()[shift.key]?.bg ?? chartInk().series,
+    borderColor: shiftBarColors()[shift.key]?.border ?? chartInk().seriesEdge,
     borderWidth: 1,
     borderRadius: 8,
     borderSkipped: false
@@ -856,7 +890,7 @@ function renderShiftChart(canvas, jobs, unit, currentChart, getValue, onDaySelec
       maintainAspectRatio: false,
       ...dayDrillOptions(series.dayKeys, onDaySelect, jobTypeFilter),
       plugins: {
-        legend: { display: true, labels: { ...RATE_AXIS_STYLE } },
+        legend: { display: true, labels: { ...rateAxisStyle() } },
         tooltip: {
           callbacks: {
             label: (context) =>
@@ -867,12 +901,12 @@ function renderShiftChart(canvas, jobs, unit, currentChart, getValue, onDaySelec
       scales: {
         y: {
           beginAtZero: true,
-          grid: { color: "rgba(111, 96, 75, 0.14)", drawBorder: false },
-          ticks: { ...RATE_AXIS_STYLE, callback: (value) => `${Number(value).toFixed(decimals)} ${unit}` }
+          grid: { color: chartInk().grid, drawBorder: false },
+          ticks: { ...rateAxisStyle(), callback: (value) => `${Number(value).toFixed(decimals)} ${unit}` }
         },
         x: {
           grid: { display: false },
-          ticks: RATE_AXIS_STYLE
+          ticks: rateAxisStyle()
         }
       }
     }
@@ -897,8 +931,8 @@ function renderShiftRateChart(canvas, jobs, unit, currentChart, onDaySelect, job
   const datasets = activeShiftSeries(series.shifts).map((shift) => ({
     label: shift.label,
     data: shift.values,
-    backgroundColor: SHIFT_BAR_COLORS[shift.key]?.bg ?? "rgba(181,83,47,0.88)",
-    borderColor: SHIFT_BAR_COLORS[shift.key]?.border ?? "rgba(143,63,34,1)",
+    backgroundColor: shiftBarColors()[shift.key]?.bg ?? chartInk().series,
+    borderColor: shiftBarColors()[shift.key]?.border ?? chartInk().seriesEdge,
     borderWidth: 1,
     borderRadius: 8,
     borderSkipped: false
@@ -915,7 +949,7 @@ function renderShiftRateChart(canvas, jobs, unit, currentChart, onDaySelect, job
       maintainAspectRatio: false,
       ...dayDrillOptions(series.dayKeys, onDaySelect, jobTypeFilter),
       plugins: {
-        legend: { display: true, labels: { ...RATE_AXIS_STYLE } },
+        legend: { display: true, labels: { ...rateAxisStyle() } },
         tooltip: {
           callbacks: {
             label: (context) => `${context.dataset.label}: ${context.parsed.y.toFixed(2)} ${unit}/h`
@@ -925,12 +959,12 @@ function renderShiftRateChart(canvas, jobs, unit, currentChart, onDaySelect, job
       scales: {
         y: {
           beginAtZero: true,
-          grid: { color: "rgba(111, 96, 75, 0.14)", drawBorder: false },
-          ticks: { ...RATE_AXIS_STYLE, callback: (value) => `${value} ${unit}/h` }
+          grid: { color: chartInk().grid, drawBorder: false },
+          ticks: { ...rateAxisStyle(), callback: (value) => `${value} ${unit}/h` }
         },
         x: {
           grid: { display: false },
-          ticks: RATE_AXIS_STYLE
+          ticks: rateAxisStyle()
         }
       }
     }
@@ -955,8 +989,8 @@ function renderBenchShiftChart(canvas, jobs, unit, currentChart, getValue) {
   const datasets = activeShiftSeries(series.shifts).map((shift) => ({
     label: shift.label,
     data: shift.values,
-    backgroundColor: SHIFT_BAR_COLORS[shift.key]?.bg ?? "rgba(181,83,47,0.88)",
-    borderColor: SHIFT_BAR_COLORS[shift.key]?.border ?? "rgba(143,63,34,1)",
+    backgroundColor: shiftBarColors()[shift.key]?.bg ?? chartInk().series,
+    borderColor: shiftBarColors()[shift.key]?.border ?? chartInk().seriesEdge,
     borderWidth: 1,
     borderRadius: 8,
     borderSkipped: false
@@ -973,7 +1007,7 @@ function renderBenchShiftChart(canvas, jobs, unit, currentChart, getValue) {
       responsive: true,
       maintainAspectRatio: false,
       plugins: {
-        legend: { display: true, labels: { ...RATE_AXIS_STYLE } },
+        legend: { display: true, labels: { ...rateAxisStyle() } },
         tooltip: {
           callbacks: {
             title: (items) => `Bench ${items[0].label}`,
@@ -985,13 +1019,13 @@ function renderBenchShiftChart(canvas, jobs, unit, currentChart, getValue) {
       scales: {
         y: {
           beginAtZero: true,
-          grid: { color: "rgba(111, 96, 75, 0.14)", drawBorder: false },
-          ticks: { ...RATE_AXIS_STYLE, callback: (value) => `${Number(value).toFixed(decimals)} ${unit}` }
+          grid: { color: chartInk().grid, drawBorder: false },
+          ticks: { ...rateAxisStyle(), callback: (value) => `${Number(value).toFixed(decimals)} ${unit}` }
         },
         x: {
           grid: { display: false },
           // Show every bench (1–19); don't let Chart.js drop labels to save space.
-          ticks: { ...RATE_AXIS_STYLE, autoSkip: false }
+          ticks: { ...rateAxisStyle(), autoSkip: false }
         }
       }
     }
