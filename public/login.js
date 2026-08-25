@@ -6,8 +6,10 @@ import {
   subscribeToAuthChanges
 } from "./firebase-service.js";
 import { BENCH_NUMBERS, isValidUsername, usernameToAuthEmail } from "./jobs.js";
+import { bindThemeToggle } from "./theme.js";
 
 const elements = {
+  themeToggle: document.getElementById("themeToggle"),
   benchPanel: document.getElementById("benchPanel"),
   benchGrid: document.getElementById("benchGrid"),
   adminPanel: document.getElementById("adminPanel"),
@@ -133,6 +135,7 @@ async function handleCreateAccount() {
 }
 
 function bindEvents() {
+  bindThemeToggle(elements.themeToggle);
   elements.showAdminLogin.addEventListener("click", () => showAdminPanel(true));
   elements.showBenchPicker.addEventListener("click", () => showAdminPanel(false));
   elements.loginButton.addEventListener("click", handleLogin);

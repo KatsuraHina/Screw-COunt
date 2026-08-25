@@ -175,6 +175,7 @@ export function getElements() {
     jobTypeButtons: Array.from(document.querySelectorAll("[data-job-type]")),
     shiftToggle: document.getElementById("shiftToggle"),
     shiftButtons: Array.from(document.querySelectorAll("[data-shift]")),
+    themeToggle: document.getElementById("themeToggle"),
     editBanner: document.getElementById("editBanner"),
     editBannerText: document.getElementById("editBannerText"),
     cancelEditButton: document.getElementById("cancelEditButton"),

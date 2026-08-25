@@ -62,8 +62,13 @@
   --font-data: "JetBrains Mono", ui-monospace, "SFMono-Regular", Consolas, monospace;
 }
 
+/* The morning (light) palette. It applies when the device asks for light and
+   the crew hasn't pinned night, or when morning is picked with the toggle.
+   Both selectors carry the same tokens on purpose — plain CSS has no way to
+   share one block between a media query and an attribute — so any change here
+   must be made in BOTH blocks below. */
 @media (prefers-color-scheme: light) {
-  :root {
+  :root:not([data-theme="dark"]) {
     color-scheme: light;
     --steel-950: #e4e9ee;
     --steel-900: #ffffff;
@@ -95,6 +100,41 @@
     --shift-night: #6d3fd4;
     --shift-night-edge: #4c25a3;
   }
+}
+
+/* Morning picked with the toggle — same tokens as the block above, so it wins
+   even on a device set to dark. */
+:root[data-theme="light"] {
+  color-scheme: light;
+  --steel-950: #e4e9ee;
+  --steel-900: #ffffff;
+  --steel-850: #f1f4f7;
+  --steel-800: #ffffff;
+  --steel-750: #f4f7fa;
+  --steel-700: #c3ceda;
+  --chalk: #16202b;
+  --slate: #566573;
+  --slate-dim: #8a97a5;
+  --hivis: #a35c00;
+  --danger: #c02f1d;
+  --good: #16794a;
+  --panel-strong: var(--steel-850);
+  --accent-dark: #7a4500;
+  --shadow: 0 12px 28px rgba(22, 32, 43, 0.12);
+
+  --chart-ink: #16202b;
+  --chart-grid: rgba(86, 101, 115, 0.18);
+  --chart-series: #a35c00;
+  --chart-series-fill: rgba(163, 92, 0, 0.14);
+  --chart-series-edge: #7a4500;
+  --chart-point: #ffffff;
+
+  --shift-morning: #b06a00;
+  --shift-morning-edge: #7a4900;
+  --shift-afternoon: #0277bd;
+  --shift-afternoon-edge: #015384;
+  --shift-night: #6d3fd4;
+  --shift-night-edge: #4c25a3;
 }
 
 /* --------------------------------------------------------------------------
@@ -159,6 +199,39 @@ summary:focus-visible,
   gap: 10px;
   width: 100%;
   flex-wrap: wrap;
+}
+
+/* Night/morning switch. Sits with the other top-bar controls and stays a full
+   tap target for gloved hands. */
+.theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: var(--tap);
+  padding: 0 16px;
+  background: var(--panel-strong);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-ui);
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.theme-toggle:hover { background: var(--steel-750); }
+
+.theme-toggle:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.theme-toggle-icon {
+  font-size: 1.05rem;
+  line-height: 1;
+  color: var(--accent);
 }
 
 .account-panel {
@@ -1061,6 +1134,14 @@ button:focus-visible { outline: 3px solid var(--hivis); outline-offset: 2px; }
    -------------------------------------------------------------------------- */
 
 .auth-page-body { justify-content: center; }
+
+/* The login page has no top bar of its own, so the night/morning switch gets a
+   thin one that keeps it in the same top-right spot as in the app. */
+.auth-page-topbar {
+  width: min(980px, 100%);
+  display: flex;
+  justify-content: flex-end;
+}
 
 .auth-page-shell {
   width: min(980px, 100%);

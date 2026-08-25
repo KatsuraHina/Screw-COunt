@@ -5,8 +5,25 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Log In | Screw Count Calculator</title>
   <link rel="stylesheet" href="./styles.css">
+  <!-- Put the chosen night/morning mode on <html> before the first paint, so the
+       page never flashes the other palette while the modules load. -->
+  <script>
+    try {
+      var savedTheme = localStorage.getItem("screwcount.theme");
+      if (savedTheme === "dark" || savedTheme === "light") {
+        document.documentElement.dataset.theme = savedTheme;
+      }
+    } catch (e) { /* storage unavailable — fall back to the device setting */ }
+  </script>
 </head>
 <body class="auth-page-body">
+  <header class="auth-page-topbar">
+    <button id="themeToggle" class="theme-toggle" type="button">
+      <span class="theme-toggle-icon" aria-hidden="true">☀</span>
+      <span class="theme-toggle-label">Morning</span>
+    </button>
+  </header>
+
   <main class="auth-page-shell">
     <section class="auth-page-copy">
       <span class="topbar-eyebrow">BBS Count</span>

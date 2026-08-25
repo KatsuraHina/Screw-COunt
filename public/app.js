@@ -52,6 +52,7 @@ import {
   usernameToAuthEmail
 } from "./jobs.js";
 import { deriveImportTitle, detectJobTypeFromName, parseCutListPdf } from "./pdf-import.js";
+import { bindThemeToggle } from "./theme.js";
 import {
   clearHistoryOutputs,
   getElements,
@@ -2251,6 +2252,10 @@ function switchTab(nextTab) {
 }
 
 function bindEvents() {
+  // The charts read their colours from the stylesheet as they draw, so switching
+  // mode repaints the app to redraw them in the new palette.
+  bindThemeToggle(elements.themeToggle, () => renderApp());
+
   [
     elements.workDateInput,
     elements.benchSelect,
