@@ -1905,13 +1905,14 @@ button:focus-visible { outline: 3px solid var(--hivis); outline-offset: 2px; }
 
 /* Stack the job text and its action buttons so the narrow jobs panel doesn't
    squish the text into a sliver. Text takes the full width; Hide/Delete sit in
-   a row beneath it. */
+   a row beneath it. Each row is its own card, so it keeps padding on all four
+   sides — without the horizontal part the text runs into the card's edge. */
 .worker-jobs .entry-row {
   flex-direction: column;
   align-items: stretch;
   gap: 8px;
   margin-bottom: 0;
-  padding: 12px 0;
+  padding: 12px 14px;
   border-bottom: 1px solid var(--border);
 }
 
