@@ -789,6 +789,15 @@ button:focus-visible { outline: 3px solid var(--hivis); outline-offset: 2px; }
   gap: 6px;
 }
 
+/* The imported checklist is the list a bench actually works from, ticking its
+   way down it for a whole job, so it gets far more room than the other
+   scrollers' fixed 260px — and grows with the screen instead of being stuck at
+   one height. The rows keep their full tap size; there are just more on screen.
+   Capped so the summary and the Add/End buttons below stay reachable. */
+.truss-list-wrap .entries-scroll {
+  max-height: clamp(320px, 60vh, 760px);
+}
+
 .truss-name { font-weight: 500; }
 
 .truss-metres {
