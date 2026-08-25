@@ -33,6 +33,14 @@
   --chart-series-edge: #c98407;
   --chart-point: #131a22;
 
+  /* Tag/pill colours. These need their own tokens rather than --accent-dark:
+     that amber is meant for the white active pill, and is too dark to read on
+     a dark tag. Same for the indigo — one value can't work on both grounds. */
+  --tag-walls: #a5b4fc;
+  --tag-walls-bg: rgba(99, 102, 241, 0.18);
+  --tag-trusses: #ffb020;
+  --tag-trusses-bg: rgba(255, 176, 32, 0.16);
+
   /* Shift bars need three hues that stay apart on a dark ground. */
   --shift-morning: #ffb020;
   --shift-morning-edge: #c98407;
@@ -93,6 +101,11 @@
     --chart-series-edge: #7a4500;
     --chart-point: #ffffff;
 
+    --tag-walls: #4338ca;
+    --tag-walls-bg: rgba(99, 102, 241, 0.16);
+    --tag-trusses: #7a4500;
+    --tag-trusses-bg: rgba(255, 176, 32, 0.16);
+
     --shift-morning: #b06a00;
     --shift-morning-edge: #7a4900;
     --shift-afternoon: #0277bd;
@@ -128,6 +141,11 @@
   --chart-series-fill: rgba(163, 92, 0, 0.14);
   --chart-series-edge: #7a4500;
   --chart-point: #ffffff;
+
+  --tag-walls: #4338ca;
+  --tag-walls-bg: rgba(99, 102, 241, 0.16);
+  --tag-trusses: #7a4500;
+  --tag-trusses-bg: rgba(255, 176, 32, 0.16);
 
   --shift-morning: #b06a00;
   --shift-morning-edge: #7a4900;
@@ -1483,7 +1501,7 @@ button:focus-visible { outline: 3px solid var(--hivis); outline-offset: 2px; }
   gap: 12px;
   padding: 10px 14px;
   border-radius: 12px;
-  background: rgba(99, 102, 241, 0.12);
+  background: var(--tag-walls-bg);
   border: 1px solid rgba(99, 102, 241, 0.35);
 }
 
@@ -1493,7 +1511,7 @@ button:focus-visible { outline: 3px solid var(--hivis); outline-offset: 2px; }
 
 .edit-banner span {
   font-weight: 700;
-  color: #4338ca;
+  color: var(--tag-walls);
 }
 
 /* "Show hidden jobs" checkbox in the worker-history controls. Overrides the
@@ -1534,7 +1552,7 @@ button:focus-visible { outline: 3px solid var(--hivis); outline-offset: 2px; }
   padding: 10px 12px;
   border: 1px solid var(--border);
   border-radius: 12px;
-  background: #fff;
+  background: var(--panel-strong);
   cursor: pointer;
 }
 
@@ -1607,13 +1625,13 @@ button:focus-visible { outline: 3px solid var(--hivis); outline-offset: 2px; }
 }
 
 .import-library-type-trusses {
-  background: rgba(255, 176, 32, 0.14);
-  color: var(--accent-dark);
+  background: var(--tag-trusses-bg);
+  color: var(--tag-trusses);
 }
 
 .import-library-type-walls {
-  background: rgba(99, 102, 241, 0.16);
-  color: #4338ca;
+  background: var(--tag-walls-bg);
+  color: var(--tag-walls);
 }
 
 /* Preloaded jobs library: PDFs imported ahead of time, tap one to load it. */
@@ -1652,7 +1670,7 @@ button:focus-visible { outline: 3px solid var(--hivis); outline-offset: 2px; }
   gap: 8px;
   border: 1px solid var(--border);
   border-radius: 12px;
-  background: #fff;
+  background: var(--panel-strong);
   overflow: hidden;
 }
 
@@ -1753,7 +1771,7 @@ button:focus-visible { outline: 3px solid var(--hivis); outline-offset: 2px; }
   padding: 12px 14px;
   border: 1px solid var(--border);
   border-radius: 12px;
-  background: #fff;
+  background: var(--panel-strong);
   color: var(--text);
   font: inherit;
   font-size: 1rem;
@@ -1763,7 +1781,7 @@ button:focus-visible { outline: 3px solid var(--hivis); outline-offset: 2px; }
 .date-range-trigger:hover {
   transform: none;
   box-shadow: 0 6px 14px rgba(201, 132, 7, 0.1);
-  background: #fff;
+  background: var(--steel-750);
 }
 
 .date-range-caret {
@@ -1924,8 +1942,8 @@ button:focus-visible { outline: 3px solid var(--hivis); outline-offset: 2px; }
   align-items: center;
   padding: 2px 10px;
   border-radius: 999px;
-  background: rgba(255, 176, 32, 0.14);
-  color: var(--accent-dark);
+  background: var(--tag-trusses-bg);
+  color: var(--tag-trusses);
   font-size: 0.78rem;
   font-weight: 800;
   letter-spacing: 0.04em;
