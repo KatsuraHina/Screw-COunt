@@ -709,6 +709,36 @@ button:focus-visible { outline: 3px solid var(--hivis); outline-offset: 2px; }
 
 .truss-logged { color: var(--slate-dim); text-decoration: line-through; }
 
+/* A row another bench is working on: recessed and dimmed so the rows this
+   bench can still take are the ones that stand out, with a tag naming who has
+   it. Not interactive — the checkbox is disabled in the markup too. */
+.truss-row.is-claimed .truss-option {
+  background: var(--steel-850);
+  border-style: dashed;
+  cursor: not-allowed;
+}
+
+.truss-row.is-claimed .truss-option:hover { background: var(--steel-850); }
+
+.truss-row.is-claimed .truss-name,
+.truss-row.is-claimed .truss-metres { color: var(--slate-dim); }
+
+.truss-row.is-claimed .truss-option input { cursor: not-allowed; opacity: 0.55; }
+
+.truss-claimed {
+  margin-left: 8px;
+  padding: 1px 7px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-family: var(--font-ui);
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--slate);
+}
+
 /* --------------------------------------------------------------------------
    Breaks
    -------------------------------------------------------------------------- */

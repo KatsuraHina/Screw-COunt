@@ -50,6 +50,30 @@ service cloud.firestore {
       allow update: if false;
     }
 
+    // One document per ticked row of a shared imported cut list, keyed
+    // <type>__<list>__r<no>. When two benches work the same list, the row is
+    // claimed by whoever ticks it first: `create` only succeeds while the doc
+    // does not exist, so the second bench is denied and its tick is refused.
+    // A claim is released by deleting it, which only its owner (or an admin)
+    // may do — nobody can untick someone else's work.
+    match /importClaims/{claimId} {
+      // Every signed-in user reads the claims so each bench sees, live, which
+      // rows the other benches have already taken.
+      allow read: if request.auth != null;
+      allow create: if request.auth != null
+        && request.resource.data.by == request.auth.uid
+        && request.resource.data.at is number;
+      allow delete: if request.auth != null
+        && (resource.data.by == request.auth.uid || isAdmin());
+      // A claim is never reassigned while it is live. The one exception is a
+      // stale claim (older than one shift): the row has been abandoned, so the
+      // next bench may take it over rather than being locked out for good.
+      allow update: if request.auth != null
+        && request.resource.data.by == request.auth.uid
+        && request.resource.data.at is number
+        && request.time.toMillis() - resource.data.at > 8 * 60 * 60 * 1000;
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }

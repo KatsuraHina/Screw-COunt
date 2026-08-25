@@ -13,6 +13,17 @@ import {
   summarizeWorkerJobs
 } from "./jobs.js";
 
+/* Text that came from another account (a bench label, a username) before it
+   goes into innerHTML, so a stray character can never be read as markup. */
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 /* Chart colours are read from the stylesheet rather than hardcoded, so the
    graphs follow the theme instead of drifting from it. Read at render time so
    a light/dark switch is picked up by the next render. */
@@ -1228,8 +1239,13 @@ export function renderImportLibrary(elements, jobs, activeType, activeId, handle
 // Render the imported cut-list checklist. `config` controls how each row's
 // value is read and formatted (metres for trusses, screws for walls).
 // `onToggle(index, done)` fires when a row is ticked/unticked.
-export function renderImportList(elements, rows, config, onToggle) {
+export function renderImportList(elements, rows, config, onToggle, options = {}) {
   const hasRows = rows.length > 0;
+  const currentUserId = options.currentUserId ?? null;
+  // On a shared list a row ticked by another bench is theirs: it shows who has
+  // it and can't be ticked or unticked here.
+  const takenByOther = (row) => Boolean(row.claimedBy) && row.claimedBy !== currentUserId;
+
   elements.trussListWrap.classList.toggle("hidden", !hasRows);
   elements.trussList.innerHTML = "";
 
@@ -1239,13 +1255,23 @@ export function renderImportList(elements, rows, config, onToggle) {
     // Lets the drag-to-select gesture map the row under the pointer to its row.
     item.dataset.index = String(index);
 
+    const locked = takenByOther(row);
+    if (locked) {
+      item.classList.add("is-claimed");
+      // Read by the drag-to-select gesture so a stroke skips other benches' rows.
+      item.dataset.claimed = "true";
+    }
+
     const label = document.createElement("label");
     label.className = "truss-option";
 
     const checkbox = document.createElement("input");
     checkbox.type = "checkbox";
     checkbox.checked = Boolean(row.done);
-    checkbox.addEventListener("change", () => onToggle(index, checkbox.checked));
+    checkbox.disabled = locked;
+    if (!locked) {
+      checkbox.addEventListener("change", () => onToggle(index, checkbox.checked));
+    }
 
     const text = document.createElement("span");
     text.className = "truss-text";
@@ -1254,8 +1280,11 @@ export function renderImportList(elements, rows, config, onToggle) {
     const loggedBadge = row.loggedCount
       ? `<span class="truss-logged">logged${row.loggedCount > 1 ? ` ×${row.loggedCount}` : ""}</span>`
       : "";
+    const claimedBadge = locked
+      ? `<span class="truss-claimed">${escapeHtml(row.claimedLabel || "Another bench")}</span>`
+      : "";
     text.innerHTML =
-      `<span class="truss-name">${row.no}. ${row.number}${loggedBadge}</span>` +
+      `<span class="truss-name">${row.no}. ${row.number}${loggedBadge}${claimedBadge}</span>` +
       `<span class="truss-metres">${config.format(config.value(row))}</span>`;
 
     label.append(checkbox, text);
@@ -1263,17 +1292,23 @@ export function renderImportList(elements, rows, config, onToggle) {
     elements.trussList.appendChild(item);
   });
 
-  const ticked = rows.filter((row) => row.done);
-  const tickedTotal = ticked.reduce((total, row) => total + config.value(row), 0);
+  // The summary counts this bench's own work — rows another bench holds are
+  // shown ticked but belong to their job, not ours.
+  const mine = rows.filter((row) => row.done && !takenByOther(row));
+  const others = rows.filter((row) => takenByOther(row)).length;
+  const mineTotal = mine.reduce((total, row) => total + config.value(row), 0);
+  const othersNote = others > 0 ? ` · ${others} on another bench` : "";
   elements.trussSelectedSummary.textContent = hasRows
-    ? `${ticked.length} of ${rows.length} ticked · ${config.format(tickedTotal)}`
-    : `${ticked.length} of ${rows.length} ticked`;
+    ? `${mine.length} of ${rows.length} ticked · ${config.format(mineTotal)}${othersNote}`
+    : `${mine.length} of ${rows.length} ticked`;
 
-  // The tick-all control flips to "Untick all" once every row is ticked, so the
-  // one button both selects and clears the whole list.
+  // The tick-all control flips to "Untick all" once every row this bench can
+  // reach is ticked, so the one button both selects and clears the whole list.
   if (elements.trussTickAllButton) {
-    const allTicked = hasRows && ticked.length === rows.length;
+    const reachable = rows.filter((row) => !takenByOther(row));
+    const allTicked = reachable.length > 0 && mine.length === reachable.length;
     elements.trussTickAllButton.textContent = allTicked ? "Untick all" : "Tick all";
+    elements.trussTickAllButton.disabled = reachable.length === 0;
   }
 }
 

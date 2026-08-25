@@ -14,6 +14,7 @@ import {
   getDoc,
   getDocs,
   getFirestore,
+  onSnapshot,
   query,
   serverTimestamp,
   setDoc,
@@ -21,7 +22,7 @@ import {
   where
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 import { firebaseConfig, firebaseProjectId } from "./firebase-config.js";
-import { BENCH_PASSWORD, benchAuthEmail } from "./jobs.js";
+import { BENCH_PASSWORD, benchAuthEmail, importClaimId } from "./jobs.js";
 
 const firebaseApp = initializeApp(firebaseConfig);
 const db = getFirestore(firebaseApp);
@@ -140,6 +141,77 @@ export async function loadWorkerRecords(user, { all = false } = {}) {
 
 export async function deleteWorkerRecord(workerId) {
   await deleteDoc(doc(db, "workers", workerId));
+}
+
+// --- Shared import claims (live ticking across benches) ---
+//
+// When two benches load the same cut list, a ticked row is "claimed" by one
+// document per row. The rules make `create` the only way to take a free row, so
+// Firestore decides the winner if both benches tick at the same moment — the
+// loser gets permission-denied and we tell them who has it.
+
+// Thrown when the row was already taken, so the caller can show who has it
+// rather than a raw Firestore error.
+export class RowAlreadyClaimedError extends Error {
+  constructor() {
+    super("That one is already ticked by another bench.");
+    this.name = "RowAlreadyClaimedError";
+  }
+}
+
+export async function claimImportRow(jobKey, row, user, label) {
+  const claimId = importClaimId(jobKey, row.no);
+  try {
+    await setDoc(
+      doc(db, "importClaims", claimId),
+      {
+        jobKey,
+        no: row.no,
+        number: row.number ?? "",
+        by: user.uid,
+        byLabel: label,
+        // A plain number (not serverTimestamp) so the rules can compare it when
+        // deciding whether an abandoned claim may be taken over.
+        at: Date.now()
+      },
+      // merge:false — this must land as a create so an existing claim rejects it.
+      { merge: false }
+    );
+  } catch (error) {
+    if (error?.code === "permission-denied") {
+      throw new RowAlreadyClaimedError();
+    }
+    throw error;
+  }
+}
+
+// Untick: only the bench that claimed the row may release it.
+export async function releaseImportRow(jobKey, rowNo) {
+  await deleteDoc(doc(db, "importClaims", importClaimId(jobKey, rowNo)));
+}
+
+// Live claims for one shared list. Calls back with { [rowNo]: claim } on every
+// change, so a tick on one bench shows up on the other without a refresh.
+// Returns the unsubscribe function.
+export function subscribeToImportClaims(jobKey, onChange, onError) {
+  const claimsQuery = query(collection(db, "importClaims"), where("jobKey", "==", jobKey));
+  return onSnapshot(
+    claimsQuery,
+    (snapshot) => {
+      const claims = {};
+      snapshot.docs.forEach((docSnapshot) => {
+        const data = docSnapshot.data();
+        claims[String(data.no)] = data;
+      });
+      onChange(claims);
+    },
+    (error) => {
+      console.error(error);
+      if (onError) {
+        onError(error);
+      }
+    }
+  );
 }
 
 // --- Admin roster (the `admins` collection, keyed by lowercased email) ---

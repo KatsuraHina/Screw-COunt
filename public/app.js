@@ -1,6 +1,7 @@
 import {
   addAdminRecord,
   addWorkerRecord,
+  claimImportRow,
   deleteJobRecord,
   deleteWorkerRecord,
   formatFirestoreError,
@@ -9,10 +10,13 @@ import {
   loadJobRecords,
   loadWorkerRecords,
   logoutCurrentUser,
+  releaseImportRow,
   removeAdminRecord,
+  RowAlreadyClaimedError,
   saveJobRecord,
   setJobHiddenRecord,
   subscribeToAuthChanges,
+  subscribeToImportClaims,
   updateJobRecord
 } from "./firebase-service.js";
 import {
@@ -25,6 +29,7 @@ import {
   calculateBreakMinutes,
   calculateStrapMinutes,
   calculateWorkedMinutes,
+  claimLabelForUser,
   createEmptyDraft,
   createEntry,
   createJobPayload,
@@ -35,6 +40,8 @@ import {
   getRangeStartDate,
   getShiftDayKey,
   getTotalAmount,
+  importJobKey,
+  isClaimStale,
   isSuperAdmin,
   isValidUsername,
   meridiemForShift,
@@ -103,6 +110,12 @@ const state = {
     trusses: [],
     walls: []
   },
+  // Live row claims for the shared imported list currently loaded, keyed by row
+  // number: { no, by, byLabel, at }. Plus the list being watched and the
+  // Firestore listener that keeps it fresh.
+  importClaims: {},
+  importClaimsJobKey: null,
+  importClaimsUnsub: null,
   isAdmin: false,
   charts: {
     total: null,
@@ -175,8 +188,10 @@ function getTickedImportEntries() {
   }
 
   const config = getImportConfig();
+  // On a shared list, rows another bench claimed are their work, so they are
+  // left out of this bench's job.
   return draft.importRows
-    .filter((row) => row.done)
+    .filter((row) => row.done && isRowMine(row))
     .map((row) => ({ amount: config.value(row), timeLabel: row.number }));
 }
 
@@ -194,7 +209,7 @@ function getTickedImportMetres() {
   }
 
   return draft.importRows
-    .filter((row) => row.done)
+    .filter((row) => row.done && isRowMine(row))
     .reduce((sum, row) => sum + (Number(row.metres) || 0), 0);
 }
 
@@ -441,6 +456,13 @@ function getCalculatorViewModel() {
 
 function renderCalculatorSection() {
   renderCalculator(elements, getCalculatorViewModel(), getActiveConfig());
+  // Every change to the job in progress ends up repainting the calculator, so
+  // this is the one place that keeps the stored copy in step with the form.
+  // Only for a signed-in user: a logged-out visitor has nothing worth keeping,
+  // and writing here would land in the wrong namespace.
+  if (state.currentUser) {
+    persistDrafts();
+  }
 }
 
 function renderEntriesSection() {
@@ -523,6 +545,7 @@ function renderApp() {
 // device.
 const IMPORT_STORE_PREFIX = "screwcount.importList.";
 const IMPORT_LIB_PREFIX = "screwcount.importJobs.";
+const DRAFT_STORE_PREFIX = "screwcount.draft.";
 const IMPORT_MAX_AGE_MS = 8 * 60 * 60 * 1000;
 
 // Identifies whose imports these are. Falls back to "anon" before sign-in.
@@ -536,6 +559,201 @@ function importListKey(tab) {
 
 function importLibraryKey(tab) {
   return `${IMPORT_LIB_PREFIX}${importUserKey()}.${tab}`;
+}
+
+function draftStoreKey() {
+  return `${DRAFT_STORE_PREFIX}${importUserKey()}`;
+}
+
+// The job in progress (times, bench, crew, entries, breaks) is kept in
+// localStorage so closing the tab or reloading mid-shift doesn't lose it — the
+// bench picks up exactly where it left off. Like the imported lists it lasts one
+// shift, and it is namespaced per signed-in user so a shared tablet never shows
+// one bench the other's half-finished job.
+//
+// The import checklist itself is NOT stored here: it has its own store (and, for
+// a shared list, its ticks live in Firestore), so it isn't duplicated.
+const DRAFT_PERSIST_KEYS = [
+  "dateMode",
+  "workDate",
+  "benchNumber",
+  "shift",
+  "startTime",
+  "endTime",
+  "strapStart",
+  "strapEnd",
+  "pendingAmount",
+  "break15Checked",
+  "break24Checked",
+  "assignedWorkerIds",
+  "entries"
+];
+
+function persistDrafts() {
+  try {
+    const payload = { savedAt: Date.now(), activeTab: state.activeTab, drafts: {} };
+    Object.keys(JOB_TYPES).forEach((tab) => {
+      const draft = state.drafts[tab];
+      const slim = {};
+      DRAFT_PERSIST_KEYS.forEach((key) => {
+        slim[key] = Array.isArray(draft[key]) ? [...draft[key]] : draft[key];
+      });
+      payload.drafts[tab] = slim;
+    });
+    localStorage.setItem(draftStoreKey(), JSON.stringify(payload));
+  } catch {
+    // Storage unavailable (private mode etc.) — the job just won't survive a reload.
+  }
+}
+
+function restoreDrafts() {
+  try {
+    const raw = localStorage.getItem(draftStoreKey());
+    if (!raw) {
+      return;
+    }
+    const stored = JSON.parse(raw);
+    if (!stored || !stored.drafts || !Number.isFinite(stored.savedAt)) {
+      throw new Error("bad stored draft");
+    }
+    if (Date.now() - stored.savedAt > IMPORT_MAX_AGE_MS) {
+      localStorage.removeItem(draftStoreKey());
+      return;
+    }
+
+    Object.keys(JOB_TYPES).forEach((tab) => {
+      const slim = stored.drafts[tab];
+      if (!slim) {
+        return;
+      }
+      const draft = state.drafts[tab];
+      DRAFT_PERSIST_KEYS.forEach((key) => {
+        if (slim[key] === undefined) {
+          return;
+        }
+        draft[key] = Array.isArray(slim[key]) ? [...slim[key]] : slim[key];
+      });
+      // Entries are objects; clone them so the restored draft never aliases the
+      // parsed JSON.
+      draft.entries = Array.isArray(slim.entries)
+        ? slim.entries
+            .filter((entry) => entry && Number.isFinite(Number(entry.amount)))
+            .map((entry) => ({ amount: Number(entry.amount), timeLabel: String(entry.timeLabel ?? "") }))
+        : [];
+    });
+
+    if (JOB_TYPES[stored.activeTab]) {
+      state.activeTab = stored.activeTab;
+      state.lastJobType = stored.activeTab;
+    }
+  } catch {
+    try {
+      localStorage.removeItem(draftStoreKey());
+    } catch {
+      // ignore
+    }
+  }
+}
+
+// --- Shared imported lists: live ticks and row claims across benches ---
+//
+// Two benches that import the same PDF work the same list. Each ticked row is
+// claimed in Firestore, so a tick on one bench appears on the other within a
+// moment, and a row someone else has taken can't be ticked or unticked by
+// anyone else. Rows claimed by another bench are shown as theirs and left out of
+// this bench's totals — their work counts for them, not for us.
+
+function activeImportJobKey() {
+  const draft = getActiveDraft();
+  if (!draft?.importJobId || !state.currentUser) {
+    return null;
+  }
+  return importJobKey(state.activeTab, draft.importJobId);
+}
+
+function claimForRow(row) {
+  return state.importClaims[String(row?.no)] ?? null;
+}
+
+// A row counts for this bench when nobody else holds it: either we claimed it,
+// or it was ticked offline/locally with no claim recorded at all. Straight after
+// a reload the live claims haven't arrived yet, so fall back to the owner stored
+// with the row — otherwise another bench's work would count as ours for the
+// moment it takes the first snapshot to land.
+function isRowMine(row) {
+  const claim = claimForRow(row);
+  const owner = claim ? claim.by : row?.claimedBy;
+  if (!owner) {
+    return Boolean(row?.done);
+  }
+  return owner === state.currentUser?.uid;
+}
+
+// Paint the live claims onto the loaded checklist. A row is ticked when someone
+// holds it; who that is decides whether this bench may untick it and whether it
+// counts toward this bench's total.
+function applyClaimsToRows() {
+  const draft = getActiveDraft();
+  if (!Array.isArray(draft?.importRows)) {
+    return;
+  }
+  const now = Date.now();
+  draft.importRows.forEach((row) => {
+    const claim = state.importClaims[String(row.no)];
+    if (claim && !isClaimStale(claim, now)) {
+      row.done = true;
+      row.claimedBy = claim.by;
+      row.claimedLabel = claim.byLabel ?? "Another bench";
+      return;
+    }
+    // No live claim: an abandoned (stale) one frees the row again.
+    if (row.claimedBy) {
+      row.done = false;
+      row.claimedBy = null;
+      row.claimedLabel = null;
+    }
+  });
+}
+
+// Watch the shared list the active draft is on, swapping the listener when the
+// loaded job changes and dropping it when there's nothing shared to watch.
+function syncImportClaimSubscription() {
+  const jobKey = activeImportJobKey();
+  if (jobKey === state.importClaimsJobKey) {
+    return;
+  }
+
+  if (state.importClaimsUnsub) {
+    state.importClaimsUnsub();
+    state.importClaimsUnsub = null;
+  }
+  state.importClaimsJobKey = jobKey;
+  state.importClaims = {};
+
+  if (!jobKey) {
+    return;
+  }
+
+  state.importClaimsUnsub = subscribeToImportClaims(
+    jobKey,
+    (claims) => {
+      // Ignore a snapshot that arrives after the user moved to another list.
+      if (state.importClaimsJobKey !== jobKey) {
+        return;
+      }
+      state.importClaims = claims;
+      applyClaimsToRows();
+      renderImportSection();
+      renderCalculatorSection();
+    },
+    () => {
+      setImportStatus(
+        elements,
+        "Couldn't sync ticks with the other benches — your ticks are still saved on this device.",
+        "warning"
+      );
+    }
+  );
 }
 
 function persistImportRows(tab) {
@@ -654,16 +872,17 @@ function syncImportsForUser() {
 
   Object.keys(JOB_TYPES).forEach((tab) => {
     state.importLibrary[tab] = [];
-    const draft = state.drafts[tab];
-    draft.importRows = [];
-    draft.importLoadedAt = null;
-    draft.importJobId = null;
+    // A new user starts from a clean form, not the previous one's half-done job.
+    state.drafts[tab] = createEmptyDraft();
   });
 
   if (state.isAdmin) {
     restoreImportLibrary();
   }
   restoreImportRows();
+  // Restore this user's own job in progress, so a reload mid-shift keeps the
+  // times, crew and entries they had already entered.
+  restoreDrafts();
 }
 
 // Drop jobs older than one shift; returns true if anything expired so the
@@ -773,6 +992,10 @@ function renderImportSection() {
   const showImport = Boolean(JOB_TYPES[state.activeTab]);
   setImportVisible(elements, showImport);
 
+  // Watch the shared list the active draft is on — and, off the logging tabs or
+  // signed out, stop listening rather than leaving a subscription running.
+  syncImportClaimSubscription();
+
   if (showImport) {
     const draft = getActiveDraft();
     // The preloaded-jobs library is admin-only; workers keep just one import at
@@ -812,18 +1035,107 @@ function renderImportSection() {
       // Non-admins have no library — keep it hidden.
       elements.importLibrary.classList.add("hidden");
     }
-    renderImportList(elements, draft.importRows ?? [], config, toggleImportRow);
+    renderImportList(elements, draft.importRows ?? [], config, toggleImportRow, {
+      currentUserId: state.currentUser?.uid ?? null
+    });
   }
 }
 
+// A row another bench is holding right now. Their work is theirs: it can't be
+// ticked, unticked, dragged over or caught by "Tick all".
+function isRowLockedByOther(row) {
+  const claim = claimForRow(row);
+  if (claim) {
+    return !isClaimStale(claim) && claim.by !== state.currentUser?.uid;
+  }
+  // Same reload gap as isRowMine: trust the owner stored with the row until the
+  // first snapshot replaces it.
+  return Boolean(row?.claimedBy) && row.claimedBy !== state.currentUser?.uid;
+}
+
+// Push the local tick state of the given rows up to the shared list, claiming
+// the ones now ticked and releasing the ones now unticked. Anything the server
+// refuses (another bench got there first, or we're offline) is rolled back so
+// the checklist never shows work this bench doesn't actually hold.
+async function commitImportRowStates(indexes) {
+  const tab = state.activeTab;
+  const jobKey = activeImportJobKey();
+  if (!jobKey) {
+    persistImportRows(tab);
+    return;
+  }
+
+  const draft = state.drafts[tab];
+  const label = claimLabelForUser(state.currentUser);
+  const refused = [];
+  let otherError = null;
+
+  await Promise.all(
+    indexes.map(async (index) => {
+      const row = draft.importRows?.[index];
+      if (!row) {
+        return;
+      }
+      try {
+        if (row.done) {
+          await claimImportRow(jobKey, row, state.currentUser, label);
+        } else {
+          await releaseImportRow(jobKey, row.no);
+        }
+      } catch (error) {
+        row.done = !row.done;
+        if (error instanceof RowAlreadyClaimedError) {
+          refused.push(row.number);
+        } else {
+          otherError = error;
+        }
+      }
+    })
+  );
+
+  persistImportRows(tab);
+  renderImportSection();
+  renderCalculatorSection();
+
+  if (refused.length > 0) {
+    const list = refused.slice(0, 3).join(", ");
+    const more = refused.length > 3 ? ` and ${refused.length - 3} more` : "";
+    setImportStatus(
+      elements,
+      `${list}${more} ${refused.length === 1 ? "was" : "were"} just ticked by another bench.`,
+      "warning"
+    );
+  } else if (otherError) {
+    setImportStatus(elements, formatFirestoreError(otherError), "warning");
+  }
+}
+
+// Tick or untick one row. On a shared list the tick is a claim in Firestore, so
+// the other benches see it immediately and can't take the same row; on a list
+// nobody else is on it stays a local tick exactly as before.
 function toggleImportRow(index, done) {
   const draft = getActiveDraft();
-  if (draft.importRows && draft.importRows[index]) {
-    draft.importRows[index].done = done;
-    persistImportRows(state.activeTab);
-    renderImportSection();
-    renderCalculatorSection();
+  const row = draft.importRows?.[index];
+  if (!row) {
+    return;
   }
+
+  // Someone else holds this row — put the checkbox back and say who has it.
+  if (isRowLockedByOther(row)) {
+    renderImportSection();
+    setImportStatus(
+      elements,
+      `${row.number} is already ticked by ${claimForRow(row)?.byLabel ?? "another bench"}.`,
+      "warning"
+    );
+    return;
+  }
+
+  // Show the tick straight away, then confirm it against the shared list.
+  row.done = done;
+  renderImportSection();
+  renderCalculatorSection();
+  commitImportRowStates([index]);
 }
 
 // Drag-to-select for the import checklist (mouse/pen only — touch keeps its
@@ -844,6 +1156,11 @@ function handleImportPointerDown(event) {
   const index = Number(row.dataset.index);
   const rows = getActiveDraft().importRows;
   if (!Array.isArray(rows) || !rows[index]) {
+    return;
+  }
+  // Starting on another bench's row would read its tick as the direction for
+  // the whole stroke, so the gesture doesn't begin there at all.
+  if (isRowLockedByOther(rows[index])) {
     return;
   }
   // Don't tick yet: a plain click is left to the checkbox's own handler. The
@@ -879,6 +1196,10 @@ function applyImportDragTo(index) {
   if (!rows || !rows[index] || rows[index].done === importDrag.setTo) {
     return;
   }
+  // Drag straight past rows another bench is working on.
+  if (isRowLockedByOther(rows[index])) {
+    return;
+  }
   rows[index].done = importDrag.setTo;
   importDrag.changed.add(index);
   // Update just this row's checkbox during the drag; the list is re-rendered
@@ -896,7 +1217,8 @@ function endImportDrag() {
     return;
   }
   const wasActive = importDrag.active;
-  const changed = importDrag.changed.size;
+  const changedIndexes = importDrag.changed;
+  const changed = changedIndexes.size;
   importDrag = null;
   if (!wasActive) {
     return;
@@ -905,9 +1227,10 @@ function endImportDrag() {
   // the row isn't toggled a second time.
   suppressImportClick = true;
   if (changed > 0) {
-    persistImportRows(state.activeTab);
     renderImportSection();
     renderCalculatorSection();
+    // Claim (or release) everything the stroke touched, in one go.
+    commitImportRowStates([...changedIndexes]);
   }
 }
 
@@ -919,13 +1242,30 @@ function toggleAllImportRows() {
   if (!Array.isArray(rows) || rows.length === 0) {
     return;
   }
-  const markDone = !rows.every((row) => row.done);
-  rows.forEach((row) => {
-    row.done = markDone;
+  // Only rows this bench can actually reach take part — the ones another bench
+  // holds are left exactly as they are, and don't decide the direction either.
+  const reachable = rows
+    .map((row, index) => ({ row, index }))
+    .filter(({ row }) => !isRowLockedByOther(row));
+  if (reachable.length === 0) {
+    return;
+  }
+
+  const markDone = !reachable.every(({ row }) => row.done);
+  const changed = [];
+  reachable.forEach(({ row, index }) => {
+    if (row.done !== markDone) {
+      row.done = markDone;
+      changed.push(index);
+    }
   });
-  persistImportRows(state.activeTab);
+  if (changed.length === 0) {
+    return;
+  }
+
   renderImportSection();
   renderCalculatorSection();
+  commitImportRowStates(changed);
 }
 
 async function handleImportFile(file) {
@@ -972,7 +1312,9 @@ async function handleImportFile(file) {
       const draft = getActiveDraft();
       draft.importRows = rows.map((row) => ({ ...row, done: false }));
       draft.importLoadedAt = Date.now();
-      draft.importJobId = null;
+      // The id is the PDF's own file name, so two benches importing the same
+      // sheet land on the same shared list and see each other's ticks.
+      draft.importJobId = deriveImportTitle(file.name).toLowerCase();
       persistImportRows(tab);
       renderImportSection();
       renderCalculatorSection();

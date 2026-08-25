@@ -56,6 +56,44 @@ export function benchFromAuthEmail(email) {
   return BENCH_NUMBERS.includes(bench) ? bench : null;
 }
 
+// How a signed-in account is named to the rest of the crew — "Bench 5" for a
+// bench account, the username for an admin. Shown against a claimed row so the
+// next bench can see who is already working on it.
+export function claimLabelForUser(user) {
+  const bench = benchFromAuthEmail(user?.email);
+  if (bench !== null) {
+    return `Bench ${bench}`;
+  }
+  return user?.email ? authEmailToUsername(user.email) : "Someone";
+}
+
+// Two benches that import the same cut list share its ticks. The shared key is
+// the job type plus the import id (the PDF's own file name, lowercased), so the
+// same sheet lines up across benches without anyone coordinating an id. Only
+// characters that are safe in a Firestore document id are kept.
+export function importJobKey(type, jobId) {
+  const slug = String(jobId ?? "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return slug ? `${type}__${slug}` : null;
+}
+
+// One document per claimed row, so Firestore itself arbitrates who gets it:
+// creating the doc succeeds for the first bench and is denied for the second.
+export function importClaimId(jobKey, rowNo) {
+  return `${jobKey}__r${rowNo}`;
+}
+
+// A claim only holds for one shift. After that the row is free again, so a list
+// left ticked overnight never blocks the next crew.
+export const CLAIM_MAX_AGE_MS = 8 * 60 * 60 * 1000;
+
+export function isClaimStale(claim, now = Date.now()) {
+  const at = Number(claim?.at);
+  return !Number.isFinite(at) || now - at > CLAIM_MAX_AGE_MS;
+}
+
 // A username is letters/numbers/dot/underscore/hyphen (2+). An input with "@" is
 // taken as a full email (the owner path) and checked as one instead.
 export function isValidUsername(input) {
