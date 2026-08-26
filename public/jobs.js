@@ -441,6 +441,9 @@ export function createEmptyDraft() {
     // yet, so it begins on today.
     dateMode: "auto",
     workDate: autoWorkDateKey(""),
+    // The job's number (e.g. "512621"). Filled in automatically from an imported
+    // cut list; typed by hand when the count is entered manually.
+    jobNumber: "",
     benchNumber: "",
     // The admin picks the shift up front; it resolves the AM/PM of the entered
     // times and is stored as the job's authoritative shift. Night is the default

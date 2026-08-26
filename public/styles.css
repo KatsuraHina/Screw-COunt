@@ -1414,11 +1414,17 @@ button:focus-visible { outline: 3px solid var(--hivis); outline-offset: 2px; }
 }
 
 /* In Auto mode the work date is locked — show it as a read-only value. */
-#workDate:disabled {
+#workDate:disabled,
+/* Locked because the imported list already says which job this is. */
+#jobNumber:disabled {
   background: var(--panel-strong);
   color: var(--muted);
   cursor: default;
 }
+
+#jobNumber { font-family: var(--font-data); font-variant-numeric: tabular-nums; }
+
+#jobNumberHint { margin: 6px 0 0; }
 
 #dateModeToggle {
   margin-bottom: 10px;

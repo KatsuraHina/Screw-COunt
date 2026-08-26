@@ -239,6 +239,11 @@ function syncDraftFromInputs() {
   if (draft.dateMode === "manual") {
     draft.workDate = elements.workDateInput.value;
   }
+  // An imported list supplies the job number itself, so the field is read-only
+  // then and there's nothing to read back.
+  if (!importJobNumber()) {
+    draft.jobNumber = elements.jobNumberInput.value.trim();
+  }
   // Bench workers stay pinned to their signed-in bench; admins read the picker.
   draft.benchNumber = isBenchUser() ? String(state.benchNumber) : elements.benchSelect.value;
   draft.pendingAmount = elements.amountInput.value;
@@ -339,9 +344,37 @@ function handleDateModeChange(mode) {
   renderCalculatorSection();
 }
 
+// The job number carried by the loaded imported list, if any. When there is one
+// it wins: the list already says which job this is, so it can't be contradicted.
+function importJobNumber() {
+  return deriveJobNumber(getActiveDraft()?.importJobId);
+}
+
+// The number this job will be saved under — the imported list's, or the typed one.
+function effectiveJobNumber() {
+  return importJobNumber() || String(getActiveDraft()?.jobNumber ?? "").trim();
+}
+
+// A job number is required as soon as a count is keyed in by hand. Ticking rows
+// off an imported list doesn't need one — the list already carries it.
+function requiresTypedJobNumber() {
+  return !importJobNumber();
+}
+
+function renderJobNumberField() {
+  const draft = getActiveDraft();
+  const fromImport = importJobNumber();
+  elements.jobNumberInput.value = fromImport || draft.jobNumber || "";
+  elements.jobNumberInput.disabled = Boolean(fromImport);
+  elements.jobNumberHint.textContent = fromImport
+    ? "Taken from the imported list."
+    : "Required when you type a count in yourself.";
+}
+
 function loadDraftIntoInputs() {
   const draft = getActiveDraft();
   renderWorkDateField();
+  renderJobNumberField();
   // Bench workers log everything against the bench they signed in as, so lock the
   // field to it. Admins pick the bench freely.
   if (isBenchUser()) {
@@ -581,6 +614,7 @@ function draftStoreKey() {
 const DRAFT_PERSIST_KEYS = [
   "dateMode",
   "workDate",
+  "jobNumber",
   "benchNumber",
   "shift",
   "startTime",
@@ -1000,6 +1034,12 @@ function renderImportSection() {
   // Watch the shared list the active draft is on — and, off the logging tabs or
   // signed out, stop listening rather than leaving a subscription running.
   syncImportClaimSubscription();
+
+  // Loading or clearing a list changes where the job number comes from, so the
+  // field follows every import change, not just a full repaint.
+  if (showImport) {
+    renderJobNumberField();
+  }
 
   if (showImport) {
     const draft = getActiveDraft();
@@ -1726,6 +1766,9 @@ function startEditJob(job) {
   editedDraft.dateMode = "manual";
   editedDraft.workDate = formatDateKey(startDate);
   editedDraft.benchNumber = job.benchNumber ? String(job.benchNumber) : "";
+  // Carry the saved job number through so an edit keeps it (and so a job saved
+  // before job numbers existed can have one filled in).
+  editedDraft.jobNumber = job.jobNumber || "";
   editedDraft.startTime = formatClockKey(startDate);
   editedDraft.endTime = formatClockKey(endDate);
   // Older jobs (saved before strap start/end were recorded) only have a
@@ -1810,6 +1853,16 @@ function addEntry() {
 
   if (amount <= 0) {
     setStatus(elements, config.addWarning, "warning");
+    return;
+  }
+
+  // A count keyed in by hand has no imported list behind it, so the job number
+  // has to be given here — otherwise the job can't be traced back afterwards.
+  if (requiresTypedJobNumber() && !effectiveJobNumber()) {
+    showFormValidationWarning(
+      `Enter the job number before adding ${config.unitLabel.toLowerCase()} by hand.`,
+      [elements.jobNumberInput]
+    );
     return;
   }
 
@@ -1909,6 +1962,13 @@ function createPendingJob() {
     errorFields.push(elements.amountInput);
   }
 
+  // Same rule as adding a manual count, checked again here so a job can't be
+  // saved without a number after the field was cleared, or from a restored draft.
+  if (draft.entries.length > 0 && !effectiveJobNumber()) {
+    missing.push("the job number");
+    errorFields.push(elements.jobNumberInput);
+  }
+
   if (missing.length > 0) {
     showFormValidationWarning(`Before ${actionLabel}, add ${joinWithAnd(missing)}.`, errorFields);
     return null;
@@ -1931,9 +1991,9 @@ function createPendingJob() {
     importMetres: getTickedImportMetres(),
     entries,
     assignedWorkers: resolveAssignedWorkers(draft.assignedWorkerIds),
-    // Tag the job with its source list's number (e.g. "512621") so it can be
-    // identified on the Charts tab. Empty for manual entries with no import.
-    jobNumber: deriveJobNumber(draft.importJobId)
+    // Tag the job with its number (e.g. "512621") so it can be identified and
+    // searched for on the Charts tab: the imported list's, or the typed one.
+    jobNumber: effectiveJobNumber()
   });
 }
 
@@ -2362,6 +2422,7 @@ function bindEvents() {
   });
 
   elements.amountInput.addEventListener("input", syncDraftFromInputs);
+  elements.jobNumberInput.addEventListener("input", syncDraftFromInputs);
   elements.addWorkerButton.addEventListener("click", addWorker);
   elements.workerNameInput.addEventListener("keydown", (event) => {
     if (event.key === "Enter") {
@@ -2384,7 +2445,8 @@ function bindEvents() {
     elements.startTimeInput,
     elements.endTimeInput,
     elements.amountInput,
-    elements.workDateInput
+    elements.workDateInput,
+    elements.jobNumberInput
   ].forEach((field) => {
     field.addEventListener("input", clearFormValidationWarning);
     field.addEventListener("change", clearFormValidationWarning);

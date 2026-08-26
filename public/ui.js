@@ -206,6 +206,8 @@ export function getElements() {
     workerJobsEmpty: document.getElementById("workerJobsEmpty"),
     workerJobsTitle: document.getElementById("workerJobsTitle"),
     workerJobsClearDay: document.getElementById("workerJobsClearDay"),
+    jobNumberInput: document.getElementById("jobNumber"),
+    jobNumberHint: document.getElementById("jobNumberHint"),
     workerJobsSearch: document.getElementById("workerJobsSearch"),
     workerJobsSearchClear: document.getElementById("workerJobsSearchClear"),
     tabTitle: document.getElementById("tabTitle"),
