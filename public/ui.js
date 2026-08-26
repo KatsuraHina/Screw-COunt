@@ -1274,9 +1274,11 @@ export function renderImportLibrary(elements, jobs, activeType, activeId, handle
 export function renderImportList(elements, rows, config, onToggle, options = {}) {
   const hasRows = rows.length > 0;
   const currentUserId = options.currentUserId ?? null;
-  // On a shared list a row ticked by another bench is theirs: it shows who has
-  // it and can't be ticked or unticked here.
-  const takenByOther = (row) => Boolean(row.claimedBy) && row.claimedBy !== currentUserId;
+  // Two reasons a row is out of reach: another bench is working it, or it has
+  // already been logged onto a finished job (closed to everyone, so the same
+  // truss can't be counted twice).
+  const takenByOther = (row) =>
+    Boolean(row.logged) || (Boolean(row.claimedBy) && row.claimedBy !== currentUserId);
 
   elements.trussListWrap.classList.toggle("hidden", !hasRows);
   elements.trussList.innerHTML = "";
@@ -1307,13 +1309,19 @@ export function renderImportList(elements, rows, config, onToggle, options = {})
 
     const text = document.createElement("span");
     text.className = "truss-text";
-    // Rows saved with an earlier job this shift are tagged so the next crew
-    // can see what's already been logged.
-    const loggedBadge = row.loggedCount
+    // Rows saved with an earlier job this shift are tagged so the next crew can
+    // see what's already been logged. On a shared list the claim badge below
+    // says the same thing (and says who), so this one stands down.
+    const loggedBadge = row.loggedCount && !row.logged
       ? `<span class="truss-logged">logged${row.loggedCount > 1 ? ` ×${row.loggedCount}` : ""}</span>`
       : "";
+    // A logged row says so plainly; one merely held says whose bench has it.
     const claimedBadge = locked
-      ? `<span class="truss-claimed">${escapeHtml(row.claimedLabel || "Another bench")}</span>`
+      ? `<span class="truss-claimed">${
+          row.logged
+            ? `logged${row.claimedLabel ? ` · ${escapeHtml(row.claimedLabel)}` : ""}`
+            : escapeHtml(row.claimedLabel || "Another bench")
+        }</span>`
       : "";
     text.innerHTML =
       `<span class="truss-name">${row.no}. ${row.number}${loggedBadge}${claimedBadge}</span>` +
@@ -1324,14 +1332,18 @@ export function renderImportList(elements, rows, config, onToggle, options = {})
     elements.trussList.appendChild(item);
   });
 
-  // The summary counts this bench's own work — rows another bench holds are
-  // shown ticked but belong to their job, not ours.
+  // The summary counts this bench's own work in progress. Rows already logged
+  // onto a finished job, and rows another bench is holding, are counted apart —
+  // neither belongs to the job being logged here.
   const mine = rows.filter((row) => row.done && !takenByOther(row));
-  const others = rows.filter((row) => takenByOther(row)).length;
+  const logged = rows.filter((row) => row.logged).length;
+  const others = rows.filter((row) => takenByOther(row) && !row.logged).length;
   const mineTotal = mine.reduce((total, row) => total + config.value(row), 0);
-  const othersNote = others > 0 ? ` · ${others} on another bench` : "";
+  const notes =
+    (logged > 0 ? ` · ${logged} already logged` : "") +
+    (others > 0 ? ` · ${others} on another bench` : "");
   elements.trussSelectedSummary.textContent = hasRows
-    ? `${mine.length} of ${rows.length} ticked · ${config.format(mineTotal)}${othersNote}`
+    ? `${mine.length} of ${rows.length} ticked · ${config.format(mineTotal)}${notes}`
     : `${mine.length} of ${rows.length} ticked`;
 
   // The tick-all control flips to "Untick all" once every row this bench can

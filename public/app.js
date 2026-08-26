@@ -10,6 +10,7 @@ import {
   loadJobRecords,
   loadWorkerRecords,
   logoutCurrentUser,
+  markImportRowsLogged,
   releaseImportRow,
   removeAdminRecord,
   RowAlreadyClaimedError,
@@ -720,12 +721,24 @@ function claimForRow(row) {
 // with the row — otherwise another bench's work would count as ours for the
 // moment it takes the first snapshot to land.
 function isRowMine(row) {
+  // A logged row was already saved against a finished job. It stays ticked as a
+  // record of that, but it is no longer part of the job being logged now — so it
+  // counts for nobody, including whoever logged it.
+  if (isRowLogged(row)) {
+    return false;
+  }
   const claim = claimForRow(row);
   const owner = claim ? claim.by : row?.claimedBy;
   if (!owner) {
     return Boolean(row?.done);
   }
   return owner === state.currentUser?.uid;
+}
+
+// Rows whose work has already been saved against a job.
+function isRowLogged(row) {
+  const claim = claimForRow(row);
+  return Boolean(claim ? claim.logged : row?.logged);
 }
 
 // Paint the live claims onto the loaded checklist. A row is ticked when someone
@@ -739,10 +752,12 @@ function applyClaimsToRows() {
   const now = Date.now();
   draft.importRows.forEach((row) => {
     const claim = state.importClaims[String(row.no)];
-    if (claim && !isClaimStale(claim, now)) {
+    // A logged claim never goes stale — the work is recorded for good.
+    if (claim && (claim.logged || !isClaimStale(claim, now))) {
       row.done = true;
       row.claimedBy = claim.by;
       row.claimedLabel = claim.byLabel ?? "Another bench";
+      row.logged = Boolean(claim.logged);
       return;
     }
     // No live claim: an abandoned (stale) one frees the row again.
@@ -750,6 +765,7 @@ function applyClaimsToRows() {
       row.done = false;
       row.claimedBy = null;
       row.claimedLabel = null;
+      row.logged = false;
     }
   });
 }
@@ -1089,6 +1105,11 @@ function renderImportSection() {
 // A row another bench is holding right now. Their work is theirs: it can't be
 // ticked, unticked, dragged over or caught by "Tick all".
 function isRowLockedByOther(row) {
+  // A logged row is closed to everyone — its work is already on a saved job, so
+  // re-ticking it anywhere would log the same truss twice.
+  if (isRowLogged(row)) {
+    return true;
+  }
   const claim = claimForRow(row);
   if (claim) {
     return !isClaimStale(claim) && claim.by !== state.currentUser?.uid;
@@ -1165,12 +1186,15 @@ function toggleImportRow(index, done) {
     return;
   }
 
-  // Someone else holds this row — put the checkbox back and say who has it.
+  // Already logged, or held by another bench — put the checkbox back and say why.
   if (isRowLockedByOther(row)) {
     renderImportSection();
+    const by = claimForRow(row)?.byLabel ?? row.claimedLabel ?? "another bench";
     setImportStatus(
       elements,
-      `${row.number} is already ticked by ${claimForRow(row)?.byLabel ?? "another bench"}.`,
+      isRowLogged(row)
+        ? `${row.number} has already been logged by ${by} — it can't go on another job.`
+        : `${row.number} is already ticked by ${by}.`,
       "warning"
     );
     return;
@@ -1831,6 +1855,10 @@ function resetDraftForNextCrew() {
   // starts with none rather than inheriting the last job's breaks.
   next.break15Checked = false;
   next.break24Checked = false;
+  // The rows that went into the job just saved. On a shared list their claims
+  // are marked logged below, so no bench — including this one — can tick them
+  // into another job.
+  const justLogged = (previous.importRows ?? []).filter((row) => row.done && isRowMine(row));
   next.importRows = (previous.importRows ?? []).map((row) =>
     row.done ? { ...row, done: false, loggedCount: (row.loggedCount || 0) + 1 } : { ...row }
   );
@@ -1838,6 +1866,19 @@ function resetDraftForNextCrew() {
   next.importJobId = previous.importJobId;
   state.drafts[state.activeTab] = next;
   persistImportRows(state.activeTab);
+
+  const jobKey = activeImportJobKey();
+  if (jobKey && justLogged.length > 0 && state.currentUser) {
+    markImportRowsLogged(jobKey, justLogged, state.currentUser, claimLabelForUser(state.currentUser))
+      .catch((error) => {
+        console.error(error);
+        setImportStatus(
+          elements,
+          "Saved, but couldn't mark those rows as logged for the other benches.",
+          "warning"
+        );
+      });
+  }
   elements.trussFileInput.value = "";
   renderApp();
 }

@@ -65,13 +65,20 @@ service cloud.firestore {
         && request.resource.data.at is number;
       allow delete: if request.auth != null
         && (resource.data.by == request.auth.uid || isAdmin());
-      // A claim is never reassigned while it is live. The one exception is a
-      // stale claim (older than one shift): the row has been abandoned, so the
-      // next bench may take it over rather than being locked out for good.
+      // Two ways a claim may be written over, and never once it is logged —
+      // a logged row's work is already saved against a job, so it stays put:
+      //  * its own owner updating it (that is how a row is marked logged when
+      //    the job it belongs to is saved), or
+      //  * anyone taking over a claim abandoned for a whole shift, so an
+      //    unfinished row doesn't stay locked for good.
       allow update: if request.auth != null
         && request.resource.data.by == request.auth.uid
         && request.resource.data.at is number
-        && request.time.toMillis() - resource.data.at > 8 * 60 * 60 * 1000;
+        && resource.data.get('logged', false) == false
+        && (
+          resource.data.by == request.auth.uid
+          || request.time.toMillis() - resource.data.at > 8 * 60 * 60 * 1000
+        );
     }
 
     match /{document=**} {

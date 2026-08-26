@@ -190,6 +190,38 @@ export async function releaseImportRow(jobKey, rowNo) {
   await deleteDoc(doc(db, "importClaims", importClaimId(jobKey, rowNo)));
 }
 
+// Once the job holding these rows is saved, the rows are finished: mark each
+// claim logged. A logged row stays ticked and locked for every bench — its work
+// is already recorded against a job, so it must not be counted or logged twice —
+// but it no longer belongs to anyone's job in progress.
+export async function markImportRowsLogged(jobKey, rows, user, label) {
+  await Promise.all(
+    rows.map(async (row) => {
+      try {
+        await setDoc(
+          doc(db, "importClaims", importClaimId(jobKey, row.no)),
+          {
+            jobKey,
+            no: row.no,
+            number: row.number ?? "",
+            by: user.uid,
+            byLabel: label,
+            at: Date.now(),
+            logged: true
+          },
+          { merge: false }
+        );
+      } catch (error) {
+        // Already logged by whoever owns it, or the row was never claimed
+        // (offline tick). Neither should fail the save that just happened.
+        if (error?.code !== "permission-denied") {
+          throw error;
+        }
+      }
+    })
+  );
+}
+
 // Live claims for one shared list. Calls back with { [rowNo]: claim } on every
 // change, so a tick on one bench shows up on the other without a refresh.
 // Returns the unsubscribe function.
