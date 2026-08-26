@@ -206,6 +206,8 @@ export function getElements() {
     workerJobsEmpty: document.getElementById("workerJobsEmpty"),
     workerJobsTitle: document.getElementById("workerJobsTitle"),
     workerJobsClearDay: document.getElementById("workerJobsClearDay"),
+    workerJobsSearch: document.getElementById("workerJobsSearch"),
+    workerJobsSearchClear: document.getElementById("workerJobsSearchClear"),
     tabTitle: document.getElementById("tabTitle"),
     tabDescription: document.getElementById("tabDescription"),
     activeTabLabel: document.getElementById("activeTabLabel"),
@@ -1058,6 +1060,39 @@ export function renderWorkerHistory(elements, jobs, workerName, charts, handlers
   elements.whAvgScrews.textContent = `${summary.avgScrewsPerHour.toFixed(2)} screws/h`;
   elements.whTimeLost.textContent = formatMinutes(summary.avgStrapMinutes);
 
+  renderWorkerJobsList(elements, jobs, workerName, handlers);
+
+  const trussJobs = visibleJobs.filter((job) => job.jobType !== "walls");
+  const wallJobs = visibleJobs.filter((job) => job.jobType === "walls");
+  const existing = charts || {};
+
+  const onDaySelect = handlers.onDaySelect;
+
+  return {
+    // Output rate per shift (overnight shifts stay in one column, not split
+    // across two calendar days). Clicking a day drills the list into that day.
+    // Each shift chart is job-type-specific, so drilling into a day also narrows
+    // the list to that type (e.g. the screws chart shows walls only, not trusses).
+    metres: renderShiftRateChart(elements.workerMetresChartCanvas, trussJobs, "m", existing.metres, onDaySelect, "trusses"),
+    screws: renderShiftRateChart(elements.workerScrewsChartCanvas, wallJobs, "screws", existing.screws, onDaySelect, "walls"),
+    // Metres are split by job type: trusses' metres are their units, while wall
+    // metres come from the panels' lineal M. Screws stay wall-only.
+    trussMetresShift: renderShiftChart(elements.workerTrussMetresShiftChartCanvas, trussJobs, "m", existing.trussMetresShift, (job) => job.metres, onDaySelect, "trusses"),
+    wallMetresShift: renderShiftChart(elements.workerWallMetresShiftChartCanvas, wallJobs, "m", existing.wallMetresShift, (job) => job.metres, onDaySelect, "walls"),
+    screwsShift: renderShiftChart(elements.workerScrewsShiftChartCanvas, wallJobs, "screws", existing.screwsShift, (job) => job.totalUnits, onDaySelect, "walls"),
+    // Per-bench totals: metres spans all jobs (trusses + wall-panel metres),
+    // screws stay wall-only.
+    benchMetres: renderBenchShiftChart(elements.workerBenchMetresChartCanvas, visibleJobs, "m", existing.benchMetres, (job) => job.metres),
+    benchScrews: renderBenchShiftChart(elements.workerBenchScrewsChartCanvas, wallJobs, "screws", existing.benchScrews, (job) => job.totalUnits)
+  };
+}
+
+// Just the logged-jobs list. Split out from renderWorkerHistory so narrowing the
+// list — typing in the job-number search — can repaint it on its own instead of
+// tearing down and rebuilding all seven charts on every keystroke.
+export function renderWorkerJobsList(elements, jobs, workerName, handlers = {}) {
+  const visibleJobs = jobs.filter((job) => !job.hidden);
+
   // The list shows visible jobs; hidden ones appear only when "Show hidden" is on
   // so they can be unhidden. (Both already sorted newest-first by the caller.)
   let listJobs = handlers.showHidden ? jobs : visibleJobs;
@@ -1079,12 +1114,23 @@ export function renderWorkerHistory(elements, jobs, workerName, charts, handlers
     );
   }
 
+  // Job-number search. Matches on any part of the number, so typing "5126"
+  // finds 512621 without having to key the whole thing in on the floor.
+  const query = String(handlers.jobNumberQuery ?? "").trim().toLowerCase();
+  if (query) {
+    listJobs = listJobs.filter((job) => String(job.jobNumber ?? "").toLowerCase().includes(query));
+  }
+
   if (elements.workerJobsTitle) {
     const typeLabelForTitle =
       selectedDayKey && selectedJobType ? (selectedJobType === "walls" ? "Walls" : "Trusses") : "";
-    elements.workerJobsTitle.textContent = selectedDayKey
+    const dayTitle = selectedDayKey
       ? `Logged jobs · ${typeLabelForTitle ? `${typeLabelForTitle} · ` : ""}${formatDateLabel(selectedDayKey)}`
       : "Logged jobs";
+    // While searching, the heading counts the hits so it's clear the list is filtered.
+    elements.workerJobsTitle.textContent = query
+      ? `${dayTitle} · ${listJobs.length} match${listJobs.length === 1 ? "" : "es"} for "${query}"`
+      : dayTitle;
   }
   if (elements.workerJobsClearDay) {
     elements.workerJobsClearDay.classList.toggle("hidden", !selectedDayKey);
@@ -1092,7 +1138,14 @@ export function renderWorkerHistory(elements, jobs, workerName, charts, handlers
 
   elements.workerJobsList.innerHTML = "";
   elements.workerJobsEmpty.hidden = listJobs.length > 0;
-  if (selectedDayKey) {
+  if (query) {
+    // Say where the misses are: a job number that exists but sits outside the
+    // chosen period/worker/bench would otherwise look like it was never logged.
+    const elsewhere = Number(handlers.matchesOutsideFilters) || 0;
+    elements.workerJobsEmpty.textContent = elsewhere > 0
+      ? `Nothing matches "${query}" in this view — ${elsewhere} job${elsewhere === 1 ? "" : "s"} outside the current period or filters ${elsewhere === 1 ? "does" : "do"}. Widen the period, or set the pickers above to "All".`
+      : `No logged job has a number matching "${query}".`;
+  } else if (selectedDayKey) {
     elements.workerJobsEmpty.textContent = "No jobs logged on this day.";
   } else {
     elements.workerJobsEmpty.textContent = "No jobs logged for this worker yet.";
@@ -1170,30 +1223,6 @@ export function renderWorkerHistory(elements, jobs, workerName, charts, handlers
 
     elements.workerJobsList.appendChild(item);
   });
-
-  const trussJobs = visibleJobs.filter((job) => job.jobType !== "walls");
-  const wallJobs = visibleJobs.filter((job) => job.jobType === "walls");
-  const existing = charts || {};
-
-  const onDaySelect = handlers.onDaySelect;
-
-  return {
-    // Output rate per shift (overnight shifts stay in one column, not split
-    // across two calendar days). Clicking a day drills the list into that day.
-    // Each shift chart is job-type-specific, so drilling into a day also narrows
-    // the list to that type (e.g. the screws chart shows walls only, not trusses).
-    metres: renderShiftRateChart(elements.workerMetresChartCanvas, trussJobs, "m", existing.metres, onDaySelect, "trusses"),
-    screws: renderShiftRateChart(elements.workerScrewsChartCanvas, wallJobs, "screws", existing.screws, onDaySelect, "walls"),
-    // Metres are split by job type: trusses' metres are their units, while wall
-    // metres come from the panels' lineal M. Screws stay wall-only.
-    trussMetresShift: renderShiftChart(elements.workerTrussMetresShiftChartCanvas, trussJobs, "m", existing.trussMetresShift, (job) => job.metres, onDaySelect, "trusses"),
-    wallMetresShift: renderShiftChart(elements.workerWallMetresShiftChartCanvas, wallJobs, "m", existing.wallMetresShift, (job) => job.metres, onDaySelect, "walls"),
-    screwsShift: renderShiftChart(elements.workerScrewsShiftChartCanvas, wallJobs, "screws", existing.screwsShift, (job) => job.totalUnits, onDaySelect, "walls"),
-    // Per-bench totals: metres spans all jobs (trusses + wall-panel metres),
-    // screws stay wall-only.
-    benchMetres: renderBenchShiftChart(elements.workerBenchMetresChartCanvas, visibleJobs, "m", existing.benchMetres, (job) => job.metres),
-    benchScrews: renderBenchShiftChart(elements.workerBenchScrewsChartCanvas, wallJobs, "screws", existing.benchScrews, (job) => job.totalUnits)
-  };
 }
 
 // Render the merged list of preloaded jobs (both trusses and walls). Each row

@@ -460,6 +460,17 @@
           <h3 id="workerJobsTitle">Logged jobs</h3>
           <button id="workerJobsClearDay" type="button" class="entry-action hidden">Show all days</button>
         </div>
+        <div class="job-search">
+          <span class="job-search-icon" aria-hidden="true">🔎</span>
+          <input
+            id="workerJobsSearch"
+            type="search"
+            inputmode="numeric"
+            autocomplete="off"
+            placeholder="Search job number"
+            aria-label="Search logged jobs by job number">
+          <button id="workerJobsSearchClear" type="button" class="job-search-clear hidden" aria-label="Clear search">×</button>
+        </div>
         <div class="entries-scroll">
           <p id="workerJobsEmpty" class="entry-empty">No jobs logged for this worker yet.</p>
           <ol id="workerJobsList" class="entry-list"></ol>

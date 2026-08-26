@@ -1129,6 +1129,66 @@ button:focus-visible { outline: 3px solid var(--hivis); outline-offset: 2px; }
 
 .worker-jobs .entry-row { background: var(--steel-900); }
 
+/* Job-number search over the logged-jobs list. */
+.job-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  min-height: var(--tap);
+  background: var(--panel-strong);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.job-search-icon { flex: 0 0 auto; font-size: 0.95rem; line-height: 1; }
+
+.job-search input {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font-family: var(--font-data);
+  font-size: 0.95rem;
+}
+
+.job-search input:focus { outline: none; }
+
+/* The ring goes on the whole control, so the icon and clear button are inside it. */
+.job-search:focus-within {
+  border-color: var(--accent);
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* Chrome/Safari draw their own clear affordance on type=search; ours replaces it. */
+.job-search input::-webkit-search-cancel-button { display: none; }
+
+.job-search-clear {
+  flex: 0 0 auto;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 1.2rem;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: none;
+}
+
+.job-search-clear:hover {
+  transform: none;
+  box-shadow: none;
+  background: var(--steel-750);
+  color: var(--text);
+}
+
 .worker-dashboard .worker-jobs .entries-scroll { max-height: 520px; }
 
 .worker-hours-chart { max-width: 100%; }

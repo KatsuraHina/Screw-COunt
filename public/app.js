@@ -64,6 +64,7 @@ import {
   renderWorkerAdminVisibility,
   renderAdminManagement,
   renderWorkerHistory,
+  renderWorkerJobsList,
   renderWorkerHistorySelect,
   renderWorkerManagement,
   renderWorkerPicker,
@@ -125,6 +126,9 @@ const state = {
   workerHistory: {
     selectedWorkerId: "all",
     showHidden: false,
+    // Job-number search box: narrows the logged-jobs list only, so the charts
+    // and stats above it keep showing the whole selected period.
+    jobNumberQuery: "",
     // Day drilled into by clicking a chart bar (shift-day key), or null for all.
     selectedDayKey: null,
     // Job type of the drilled-into chart ("walls"/"trusses"), so the list can
@@ -1413,22 +1417,11 @@ function renderWorkerHistoryView() {
 
   const isAll = selectedId === "all";
   const worker = historyWorkers.find((item) => item.id === selectedId);
-  const { start: rangeStart, end: rangeEnd } = resolveWorkerRange();
-  const benchFilter = elements.benchFilterSelect.value;
-  const isAllBenches = benchFilter === "all";
-  const shiftFilter = elements.shiftFilterSelect.value;
-  const isAllShifts = shiftFilter === "all";
-  const jobs = state.savedJobs
-    .filter((job) => {
-      const ended = new Date(job.endedAt);
-      return ended >= rangeStart && ended <= rangeEnd;
-    })
-    .filter((job) =>
-      isAll ? job.assignedWorkerIds.length > 0 : job.assignedWorkerIds.includes(selectedId)
-    )
-    .filter((job) => isAllBenches || job.benchNumber === Number(benchFilter))
-    .filter((job) => isAllShifts || job.shift === shiftFilter)
-    .sort((a, b) => new Date(b.endedAt) - new Date(a.endedAt));
+  const jobs = getFilteredWorkerHistoryJobs();
+  elements.workerJobsSearchClear.classList.toggle(
+    "hidden",
+    state.workerHistory.jobNumberQuery === ""
+  );
 
   // Drop a stale day drill-down if the current filters/range no longer contain
   // that day, so the list can't get stuck showing "no jobs on this day".
@@ -1452,9 +1445,77 @@ function renderWorkerHistoryView() {
       onDaySelect: selectHistoryDay,
       selectedDayKey: state.workerHistory.selectedDayKey,
       selectedJobType: state.workerHistory.selectedJobType,
-      showHidden: state.workerHistory.showHidden
+      showHidden: state.workerHistory.showHidden,
+      ...jobSearchHandlers(jobs)
     }
   );
+}
+
+// The jobs the Charts view is working with: everything inside the chosen period
+// that also passes the worker, bench and shift pickers, newest first. Shared by
+// the full render and the search-only repaint so the two can't drift apart.
+function getFilteredWorkerHistoryJobs() {
+  const selectedId = state.workerHistory.selectedWorkerId;
+  const isAll = selectedId === "all";
+  const { start: rangeStart, end: rangeEnd } = resolveWorkerRange();
+  const benchFilter = elements.benchFilterSelect.value;
+  const isAllBenches = benchFilter === "all";
+  const shiftFilter = elements.shiftFilterSelect.value;
+  const isAllShifts = shiftFilter === "all";
+
+  return state.savedJobs
+    .filter((job) => {
+      const ended = new Date(job.endedAt);
+      return ended >= rangeStart && ended <= rangeEnd;
+    })
+    .filter((job) =>
+      isAll ? job.assignedWorkerIds.length > 0 : job.assignedWorkerIds.includes(selectedId)
+    )
+    .filter((job) => isAllBenches || job.benchNumber === Number(benchFilter))
+    .filter((job) => isAllShifts || job.shift === shiftFilter)
+    .sort((a, b) => new Date(b.endedAt) - new Date(a.endedAt));
+}
+
+// The search box narrows the list; the filters above it (period, worker, bench,
+// shift) still apply. So when nothing matches, count the jobs that DO match
+// outside those filters — otherwise a job number that exists but sits in another
+// period looks like it was never logged at all.
+function jobSearchHandlers(filteredJobs) {
+  const query = state.workerHistory.jobNumberQuery.trim().toLowerCase();
+  if (!query) {
+    return { jobNumberQuery: "", matchesOutsideFilters: 0 };
+  }
+
+  const matches = (job) => String(job.jobNumber ?? "").toLowerCase().includes(query);
+  const shownIds = new Set(filteredJobs.filter(matches).map((job) => job.id));
+  const matchesOutsideFilters = state.savedJobs.filter(
+    (job) => matches(job) && !shownIds.has(job.id)
+  ).length;
+
+  return { jobNumberQuery: query, matchesOutsideFilters };
+}
+
+// Typing in the search box only re-filters the list — the charts and stats are
+// left alone, so a keystroke doesn't tear down and rebuild all seven of them.
+function renderWorkerJobsListOnly() {
+  if (!state.isAdmin) {
+    return;
+  }
+  elements.workerJobsSearchClear.classList.toggle(
+    "hidden",
+    state.workerHistory.jobNumberQuery === ""
+  );
+
+  const jobs = getFilteredWorkerHistoryJobs();
+  renderWorkerJobsList(elements, jobs, "", {
+    onRemoveJob: removeJob,
+    onHideJob: setJobHidden,
+    onEditJob: startEditJob,
+    selectedDayKey: state.workerHistory.selectedDayKey,
+    selectedJobType: state.workerHistory.selectedJobType,
+    showHidden: state.workerHistory.showHidden,
+    ...jobSearchHandlers(jobs)
+  });
 }
 
 // Update the range trigger's label and, when open, repaint the calendar. Cheap
@@ -2255,6 +2316,17 @@ function bindEvents() {
   // The charts read their colours from the stylesheet as they draw, so switching
   // mode repaints the app to redraw them in the new palette.
   bindThemeToggle(elements.themeToggle, () => renderApp());
+
+  elements.workerJobsSearch.addEventListener("input", () => {
+    state.workerHistory.jobNumberQuery = elements.workerJobsSearch.value;
+    renderWorkerJobsListOnly();
+  });
+  elements.workerJobsSearchClear.addEventListener("click", () => {
+    elements.workerJobsSearch.value = "";
+    state.workerHistory.jobNumberQuery = "";
+    renderWorkerJobsListOnly();
+    elements.workerJobsSearch.focus();
+  });
 
   [
     elements.workDateInput,
