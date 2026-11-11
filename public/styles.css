@@ -1315,184 +1315,202 @@ button:focus-visible { outline: 3px solid var(--hivis); outline-offset: 2px; }
   color: var(--muted);
 }
 
-/* --- The checklist itself --- */
+/* --- The checklist itself ---
+   This is a copy of the company's paper form, so it is deliberately NOT themed:
+   black on white with the brand red headers in both night and morning mode, and
+   the same on screen as on paper. print-color-adjust keeps the red headers when
+   the browser's "Background graphics" box is left unticked, which it is by
+   default — without it the form would print with white header bars. */
 
 .checklist-wrap { display: flex; justify-content: center; }
 
 .checklist-sheet {
   width: 100%;
-  max-width: 900px;
-  padding: 24px;
-  background: var(--panel);
+  max-width: 820px;
+  padding: 28px 32px 36px;
+  background: #ffffff;
+  color: #000000;
   border: 1px solid var(--border);
   border-radius: var(--radius);
   box-shadow: var(--shadow);
+  font-family: "Barlow", system-ui, -apple-system, "Segoe UI", sans-serif;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
 }
+
+.cl-logo { text-align: center; }
+
+.cl-logo img { width: 170px; height: auto; }
 
 .cl-title {
-  margin: 0 0 14px;
+  margin: 6px 0 16px;
   text-align: center;
-  font-size: 1.25rem;
-  letter-spacing: 0.06em;
+  font-family: Georgia, "Times New Roman", serif;
+  font-style: italic;
+  font-weight: 400;
+  font-size: 1.6rem;
+  color: #000000;
+  letter-spacing: 0;
 }
 
-.cl-table { width: 100%; border-collapse: collapse; }
+.cl-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
 
 .cl-table th,
 .cl-table td {
-  border: 1px solid var(--border);
-  padding: 7px 9px;
+  border: 1px solid #000000;
+  padding: 5px 7px;
   text-align: left;
   vertical-align: top;
 }
 
+/* The form's red header bars, white text, centred as on the original. */
 .cl-head {
-  background: var(--panel-strong);
-  font-family: var(--font-ui);
-  font-size: 0.75rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--slate);
+  background: #ff0000;
+  color: #ffffff;
+  text-align: center;
+  font-weight: 400;
+  font-size: 0.92rem;
+  letter-spacing: 0;
+  text-transform: none;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
 }
 
-/* `height` on a cell acts as a minimum, so a field left blank — the supervisor,
-   typically, when the office doesn't know yet — still prints as a box with
-   room to write the name in on site. */
-.cl-value { font-size: 0.95rem; height: 30px; }
+/* "Supervisor Contact" and the item headers are the left-aligned ones on the
+   sheet; ADDRESS / Suburb / Job number are centred. */
+.cl-head-left { text-align: left; }
 
-.cl-item { font-size: 0.9rem; }
+/* The items table butts straight onto the job block above it — pulling it up a
+   pixel keeps one grid line between them instead of two. */
+.cl-table-items { margin-top: -1px; }
+
+/* Never split a row across a page: an item's cut lengths must stay with it. */
+.cl-table tr { break-inside: avoid; page-break-inside: avoid; }
+
+.cl-value { height: 26px; font-size: 0.9rem; color: #000000; }
+
+.cl-item { height: 26px; font-size: 0.85rem; color: #000000; }
 
 .cl-item-detail {
   display: block;
-  margin-top: 2px;
+  margin-top: 1px;
   font-family: var(--font-data);
-  font-size: 0.76rem;
-  color: var(--muted);
+  font-size: 0.72rem;
+  color: #333333;
 }
 
 .cl-qty {
-  width: 110px;
   font-family: var(--font-data);
+  font-size: 0.82rem;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
+  color: #000000;
 }
 
-/* Made / Loaded / Delivered are filled in by hand on the floor. */
-.cl-box { width: 76px; height: 30px; }
-
-.cl-empty { color: var(--muted); font-style: italic; }
-
-.cl-signs,
-.cl-cols {
+/* Signatures: a rule to sign on, the label small underneath — no box. */
+.cl-signs {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 0;
+  gap: 60px;
+  margin: 40px 0 34px;
 }
 
-.cl-signs { margin-top: -1px; }
+.cl-sign { display: flex; flex-direction: column; }
 
-.cl-sign,
-.cl-col,
-.cl-truck {
-  border: 1px solid var(--border);
-  margin-top: -1px;
-  margin-right: -1px;
-  padding: 10px;
-}
+.cl-x { font-size: 1.3rem; line-height: 1.1; color: #000000; }
 
-.cl-sign { display: flex; flex-direction: column; gap: 18px; }
-
-.cl-x { font-weight: 700; }
-
-.cl-sign span:last-child,
-.cl-col-title,
-.cl-truck-name {
-  font-family: var(--font-ui);
-  font-size: 0.75rem;
-  font-weight: 700;
+.cl-sign-label {
+  padding-top: 3px;
+  border-top: 1px solid #000000;
+  font-size: 0.66rem;
   letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--slate);
+  color: #000000;
 }
 
-.cl-col-title,
-.cl-truck-name { margin-bottom: 6px; }
+/* The four small boxes sit inset from the table, two to a row. */
+.cl-blocks {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 46px;
+  margin: 0 auto 16px;
+  width: 92%;
+}
 
-.cl-truck.is-selected { background: var(--tag-trusses-bg); }
+.cl-block { border: 1px solid #000000; }
 
-.cl-truck.is-selected .cl-truck-name { color: var(--tag-trusses); }
+.cl-block-head {
+  padding: 2px 7px;
+  background: #ff0000;
+  color: #ffffff;
+  font-size: 0.86rem;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
 
-.cl-spec {
+.cl-block-row {
   display: flex;
+  align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  padding: 3px 0;
-  font-size: 0.88rem;
+  gap: 10px;
+  height: 24px;
+  padding: 0 7px;
+  border-top: 1px solid #000000;
+  font-size: 0.86rem;
+  color: #000000;
 }
 
-.cl-spec span:first-child { color: var(--muted); }
-
-.cl-spec span:last-child { font-family: var(--font-data); }
+/* The square the floor ticks for signage / materials. */
+.cl-tick {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 17px;
+  height: 17px;
+  border: 1.5px solid #000000;
+  border-radius: 3px;
+  font-size: 0.8rem;
+  line-height: 1;
+}
 
 .cl-emails {
-  margin-top: 14px;
-  padding-top: 10px;
-  border-top: 1px solid var(--border);
-  font-size: 0.82rem;
-  color: var(--muted);
-  word-break: break-word;
+  margin-top: 26px;
+  text-align: center;
+  font-size: 0.86rem;
+  color: #000000;
 }
 
-.cl-emails strong { color: var(--text); }
+.cl-emails p { margin: 4px 0; }
+
+.cl-emails a { color: #0563c1; text-decoration: underline; word-break: break-word; }
+
+.cl-email-cc { padding: 0 8%; line-height: 1.6; }
 
 /* Printing sends the checklist to paper (or a PDF) on its own — the app's
-   chrome, the upload panel and the PO sheet stay off the page, and the sheet
-   is forced to ink on white so it doesn't print as a dark slab. */
+   chrome, the upload panel and the PO sheet stay off the page. */
 @media print {
-  @page { margin: 12mm; }
+  @page { size: A4; margin: 12mm; }
 
   body > *:not(.delivery-panel) { display: none !important; }
 
-  body {
-    padding: 0;
-    gap: 0;
-    background: #ffffff;
-    color: #000000;
-  }
+  body { padding: 0; gap: 0; background: #ffffff; color: #000000; }
 
   .delivery-panel { width: 100%; gap: 0; }
 
   .delivery-grid { display: none !important; }
 
+  .checklist-wrap { display: block; }
+
   .checklist-sheet {
     max-width: none;
     padding: 0;
     border: none;
+    border-radius: 0;
     box-shadow: none;
-    background: #ffffff;
-    color: #000000;
   }
-
-  .cl-table th,
-  .cl-table td,
-  .cl-sign,
-  .cl-col,
-  .cl-truck { border-color: #000000; }
-
-  .cl-head { background: #eeeeee; color: #000000; }
-
-  .cl-head,
-  .cl-col-title,
-  .cl-truck-name,
-  .cl-sign span:last-child,
-  .cl-spec span:first-child,
-  .cl-item-detail,
-  .cl-emails { color: #000000; }
-
-  .cl-truck.is-selected { background: #f2f2f2; }
-
-  .cl-emails strong { color: #000000; }
 }
 
 /* --------------------------------------------------------------------------

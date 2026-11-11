@@ -18,36 +18,26 @@ export const CHECKLIST_CC = [
 ];
 
 const STORE_PREFIX = "screwcount.extraDelivery.";
-// Truck limits are the same every time, so once they're typed they stay typed —
-// kept apart from the delivery itself, which is cleared between jobs.
-const TRUCKS_KEY = "screwcount.truckLimits";
 
 let elements = {};
 let userKey = "anon";
 
+// Load specifications and the truck boxes are deliberately absent here: the
+// form carries them so they can be written on the printed sheet, and the app
+// never asks anyone to type them.
 const emptyDelivery = () => ({
   address: "",
   suburb: "",
   jobNumber: "",
   supervisorContact: "",
   actionedBy: "",
-  weight: "",
-  length: "",
-  width: "",
   signage: false,
   materials: false,
-  truck: "",
   // [{ id, poNumber, orderDate, items: [{ id, description, details, quantity, unit, include }] }]
   pos: []
 });
 
-const emptyTrucks = () => ({
-  iveco: { weight: "", length: "", width: "" },
-  hino: { weight: "", length: "", width: "" }
-});
-
 let delivery = emptyDelivery();
-let trucks = emptyTrucks();
 
 function storeKey() {
   return `${STORE_PREFIX}${userKey}`;
@@ -56,7 +46,6 @@ function storeKey() {
 function persist() {
   try {
     localStorage.setItem(storeKey(), JSON.stringify(delivery));
-    localStorage.setItem(TRUCKS_KEY, JSON.stringify(trucks));
   } catch {
     // Storage unavailable (private mode etc.) — it just won't survive a reload.
   }
@@ -74,22 +63,6 @@ function restore() {
     }
   } catch {
     delivery = emptyDelivery();
-  }
-
-  trucks = emptyTrucks();
-  try {
-    const raw = localStorage.getItem(TRUCKS_KEY);
-    if (raw) {
-      const stored = JSON.parse(raw);
-      if (stored && typeof stored === "object") {
-        trucks = {
-          iveco: { ...emptyTrucks().iveco, ...(stored.iveco || {}) },
-          hino: { ...emptyTrucks().hino, ...(stored.hino || {}) }
-        };
-      }
-    }
-  } catch {
-    trucks = emptyTrucks();
   }
 }
 
@@ -354,102 +327,116 @@ function renderFields() {
   f.deliveryJobNumber.value = delivery.jobNumber;
   f.deliverySupervisor.value = delivery.supervisorContact;
   f.deliveryActionedBy.value = delivery.actionedBy;
-  f.deliveryWeight.value = delivery.weight;
-  f.deliveryLength.value = delivery.length;
-  f.deliveryWidth.value = delivery.width;
   f.deliverySignage.checked = delivery.signage;
   f.deliveryMaterials.checked = delivery.materials;
-  f.deliveryTruck.value = delivery.truck;
-  f.ivecoWeight.value = trucks.iveco.weight;
-  f.ivecoLength.value = trucks.iveco.length;
-  f.ivecoWidth.value = trucks.iveco.width;
-  f.hinoWeight.value = trucks.hino.weight;
-  f.hinoLength.value = trucks.hino.length;
-  f.hinoWidth.value = trucks.hino.width;
 }
 
-function truckBlock(name, limits, selected) {
-  const row = (label, value) =>
-    `<div class="cl-spec"><span>Max ${label}:</span><span>${escapeHtml(value || "")}</span></div>`;
+// The paper form keeps nine item rows whether or not they're all used, so a
+// short delivery still looks like the form and leaves room to pen one in.
+const MIN_ITEM_ROWS = 9;
+
+// Load specifications and the two trucks are filled in by hand on the printed
+// sheet, so they are rendered as the blank boxes the form has — the app never
+// asks for them.
+function specBlock(title, labels) {
   return (
-    `<div class="cl-truck${selected ? " is-selected" : ""}">` +
-    `<div class="cl-truck-name">${escapeHtml(name)}${selected ? " ✓" : ""}</div>` +
-    row("weight", limits.weight) +
-    row("length", limits.length) +
-    row("width", limits.width) +
+    `<div class="cl-block">` +
+    `<div class="cl-block-head">${escapeHtml(title)}</div>` +
+    labels
+      .map((label) => `<div class="cl-block-row"><span>${escapeHtml(label)}</span><span></span></div>`)
+      .join("") +
     `</div>`
   );
 }
 
 function renderChecklist() {
   const items = includedItems();
-  const rows =
-    items.length > 0
-      ? items
-          .map(
-            (item) =>
-              `<tr>` +
-              `<td class="cl-item">${escapeHtml(item.description)}` +
-              (item.details ? `<span class="cl-item-detail">${escapeHtml(item.details)}</span>` : "") +
-              `</td>` +
-              `<td class="cl-qty">${escapeHtml(item.quantity)} ${escapeHtml(item.unit || "")}</td>` +
-              `<td class="cl-box"></td><td class="cl-box"></td><td class="cl-box"></td>` +
-              `</tr>`
-          )
-          .join("")
-      : `<tr><td class="cl-item cl-empty" colspan="5">Tick items on the PO sheet to list them here.</td></tr>`;
+  const itemRows = items
+    .map(
+      (item) =>
+        `<tr>` +
+        `<td class="cl-item" colspan="2">${escapeHtml(item.description)}` +
+        (item.details ? `<span class="cl-item-detail">${escapeHtml(item.details)}</span>` : "") +
+        `</td>` +
+        `<td class="cl-qty">${escapeHtml(item.quantity)} ${escapeHtml(item.unit || "")}</td>` +
+        `<td></td><td></td><td></td>` +
+        `</tr>`
+    )
+    .join("");
+
+  const padding = Math.max(0, MIN_ITEM_ROWS - items.length);
+  const blankRows = Array.from(
+    { length: padding },
+    () => `<tr><td class="cl-item" colspan="2"></td><td></td><td></td><td></td><td></td></tr>`
+  ).join("");
+
+  // Two tables, not one: the job block on top, then the items with their
+  // header row in a <thead> so it repeats when the list runs to a second page.
+  // They share the same column widths, so the grid lines run straight through.
+  const cols =
+    `<colgroup>` +
+    `<col style="width:26.3%"><col style="width:29.4%"><col style="width:13.9%">` +
+    `<col style="width:9.9%"><col style="width:9.1%"><col style="width:11.4%">` +
+    `</colgroup>`;
 
   elements.checklistSheet.innerHTML =
+    `<div class="cl-logo"><img src="./backbone-logo.png" alt="Backbone Steel" width="339" height="140"></div>` +
     `<h2 class="cl-title">Extra Deliveries checklist</h2>` +
     `<table class="cl-table">` +
+    cols +
     `<tr>` +
-    `<th class="cl-head" colspan="3">ADDRESS</th>` +
-    `<th class="cl-head">Suburb</th>` +
-    `<th class="cl-head">Job number</th>` +
+    `<th class="cl-head" colspan="2">ADDRESS</th>` +
+    `<th class="cl-head" colspan="2">Suburb</th>` +
+    `<th class="cl-head" colspan="2">Job number</th>` +
     `</tr>` +
     `<tr>` +
-    `<td class="cl-value" colspan="3">${escapeHtml(delivery.address)}</td>` +
-    `<td class="cl-value">${escapeHtml(delivery.suburb)}</td>` +
-    `<td class="cl-value">${escapeHtml(delivery.jobNumber)}</td>` +
+    `<td class="cl-value" colspan="2">${escapeHtml(delivery.address)}</td>` +
+    `<td class="cl-value" colspan="2">${escapeHtml(delivery.suburb)}</td>` +
+    `<td class="cl-value" colspan="2">${escapeHtml(delivery.jobNumber)}</td>` +
     `</tr>` +
     `<tr>` +
-    `<th class="cl-head" colspan="3">Supervisor Contact</th>` +
-    `<th class="cl-head" colspan="2">Actioned by</th>` +
-    `</tr>` +
-    `<tr>` +
-    `<td class="cl-value" colspan="3">${escapeHtml(delivery.supervisorContact)}</td>` +
+    `<th class="cl-head cl-head-left">Supervisor Contact</th>` +
+    `<td class="cl-value">${escapeHtml(delivery.supervisorContact)}</td>` +
+    `<th class="cl-head cl-head-left" colspan="2">Actioned by</th>` +
     `<td class="cl-value" colspan="2">${escapeHtml(delivery.actionedBy)}</td>` +
     `</tr>` +
-    `<tr>` +
-    `<th class="cl-head">Items</th><th class="cl-head">Quantity</th>` +
-    `<th class="cl-head">Made</th><th class="cl-head">Loaded</th><th class="cl-head">Delivered</th>` +
-    `</tr>` +
-    rows +
+    `</table>` +
+    `<table class="cl-table cl-table-items">` +
+    cols +
+    `<thead><tr>` +
+    `<th class="cl-head cl-head-left" colspan="2">Items</th>` +
+    `<th class="cl-head cl-head-left">Quantity</th>` +
+    `<th class="cl-head cl-head-left">Made</th>` +
+    `<th class="cl-head cl-head-left">Loaded</th>` +
+    `<th class="cl-head cl-head-left">Delivered</th>` +
+    `</tr></thead>` +
+    `<tbody>` +
+    itemRows +
+    blankRows +
+    `</tbody>` +
     `</table>` +
     `<div class="cl-signs">` +
-    `<div class="cl-sign"><span class="cl-x">X</span><span>TL or SUP Sign &amp; Date</span></div>` +
-    `<div class="cl-sign"><span class="cl-x">X</span><span>Driver Sign &amp; Date</span></div>` +
+    `<div class="cl-sign"><span class="cl-x">X</span><span class="cl-sign-label">TL or SUP Sign &amp; Date</span></div>` +
+    `<div class="cl-sign"><span class="cl-x">X</span><span class="cl-sign-label">Driver Sign &amp; Date</span></div>` +
     `</div>` +
-    `<div class="cl-cols">` +
-    `<div class="cl-col">` +
-    `<div class="cl-col-title">Load specifications</div>` +
-    `<div class="cl-spec"><span>Weight:</span><span>${escapeHtml(delivery.weight)}</span></div>` +
-    `<div class="cl-spec"><span>Length:</span><span>${escapeHtml(delivery.length)}</span></div>` +
-    `<div class="cl-spec"><span>Width:</span><span>${escapeHtml(delivery.width)}</span></div>` +
-    `</div>` +
-    `<div class="cl-col">` +
-    `<div class="cl-col-title">Site pictures</div>` +
-    `<div class="cl-spec"><span>Signage</span><span>${delivery.signage ? "✓" : "☐"}</span></div>` +
-    `<div class="cl-spec"><span>Materials</span><span>${delivery.materials ? "✓" : "☐"}</span></div>` +
+    `<div class="cl-blocks">` +
+    specBlock("Load specifications", ["Weight:", "Length:", "Width:"]) +
+    `<div class="cl-block">` +
+    `<div class="cl-block-head">Site pictures</div>` +
+    `<div class="cl-block-row"><span>Signage</span><span class="cl-tick">${delivery.signage ? "✔" : ""}</span></div>` +
+    `<div class="cl-block-row"><span>Materials</span><span class="cl-tick">${delivery.materials ? "✔" : ""}</span></div>` +
+    `<div class="cl-block-row"><span></span><span></span></div>` +
     `</div>` +
     `</div>` +
-    `<div class="cl-cols">` +
-    truckBlock("Iveco", trucks.iveco, delivery.truck === "iveco") +
-    truckBlock("Hino", trucks.hino, delivery.truck === "hino") +
+    `<div class="cl-blocks">` +
+    specBlock("Iveco", ["Max weight:", "Max length:", "Max width:"]) +
+    specBlock("Hino", ["Max weight:", "Max length:", "Max width:"]) +
     `</div>` +
     `<div class="cl-emails">` +
-    `<div><strong>Email:</strong> ${escapeHtml(CHECKLIST_TO)}</div>` +
-    `<div><strong>Cc:</strong> ${escapeHtml(CHECKLIST_CC.join(", "))}</div>` +
+    `<p class="cl-email-to"><span>Email:</span> <a href="mailto:${escapeHtml(CHECKLIST_TO)}">${escapeHtml(CHECKLIST_TO)}</a></p>` +
+    `<p class="cl-email-cc"><span>Cc :</span> ` +
+    CHECKLIST_CC.map((a) => `<a href="mailto:${escapeHtml(a)}">${escapeHtml(a)}</a>`).join(", ") +
+    `</p>` +
     `</div>`;
 }
 
@@ -479,16 +466,8 @@ function checklistAsText() {
     );
   });
   lines.push("");
-  lines.push(`Load: weight ${delivery.weight || "-"}, length ${delivery.length || "-"}, width ${delivery.width || "-"}`);
   lines.push(`Site pictures: signage ${delivery.signage ? "yes" : "no"}, materials ${delivery.materials ? "yes" : "no"}`);
-  if (delivery.truck) {
-    const limits = trucks[delivery.truck] || {};
-    lines.push(
-      `Truck: ${delivery.truck === "iveco" ? "Iveco" : "Hino"} (max weight ${limits.weight || "-"}, length ${
-        limits.length || "-"
-      }, width ${limits.width || "-"})`
-    );
-  }
+  lines.push("Load specifications and truck limits: see the printed sheet.");
   const pos = delivery.pos.map((po) => po.poNumber).join(", ");
   if (pos) {
     lines.push(`POs: ${pos}`);
@@ -559,23 +538,12 @@ export function initExtraDelivery(els) {
   bindField(elements.deliveryJobNumber, (v) => { delivery.jobNumber = v; });
   bindField(elements.deliverySupervisor, (v) => { delivery.supervisorContact = v; });
   bindField(elements.deliveryActionedBy, (v) => { delivery.actionedBy = v; });
-  bindField(elements.deliveryWeight, (v) => { delivery.weight = v; });
-  bindField(elements.deliveryLength, (v) => { delivery.length = v; });
-  bindField(elements.deliveryWidth, (v) => { delivery.width = v; });
   bindField(elements.deliverySignage, (v) => { delivery.signage = v; });
   bindField(elements.deliveryMaterials, (v) => { delivery.materials = v; });
-  bindField(elements.deliveryTruck, (v) => { delivery.truck = v; });
-  bindField(elements.ivecoWeight, (v) => { trucks.iveco.weight = v; });
-  bindField(elements.ivecoLength, (v) => { trucks.iveco.length = v; });
-  bindField(elements.ivecoWidth, (v) => { trucks.iveco.width = v; });
-  bindField(elements.hinoWeight, (v) => { trucks.hino.weight = v; });
-  bindField(elements.hinoLength, (v) => { trucks.hino.length = v; });
-  bindField(elements.hinoWidth, (v) => { trucks.hino.width = v; });
 
   elements.deliveryPrintButton.addEventListener("click", () => window.print());
   elements.deliveryEmailButton.addEventListener("click", openEmail);
   elements.deliveryClearButton.addEventListener("click", () => {
-    // Truck limits are deliberately kept — they don't change between jobs.
     delivery = emptyDelivery();
     persist();
     renderExtraDelivery();
