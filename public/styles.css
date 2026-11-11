@@ -1633,7 +1633,12 @@ button:focus-visible { outline: 3px solid var(--hivis); outline-offset: 2px; }
 /* Printing sends the checklist to paper (or a PDF) on its own — the app's
    chrome, the upload panel and the PO sheet stay off the page. */
 @media print {
-  @page { size: A4; margin: 12mm; }
+  /* No page margin on purpose. Chrome draws its own date / title / URL /
+     page-number line in the page margin, so with no margin there is nowhere
+     for it to go and it is left off. The sheet carries the margin as padding
+     instead, so the printed result is unchanged. Browsers that ignore this
+     still have a "Headers and footers" tickbox in the print dialog. */
+  @page { size: A4; margin: 0; }
 
   body > *:not(.delivery-panel) { display: none !important; }
 
@@ -1649,7 +1654,7 @@ button:focus-visible { outline: 3px solid var(--hivis); outline-offset: 2px; }
   .checklist-sheet { max-width: none; display: block; gap: 0; }
 
   .cl-page {
-    padding: 0;
+    padding: 12mm;
     border: none;
     border-radius: 0;
     box-shadow: none;

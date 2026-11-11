@@ -451,12 +451,13 @@ function renderOutputs() {
 // the items, with the outstanding ones on the next sheet.
 const ITEMS_PER_SHEET = 9;
 
-// A4 at the 12mm margin the print stylesheet sets, in CSS pixels. Sheets are
-// measured at the printed width, not the on-screen one: the page is narrower,
-// so descriptions wrap further and rows run taller than they look on screen.
+// A4 in CSS pixels, and the margin the sheet keeps as its own padding when
+// printed. The page itself is printed with no margin so the browser has nowhere
+// to put its date/URL header, so these are the full paper dimensions.
 const MM_PX = 96 / 25.4;
-const PAGE_HEIGHT = (297 - 24) * MM_PX;
-const PAGE_WIDTH = (210 - 24) * MM_PX;
+const PAGE_HEIGHT = 297 * MM_PX;
+const PAGE_WIDTH = 210 * MM_PX;
+const PAGE_PADDING = 12 * MM_PX;
 // A hair of slack so a row that lands exactly on the boundary doesn't tip over.
 const PAGE_SLACK = 12;
 
@@ -528,6 +529,11 @@ function measureSheet(items) {
   elements.checklistSheet.parentNode.appendChild(probe);
 
   const page = probe.querySelector(".cl-page");
+  // Match the printed sheet exactly — same width, same padding — or the rows
+  // measure shorter here than they print and a sheet spills onto a second page.
+  page.style.boxSizing = "border-box";
+  page.style.width = `${PAGE_WIDTH}px`;
+  page.style.padding = `${PAGE_PADDING}px`;
   const rows = [...probe.querySelectorAll(".cl-table-items tbody tr")];
   const rowHeights = rows.map((row) => row.getBoundingClientRect().height);
   const total = rowHeights.reduce((sum, h) => sum + h, 0);
