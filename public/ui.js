@@ -210,6 +210,34 @@ export function getElements() {
     jobNumberHint: document.getElementById("jobNumberHint"),
     workerJobsSearch: document.getElementById("workerJobsSearch"),
     workerJobsSearchClear: document.getElementById("workerJobsSearchClear"),
+    // Extra Delivery Maker
+    deliveryPanel: document.getElementById("deliveryPanel"),
+    deliveryTabButton: document.getElementById("deliveryTabButton"),
+    poDropzone: document.getElementById("poDropzone"),
+    poFileInput: document.getElementById("poFileInput"),
+    poStatus: document.getElementById("poStatus"),
+    poSheet: document.getElementById("poSheet"),
+    deliveryAddress: document.getElementById("deliveryAddress"),
+    deliverySuburb: document.getElementById("deliverySuburb"),
+    deliveryJobNumber: document.getElementById("deliveryJobNumber"),
+    deliverySupervisor: document.getElementById("deliverySupervisor"),
+    deliveryActionedBy: document.getElementById("deliveryActionedBy"),
+    deliveryWeight: document.getElementById("deliveryWeight"),
+    deliveryLength: document.getElementById("deliveryLength"),
+    deliveryWidth: document.getElementById("deliveryWidth"),
+    deliverySignage: document.getElementById("deliverySignage"),
+    deliveryMaterials: document.getElementById("deliveryMaterials"),
+    deliveryTruck: document.getElementById("deliveryTruck"),
+    ivecoWeight: document.getElementById("ivecoWeight"),
+    ivecoLength: document.getElementById("ivecoLength"),
+    ivecoWidth: document.getElementById("ivecoWidth"),
+    hinoWeight: document.getElementById("hinoWeight"),
+    hinoLength: document.getElementById("hinoLength"),
+    hinoWidth: document.getElementById("hinoWidth"),
+    checklistSheet: document.getElementById("checklistSheet"),
+    deliveryPrintButton: document.getElementById("deliveryPrintButton"),
+    deliveryEmailButton: document.getElementById("deliveryEmailButton"),
+    deliveryClearButton: document.getElementById("deliveryClearButton"),
     tabTitle: document.getElementById("tabTitle"),
     tabDescription: document.getElementById("tabDescription"),
     activeTabLabel: document.getElementById("activeTabLabel"),
@@ -650,11 +678,16 @@ export function renderAdminManagement(elements, admins, superEmail, handlers) {
 // Show the worker-history view (Charts tab) and the calculator/job history.
 // `showJobHistory` is controlled separately so the admin can hide the
 // trusses/screw charts entirely.
-export function toggleWorkersView(elements, showWorkers, showJobHistory) {
-  elements.contentSection.classList.toggle("hidden", showWorkers);
+// Three views share the page: the logging form, the Charts dashboard and the
+// Extra Delivery Maker. Exactly one is on screen at a time.
+export function toggleWorkersView(elements, showWorkers, showJobHistory, showDelivery = false) {
+  const showForm = !showWorkers && !showDelivery;
+  elements.contentSection.classList.toggle("hidden", !showForm);
   elements.workerHistoryPanel.classList.toggle("hidden", !showWorkers);
   elements.workerHistoryPanel.hidden = !showWorkers;
-  elements.jobHistoryPanel.classList.toggle("hidden", !showJobHistory);
+  elements.deliveryPanel.classList.toggle("hidden", !showDelivery);
+  elements.deliveryPanel.hidden = !showDelivery;
+  elements.jobHistoryPanel.classList.toggle("hidden", !showJobHistory || !showForm);
 }
 
 // The "Log job" tab covers both job types, so it stays active for trusses and

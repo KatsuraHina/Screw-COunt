@@ -53,6 +53,10 @@
           <span class="tab-icon" aria-hidden="true">📊</span>
           <span>Charts</span>
         </button>
+        <button class="tab-button hidden" id="deliveryTabButton" type="button" data-job-tab="delivery" role="tab" aria-selected="false">
+          <span class="tab-icon" aria-hidden="true">🚚</span>
+          <span>Extra delivery</span>
+        </button>
       </div>
 
       <div class="hero-copy">
@@ -482,6 +486,127 @@
           <ol id="workerJobsList" class="entry-list"></ol>
         </div>
       </aside>
+    </div>
+  </section>
+
+  <section class="delivery-panel hidden" id="deliveryPanel" hidden>
+    <div class="delivery-grid">
+      <div class="card">
+        <h2 class="section-title">Purchase orders</h2>
+        <p class="hint">Upload the job's POs. Their items become the checklist below — untick anything that isn't going on this run.</p>
+
+        <div class="dropzone" id="poDropzone" tabindex="0" role="button" aria-label="Upload purchase order PDFs">
+          <p class="dropzone-text">Drag PO PDFs here, or tap to choose.<br><strong>You can add more than one.</strong></p>
+        </div>
+        <input id="poFileInput" type="file" accept="application/pdf" multiple hidden>
+        <p id="poStatus" class="hint"></p>
+
+        <div id="poSheet" class="po-sheet"></div>
+      </div>
+
+      <div class="card">
+        <h2 class="section-title">Delivery details</h2>
+
+        <div class="field">
+          <label for="deliveryAddress">Address</label>
+          <input id="deliveryAddress" type="text" autocomplete="off" placeholder="Lot No / street">
+        </div>
+        <div class="field-grid">
+          <div class="field">
+            <label for="deliverySuburb">Suburb</label>
+            <input id="deliverySuburb" type="text" autocomplete="off" placeholder="EGLINTON">
+          </div>
+          <div class="field">
+            <label for="deliveryJobNumber">Job number</label>
+            <input id="deliveryJobNumber" type="text" inputmode="numeric" autocomplete="off" placeholder="513769">
+          </div>
+        </div>
+        <div class="field-grid">
+          <div class="field">
+            <label for="deliverySupervisor">Supervisor contact</label>
+            <input id="deliverySupervisor" type="text" autocomplete="off" placeholder="Name / phone">
+          </div>
+          <div class="field">
+            <label for="deliveryActionedBy">Actioned by</label>
+            <input id="deliveryActionedBy" type="text" autocomplete="off" placeholder="Name">
+          </div>
+        </div>
+
+        <h3 class="section-subtitle">Load specifications</h3>
+        <div class="field-grid">
+          <div class="field">
+            <label for="deliveryWeight">Weight</label>
+            <input id="deliveryWeight" type="text" autocomplete="off" placeholder="e.g. 1200 kg">
+          </div>
+          <div class="field">
+            <label for="deliveryLength">Length</label>
+            <input id="deliveryLength" type="text" autocomplete="off" placeholder="e.g. 8 m">
+          </div>
+          <div class="field">
+            <label for="deliveryWidth">Width</label>
+            <input id="deliveryWidth" type="text" autocomplete="off" placeholder="e.g. 2.4 m">
+          </div>
+        </div>
+
+        <h3 class="section-subtitle">Site pictures</h3>
+        <div class="breaks">
+          <label class="break-option"><input id="deliverySignage" type="checkbox"><span>Signage</span></label>
+          <label class="break-option"><input id="deliveryMaterials" type="checkbox"><span>Materials</span></label>
+        </div>
+
+        <h3 class="section-subtitle">Truck</h3>
+        <div class="field">
+          <label for="deliveryTruck">Truck for this delivery</label>
+          <select id="deliveryTruck">
+            <option value="">Not chosen yet</option>
+            <option value="iveco">Iveco</option>
+            <option value="hino">Hino</option>
+          </select>
+        </div>
+        <p class="hint">Each truck's limits are typed once and remembered on this device.</p>
+        <div class="field-grid">
+          <div class="field">
+            <label for="ivecoWeight">Iveco max weight</label>
+            <input id="ivecoWeight" type="text" autocomplete="off">
+          </div>
+          <div class="field">
+            <label for="hinoWeight">Hino max weight</label>
+            <input id="hinoWeight" type="text" autocomplete="off">
+          </div>
+        </div>
+        <div class="field-grid">
+          <div class="field">
+            <label for="ivecoLength">Iveco max length</label>
+            <input id="ivecoLength" type="text" autocomplete="off">
+          </div>
+          <div class="field">
+            <label for="hinoLength">Hino max length</label>
+            <input id="hinoLength" type="text" autocomplete="off">
+          </div>
+        </div>
+        <div class="field-grid">
+          <div class="field">
+            <label for="ivecoWidth">Iveco max width</label>
+            <input id="ivecoWidth" type="text" autocomplete="off">
+          </div>
+          <div class="field">
+            <label for="hinoWidth">Hino max width</label>
+            <input id="hinoWidth" type="text" autocomplete="off">
+          </div>
+        </div>
+
+        <div class="button-row">
+          <button id="deliveryPrintButton" type="button">Print / Save as PDF</button>
+          <button id="deliveryEmailButton" class="secondary-button" type="button">Email…</button>
+        </div>
+        <div class="button-row">
+          <button id="deliveryClearButton" class="secondary-button" type="button">Clear delivery</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="checklist-wrap">
+      <div class="checklist-sheet" id="checklistSheet"></div>
     </div>
   </section>
 

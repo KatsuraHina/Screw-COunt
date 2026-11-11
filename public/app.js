@@ -55,6 +55,11 @@ import {
 import { deriveImportTitle, detectJobTypeFromName, parseCutListPdf } from "./pdf-import.js";
 import { bindThemeToggle } from "./theme.js";
 import {
+  initExtraDelivery,
+  renderExtraDelivery,
+  setExtraDeliveryUser
+} from "./extra-delivery.js";
+import {
   clearHistoryOutputs,
   getElements,
   renderAuthState,
@@ -546,6 +551,17 @@ function renderHistorySection() {
 }
 
 function renderApp() {
+  if (state.activeTab === "delivery") {
+    toggleWorkersView(elements, false, false, true);
+    setActiveTabButtons(elements, state.activeTab);
+    elements.activeTabLabel.textContent = "Extra delivery";
+    elements.tabTitle.textContent = "Extra Delivery Maker";
+    elements.tabDescription.textContent =
+      "Upload the job's POs, pick what's going on the truck, and the checklist fills itself in.";
+    renderExtraDelivery();
+    return;
+  }
+
   if (state.activeTab === "workers") {
     toggleWorkersView(elements, true, false);
     setActiveTabButtons(elements, state.activeTab);
@@ -2149,6 +2165,8 @@ function handleAuthChanged(user) {
   // Load this user's own imports (and drop the previous user's) so imports stay
   // private across accounts on a shared device.
   syncImportsForUser();
+  // The Extra Delivery Maker keeps its own per-user draft the same way.
+  setExtraDeliveryUser(user?.uid || null);
 
   // Re-render so admin-specific panel visibility (hidden trusses/screw charts) applies.
   renderApp();
@@ -2170,7 +2188,9 @@ function applyAdminState() {
   // Admins and bench workers can both pick workers for a job; the admin-only
   // management/charts panels stay admin-only.
   renderWorkerAdminVisibility(elements, state.isAdmin, state.isAdmin || isBenchUser());
-  if (!state.isAdmin && state.activeTab === "workers") {
+  // The Extra Delivery Maker is an office job, so it rides with the admin tabs.
+  elements.deliveryTabButton.classList.toggle("hidden", !state.isAdmin);
+  if (!state.isAdmin && (state.activeTab === "workers" || state.activeTab === "delivery")) {
     state.activeTab = "trusses";
   }
 }
@@ -2384,7 +2404,7 @@ function switchTab(nextTab) {
     return;
   }
 
-  if (nextTab === "workers") {
+  if (nextTab === "workers" || nextTab === "delivery") {
     if (!state.isAdmin) {
       return;
     }
@@ -2621,6 +2641,7 @@ function startLiveUpdates() {
 
 function init() {
   bindEvents();
+  initExtraDelivery(elements);
   // Imports are restored per-user once auth resolves (see syncImportsForUser),
   // so nothing is loaded here.
   renderAuthState(elements, null);

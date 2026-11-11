@@ -1194,6 +1194,305 @@ button:focus-visible { outline: 3px solid var(--hivis); outline-offset: 2px; }
 .worker-hours-chart { max-width: 100%; }
 
 /* --------------------------------------------------------------------------
+   Extra Delivery Maker
+   -------------------------------------------------------------------------- */
+
+.delivery-panel {
+  width: min(1400px, 100%);
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.delivery-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 20px;
+  align-items: start;
+}
+
+@media (min-width: 1080px) {
+  .delivery-grid { grid-template-columns: minmax(0, 1.25fr) minmax(320px, 1fr); }
+}
+
+.section-title {
+  font-size: 1.05rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--slate);
+}
+
+.section-subtitle {
+  margin: 4px 0 0;
+  font-family: var(--font-ui);
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--slate);
+}
+
+.delivery-grid .card { display: flex; flex-direction: column; gap: 14px; }
+
+/* --- The PO sheet --- */
+
+.po-sheet { display: flex; flex-direction: column; gap: 14px; }
+
+.po-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--steel-850);
+  overflow: hidden;
+}
+
+.po-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 12px 14px;
+  background: var(--panel-strong);
+  border-bottom: 1px solid var(--border);
+}
+
+.po-card-title { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+
+.po-card-title strong { font-family: var(--font-data); font-size: 0.95rem; }
+
+.po-card-meta { font-size: 0.8rem; color: var(--muted); }
+
+.po-card-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+.po-item-list { list-style: none; margin: 0; padding: 8px; display: flex; flex-direction: column; gap: 6px; }
+
+.po-item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) 84px 44px;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  background: var(--steel-800);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+/* An unticked item stays visible — it just isn't going on this run. */
+.po-item.is-excluded { opacity: 0.5; }
+
+.po-item > input[type="checkbox"] {
+  width: 24px;
+  height: 24px;
+  accent-color: var(--hivis);
+  cursor: pointer;
+}
+
+.po-item-body { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+
+.po-item-desc,
+.po-item-details,
+.po-item-qty {
+  margin: 0;
+  padding: 6px 8px;
+  background: var(--steel-850);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-size: 0.9rem;
+}
+
+.po-item-desc { font-weight: 600; }
+
+.po-item-details { font-size: 0.8rem; color: var(--muted); font-family: var(--font-data); }
+
+.po-item-qty { font-family: var(--font-data); text-align: right; font-variant-numeric: tabular-nums; }
+
+.po-item-unit {
+  font-family: var(--font-ui);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+
+/* --- The checklist itself --- */
+
+.checklist-wrap { display: flex; justify-content: center; }
+
+.checklist-sheet {
+  width: 100%;
+  max-width: 900px;
+  padding: 24px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+
+.cl-title {
+  margin: 0 0 14px;
+  text-align: center;
+  font-size: 1.25rem;
+  letter-spacing: 0.06em;
+}
+
+.cl-table { width: 100%; border-collapse: collapse; }
+
+.cl-table th,
+.cl-table td {
+  border: 1px solid var(--border);
+  padding: 7px 9px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.cl-head {
+  background: var(--panel-strong);
+  font-family: var(--font-ui);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--slate);
+}
+
+.cl-value { font-size: 0.95rem; min-height: 28px; }
+
+.cl-item { font-size: 0.9rem; }
+
+.cl-item-detail {
+  display: block;
+  margin-top: 2px;
+  font-family: var(--font-data);
+  font-size: 0.76rem;
+  color: var(--muted);
+}
+
+.cl-qty {
+  width: 110px;
+  font-family: var(--font-data);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* Made / Loaded / Delivered are filled in by hand on the floor. */
+.cl-box { width: 76px; height: 30px; }
+
+.cl-empty { color: var(--muted); font-style: italic; }
+
+.cl-signs,
+.cl-cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+}
+
+.cl-signs { margin-top: -1px; }
+
+.cl-sign,
+.cl-col,
+.cl-truck {
+  border: 1px solid var(--border);
+  margin-top: -1px;
+  margin-right: -1px;
+  padding: 10px;
+}
+
+.cl-sign { display: flex; flex-direction: column; gap: 18px; }
+
+.cl-x { font-weight: 700; }
+
+.cl-sign span:last-child,
+.cl-col-title,
+.cl-truck-name {
+  font-family: var(--font-ui);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--slate);
+}
+
+.cl-col-title,
+.cl-truck-name { margin-bottom: 6px; }
+
+.cl-truck.is-selected { background: var(--tag-trusses-bg); }
+
+.cl-truck.is-selected .cl-truck-name { color: var(--tag-trusses); }
+
+.cl-spec {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 3px 0;
+  font-size: 0.88rem;
+}
+
+.cl-spec span:first-child { color: var(--muted); }
+
+.cl-spec span:last-child { font-family: var(--font-data); }
+
+.cl-emails {
+  margin-top: 14px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+  font-size: 0.82rem;
+  color: var(--muted);
+  word-break: break-word;
+}
+
+.cl-emails strong { color: var(--text); }
+
+/* Printing sends the checklist to paper (or a PDF) on its own — the app's
+   chrome, the upload panel and the PO sheet stay off the page, and the sheet
+   is forced to ink on white so it doesn't print as a dark slab. */
+@media print {
+  @page { margin: 12mm; }
+
+  body > *:not(.delivery-panel) { display: none !important; }
+
+  body {
+    padding: 0;
+    gap: 0;
+    background: #ffffff;
+    color: #000000;
+  }
+
+  .delivery-panel { width: 100%; gap: 0; }
+
+  .delivery-grid { display: none !important; }
+
+  .checklist-sheet {
+    max-width: none;
+    padding: 0;
+    border: none;
+    box-shadow: none;
+    background: #ffffff;
+    color: #000000;
+  }
+
+  .cl-table th,
+  .cl-table td,
+  .cl-sign,
+  .cl-col,
+  .cl-truck { border-color: #000000; }
+
+  .cl-head { background: #eeeeee; color: #000000; }
+
+  .cl-head,
+  .cl-col-title,
+  .cl-truck-name,
+  .cl-sign span:last-child,
+  .cl-spec span:first-child,
+  .cl-item-detail,
+  .cl-emails { color: #000000; }
+
+  .cl-truck.is-selected { background: #f2f2f2; }
+
+  .cl-emails strong { color: #000000; }
+}
+
+/* --------------------------------------------------------------------------
    Scrollbars
    -------------------------------------------------------------------------- */
 
