@@ -331,9 +331,22 @@ function renderFields() {
   f.deliveryMaterials.checked = delivery.materials;
 }
 
-// The paper form keeps nine item rows whether or not they're all used, so a
-// short delivery still looks like the form and leaves room to pen one in.
-const MIN_ITEM_ROWS = 9;
+// The paper form holds nine item rows, so that is a sheet's worth when the
+// items are one-liners. They often aren't — a truss can carry half a dozen cut
+// lengths — so the real limit is how much fits on the page, measured below.
+// A delivery that needs more becomes several whole sheets rather than one long
+// one: each is a complete, signable copy of the form carrying its own share of
+// the items, with the outstanding ones on the next sheet.
+const ITEMS_PER_SHEET = 9;
+
+// A4 at the 12mm margin the print stylesheet sets, in CSS pixels. Sheets are
+// measured at the printed width, not the on-screen one: the page is narrower,
+// so descriptions wrap further and rows run taller than they look on screen.
+const MM_PX = 96 / 25.4;
+const PAGE_HEIGHT = (297 - 24) * MM_PX;
+const PAGE_WIDTH = (210 - 24) * MM_PX;
+// A hair of slack so a row that lands exactly on the boundary doesn't tip over.
+const PAGE_SLACK = 12;
 
 // Load specifications and the two trucks are filled in by hand on the printed
 // sheet, so they are rendered as the blank boxes the form has — the app never
@@ -349,8 +362,77 @@ function specBlock(title, labels) {
   );
 }
 
-function renderChecklist() {
-  const items = includedItems();
+const COLS =
+  `<colgroup>` +
+  `<col style="width:26.3%"><col style="width:29.4%"><col style="width:13.9%">` +
+  `<col style="width:9.9%"><col style="width:9.1%"><col style="width:11.4%">` +
+  `</colgroup>`;
+
+// Split the delivery's items into sheet-sized runs. An empty delivery still
+// gets one blank sheet, so the form is on screen before anything is uploaded.
+// `fits` decides whether a run of rows still fits a page; without it (no DOM to
+// measure against) it falls back to the form's nine rows.
+export function splitIntoSheets(items, fits = null) {
+  if (items.length === 0) {
+    return [[]];
+  }
+  if (!fits) {
+    const sheets = [];
+    for (let i = 0; i < items.length; i += ITEMS_PER_SHEET) {
+      sheets.push(items.slice(i, i + ITEMS_PER_SHEET));
+    }
+    return sheets;
+  }
+
+  const sheets = [];
+  let current = [];
+  items.forEach((item, index) => {
+    const candidate = current.concat(index);
+    // Always keep at least one item per sheet, even a monster that overruns on
+    // its own — better one overlong sheet than an endless empty loop.
+    if (current.length > 0 && !fits(candidate)) {
+      sheets.push(current);
+      current = [index];
+    } else {
+      current = candidate;
+    }
+  });
+  if (current.length > 0) {
+    sheets.push(current);
+  }
+  return sheets.map((run) => run.map((i) => items[i]));
+}
+
+// Measure the real thing: build one hidden sheet at the printed page width and
+// read back the height of its chrome and of each item row. Those numbers decide
+// how many items a sheet can hold, so a sheet is always one piece of paper.
+function measureSheet(items) {
+  const probe = document.createElement("div");
+  probe.style.cssText =
+    `position:absolute;left:-10000px;top:0;visibility:hidden;width:${PAGE_WIDTH}px;`;
+  probe.className = "checklist-sheet";
+  // Rendered with every item, and with the page mark, which is the taller case.
+  probe.innerHTML = renderSheet(items, 1, 2, { padTo: 0 });
+  elements.checklistSheet.parentNode.appendChild(probe);
+
+  const page = probe.querySelector(".cl-page");
+  const rows = [...probe.querySelectorAll(".cl-table-items tbody tr")];
+  const rowHeights = rows.map((row) => row.getBoundingClientRect().height);
+  const total = rowHeights.reduce((sum, h) => sum + h, 0);
+  // Everything that isn't an item row: logo, title, job block, table header,
+  // signatures, the four boxes and the email block.
+  const chrome = page.getBoundingClientRect().height - total;
+  // A blank padding row, for filling a short sheet back out to the form's look.
+  const blankRow = rowHeights.length > 0 ? Math.min(...rowHeights) : 26;
+
+  probe.remove();
+  return { rowHeights, chrome, blankRow };
+}
+
+// One complete copy of the form, holding this sheet's items. `padTo` is how
+// many rows the item table should have in total — the form's nine when there's
+// room, fewer when the items themselves have filled the page.
+function renderSheet(items, pageNo, pageCount, { padTo = ITEMS_PER_SHEET } = {}) {
   const itemRows = items
     .map(
       (item) =>
@@ -364,26 +446,24 @@ function renderChecklist() {
     )
     .join("");
 
-  const padding = Math.max(0, MIN_ITEM_ROWS - items.length);
+  // A short sheet is padded back out to the form's row count, so it doesn't
+  // look cut off — but never past what the page can hold.
   const blankRows = Array.from(
-    { length: padding },
+    { length: Math.max(0, padTo - items.length) },
     () => `<tr><td class="cl-item" colspan="2"></td><td></td><td></td><td></td><td></td></tr>`
   ).join("");
 
-  // Two tables, not one: the job block on top, then the items with their
-  // header row in a <thead> so it repeats when the list runs to a second page.
-  // They share the same column widths, so the grid lines run straight through.
-  const cols =
-    `<colgroup>` +
-    `<col style="width:26.3%"><col style="width:29.4%"><col style="width:13.9%">` +
-    `<col style="width:9.9%"><col style="width:9.1%"><col style="width:11.4%">` +
-    `</colgroup>`;
+  // Only marked when there's more than one sheet: a single-sheet delivery is
+  // the form exactly as it is on paper, with nothing added.
+  const pageMark =
+    pageCount > 1 ? `<span class="cl-page-mark">Page ${pageNo} of ${pageCount}</span>` : "";
 
-  elements.checklistSheet.innerHTML =
+  return (
+    `<section class="cl-page">` +
     `<div class="cl-logo"><img src="./backbone-logo.png" alt="Backbone Steel" width="339" height="140"></div>` +
-    `<h2 class="cl-title">Extra Deliveries checklist</h2>` +
+    `<h2 class="cl-title">Extra Deliveries checklist${pageMark}</h2>` +
     `<table class="cl-table">` +
-    cols +
+    COLS +
     `<tr>` +
     `<th class="cl-head" colspan="2">ADDRESS</th>` +
     `<th class="cl-head" colspan="2">Suburb</th>` +
@@ -402,7 +482,7 @@ function renderChecklist() {
     `</tr>` +
     `</table>` +
     `<table class="cl-table cl-table-items">` +
-    cols +
+    COLS +
     `<thead><tr>` +
     `<th class="cl-head cl-head-left" colspan="2">Items</th>` +
     `<th class="cl-head cl-head-left">Quantity</th>` +
@@ -437,7 +517,36 @@ function renderChecklist() {
     `<p class="cl-email-cc"><span>Cc :</span> ` +
     CHECKLIST_CC.map((a) => `<a href="mailto:${escapeHtml(a)}">${escapeHtml(a)}</a>`).join(", ") +
     `</p>` +
-    `</div>`;
+    `</div>` +
+    `</section>`
+  );
+}
+
+function renderChecklist() {
+  const items = includedItems();
+
+  if (items.length === 0) {
+    elements.checklistSheet.innerHTML = renderSheet([], 1, 1);
+    return;
+  }
+
+  // Measure once, then fill each sheet to the page rather than to a row count.
+  const { rowHeights, chrome, blankRow } = measureSheet(items);
+  const room = PAGE_HEIGHT - chrome - PAGE_SLACK;
+  const fits = (indexes) => indexes.reduce((sum, i) => sum + rowHeights[i], 0) <= room;
+
+  const sheets = splitIntoSheets(items, fits);
+  let seen = 0;
+  elements.checklistSheet.innerHTML = sheets
+    .map((sheetItems, index) => {
+      const used = sheetItems.reduce((sum, _, i) => sum + rowHeights[seen + i], 0);
+      seen += sheetItems.length;
+      // Pad with blank rows only while they still fit on the page.
+      const spare = Math.max(0, Math.floor((room - used) / blankRow));
+      const padTo = Math.min(ITEMS_PER_SHEET, sheetItems.length + spare);
+      return renderSheet(sheetItems, index + 1, sheets.length, { padTo });
+    })
+    .join("");
 }
 
 export function renderExtraDelivery() {
