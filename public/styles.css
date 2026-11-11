@@ -1356,7 +1356,10 @@ button:focus-visible { outline: 3px solid var(--hivis); outline-offset: 2px; }
   color: var(--slate);
 }
 
-.cl-value { font-size: 0.95rem; min-height: 28px; }
+/* `height` on a cell acts as a minimum, so a field left blank — the supervisor,
+   typically, when the office doesn't know yet — still prints as a box with
+   room to write the name in on site. */
+.cl-value { font-size: 0.95rem; height: 30px; }
 
 .cl-item { font-size: 0.9rem; }
 

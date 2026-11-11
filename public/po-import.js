@@ -260,7 +260,9 @@ export async function parsePurchaseOrder(file) {
     orderDate: findLabelled(allRows, "Order Date"),
     reference: findLabelled(allRows, "Reference"),
     client: findLabelled(allRows, "Client"),
-    scheduler: findLabelled(allRows, "Scheduler"),
+    // The PO's Scheduler is deliberately not read. It is not the site
+    // supervisor, so it must never end up in the checklist's Supervisor
+    // Contact — that one is filled in by hand.
     jobNumber: deriveJobNumberFromPo(findLabelled(allRows, "Job"), poNumber),
     address: delivery.address,
     suburb: delivery.suburb,
