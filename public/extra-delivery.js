@@ -517,6 +517,10 @@ function renderSheet(items, pageNo, pageCount, { padTo = ITEMS_PER_SHEET } = {})
 
   return (
     `<section class="cl-page">` +
+    // The run this delivery is on, top left — the first thing the yard needs to
+    // know. Left off entirely when it hasn't been chosen, so a blank form is
+    // still the form exactly as it is on paper.
+    (delivery.region ? `<div class="cl-region">${escapeHtml(delivery.region)}</div>` : "") +
     `<div class="cl-logo"><img src="./backbone-logo.png" alt="Backbone Steel" width="339" height="140"></div>` +
     `<h2 class="cl-title">Extra Deliveries checklist${pageMark}</h2>` +
     `<table class="cl-table">` +
@@ -558,6 +562,14 @@ function renderSheet(items, pageNo, pageCount, { padTo = ITEMS_PER_SHEET } = {})
     `</div>` +
     `<div class="cl-blocks">` +
     specBlock("Load specifications", ["Weight:", "Length:", "Width:"]) +
+    // Site pictures, like the load specs, is ticked on the printed sheet rather
+    // than in the app — so it renders as the form's empty squares.
+    `<div class="cl-block">` +
+    `<div class="cl-block-head">Site pictures</div>` +
+    `<div class="cl-block-row"><span>Signage</span><span class="cl-tick"></span></div>` +
+    `<div class="cl-block-row"><span>Materials</span><span class="cl-tick"></span></div>` +
+    `<div class="cl-block-row"><span></span><span></span></div>` +
+    `</div>` +
     `</div>` +
     `<div class="cl-blocks">` +
     specBlock("Iveco", ["Max weight:", "Max length:", "Max width:"]) +
@@ -738,17 +750,21 @@ function flash(button, message) {
   }, 1800);
 }
 
-// Opens a draft of the shortage notice to the checklist's recipients.
-function openEmail() {
+// The draft's address. Deliberately no To and no Cc: who the shortage notice
+// goes to varies, so the recipients are left for whoever sends it. Split out
+// from the navigation below so it can be checked on its own.
+export function shortageMailtoUrl() {
   const subjectBits = ["Extra Delivery"];
   if (delivery.jobNumber) subjectBits.push(`Job ${delivery.jobNumber}`);
   if (delivery.suburb) subjectBits.push(delivery.suburb);
-  const url =
-    `mailto:${encodeURIComponent(CHECKLIST_TO)}` +
-    `?cc=${encodeURIComponent(CHECKLIST_CC.join(","))}` +
-    `&subject=${encodeURIComponent(subjectBits.join(" — "))}` +
-    `&body=${encodeURIComponent(shortageEmailText())}`;
-  window.location.href = url;
+  return (
+    `mailto:?subject=${encodeURIComponent(subjectBits.join(" — "))}` +
+    `&body=${encodeURIComponent(shortageEmailText())}`
+  );
+}
+
+function openEmail() {
+  window.location.assign(shortageMailtoUrl());
 }
 
 // --- Wiring -----------------------------------------------------------------

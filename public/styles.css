@@ -1432,6 +1432,7 @@ button:focus-visible { outline: 3px solid var(--hivis); outline-offset: 2px; }
    these, each a whole form with its own signatures, rather than one long
    table — so each sheet can be handed over and signed on its own. */
 .cl-page {
+  position: relative;
   padding: 20px 32px 24px;
   background: #ffffff;
   color: #000000;
@@ -1441,6 +1442,18 @@ button:focus-visible { outline: 3px solid var(--hivis); outline-offset: 2px; }
   font-family: "Barlow", system-ui, -apple-system, "Segoe UI", sans-serif;
   -webkit-print-color-adjust: exact;
   print-color-adjust: exact;
+}
+
+/* The run (EAST / WEST / NOR / SOR) in the sheet's top-left corner. */
+.cl-region {
+  position: absolute;
+  top: 18px;
+  left: 30px;
+  font-family: var(--font-ui);
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #000000;
 }
 
 /* Shown only when a delivery runs to more than one sheet, so nobody walks off
