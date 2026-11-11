@@ -75,6 +75,11 @@ function restore() {
       const stored = JSON.parse(raw);
       if (stored && typeof stored === "object") {
         delivery = { ...emptyDelivery(), ...stored, pos: Array.isArray(stored.pos) ? stored.pos : [] };
+        delivery.pos.forEach((po) => {
+          (po.items || []).forEach((item) => {
+            item.details = normalizeDetails(item.details);
+          });
+        });
       }
     }
   } catch {
@@ -114,6 +119,62 @@ function setStatus(message, tone = "hint") {
   elements.poStatus.textContent = message;
   elements.poStatus.className =
     tone === "warning" || tone === "success" ? `hint ${tone}` : "hint";
+}
+
+// A piece mark on a cut list — B101, B036, T017 — always at the start of a
+// line, with its cut length on the line after it.
+const PIECE_MARK = /^[A-Z]\d{2,}/;
+const CUT_LENGTH = /^\d+\s*\/\s*\d/;
+
+// The PO lists an item's detail lines one per line, and each piece is a mark
+// followed by its length. Keep a piece on its own line with its length, so a
+// multi-piece item reads down the page instead of running together:
+//
+//   8metre LENGTH (9.07 kg/m)
+//   OVERALL LENGTH INCLUDES CAPS
+//   B101-CAPPED BOTH END WITH 5MM PLATES · 1/5355MM
+//   B102-CAPPED ONE END WITH 5MM PLATE · 1/961MM
+export function groupDetailLines(lines) {
+  const out = [];
+  let openMark = false;
+
+  (lines || []).forEach((raw) => {
+    const line = String(raw ?? "").trim();
+    if (!line) {
+      return;
+    }
+    if (PIECE_MARK.test(line)) {
+      out.push(line);
+      openMark = true;
+      return;
+    }
+    // A length only belongs to a piece mark. On its own — an item with a single
+    // cut and no mark — it stays its own line.
+    if (openMark && CUT_LENGTH.test(line) && out.length > 0) {
+      out[out.length - 1] += ` · ${line}`;
+      return;
+    }
+    out.push(line);
+    openMark = false;
+  });
+
+  return out;
+}
+
+// Detail lines were once kept as one " · " joined string. Anything saved then
+// is regrouped on the way in so it reads the same as a fresh import.
+function normalizeDetails(value) {
+  if (Array.isArray(value)) {
+    return groupDetailLines(value).join("\n");
+  }
+  const text = String(value ?? "");
+  if (!text.trim()) {
+    return "";
+  }
+  if (text.includes("\n")) {
+    return text;
+  }
+  return groupDetailLines(text.split(" · ")).join("\n");
 }
 
 let idSeed = 0;
@@ -159,7 +220,7 @@ async function handlePoFiles(fileList) {
     items: po.items.map((item) => ({
       id: nextId("item"),
       description: item.description,
-      details: item.details.join(" · "),
+      details: groupDetailLines(item.details).join("\n"),
       quantity: formatQuantity(item.quantity),
       unit: item.unit,
       // Nothing is on the delivery until it's ticked — an extra delivery is
@@ -290,15 +351,18 @@ function renderPoSheet() {
         renderChecklist();
       });
 
-      const details = document.createElement("input");
-      details.type = "text";
+      // A textarea, not a text box: an item's pieces each sit on their own line.
+      const details = document.createElement("textarea");
       details.className = "po-item-details";
       details.value = item.details || "";
+      details.rows = Math.min(6, Math.max(1, (item.details || "").split("\n").length));
       details.placeholder = "Cut lengths / notes";
       details.addEventListener("input", () => {
         item.details = details.value;
+        details.rows = Math.min(6, Math.max(1, details.value.split("\n").length));
         persist();
         renderChecklist();
+        renderOutputs();
       });
 
       desc.append(name, details);
@@ -635,8 +699,8 @@ export function shortDate(value) {
 // One item as it reads in the spreadsheet's items cell and in the email: the
 // description with its PO detail lines under it.
 function itemLines(item) {
-  const detail = String(item.details ?? "").trim();
-  return [item.description, ...(detail ? detail.split(" · ") : [])].filter(Boolean);
+  const detail = normalizeDetails(item.details).trim();
+  return [item.description, ...(detail ? detail.split("\n") : [])].filter(Boolean);
 }
 
 // The row to paste into the tracking sheet, in its column order:

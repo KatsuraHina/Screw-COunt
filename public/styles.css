@@ -1303,7 +1303,13 @@ button:focus-visible { outline: 3px solid var(--hivis); outline-offset: 2px; }
 
 .po-item-desc { font-weight: 600; }
 
-.po-item-details { font-size: 0.8rem; color: var(--muted); font-family: var(--font-data); }
+.po-item-details {
+  font-size: 0.8rem;
+  color: var(--muted);
+  font-family: var(--font-data);
+  line-height: 1.4;
+  resize: vertical;
+}
 
 .po-item-qty { font-family: var(--font-data); text-align: right; font-variant-numeric: tabular-nums; }
 
@@ -1527,12 +1533,15 @@ button:focus-visible { outline: 3px solid var(--hivis); outline-offset: 2px; }
 
 .cl-item { height: 26px; font-size: 0.85rem; color: #000000; }
 
+/* pre-line so each piece keeps the line it was given. */
 .cl-item-detail {
   display: block;
   margin-top: 1px;
   font-family: var(--font-data);
   font-size: 0.72rem;
+  line-height: 1.35;
   color: #333333;
+  white-space: pre-line;
 }
 
 .cl-qty {
