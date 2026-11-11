@@ -1262,6 +1262,20 @@ button:focus-visible { outline: 3px solid var(--hivis); outline-offset: 2px; }
 
 .po-card-meta { font-size: 0.8rem; color: var(--muted); }
 
+/* Flags a PO still on the delivery whose job number no longer matches the
+   header, so it can be removed deliberately rather than by surprise. */
+.po-card-flag {
+  align-self: flex-start;
+  font-family: var(--font-data);
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--danger);
+  border: 1px solid var(--danger);
+  border-radius: 999px;
+  padding: 1px 8px;
+}
+
 .po-card-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 
 .po-item-list { list-style: none; margin: 0; padding: 8px; display: flex; flex-direction: column; gap: 6px; }

@@ -214,6 +214,7 @@ async function handlePoFiles(fileList) {
   delivery.pos.push({
     id: nextId("po"),
     poNumber: po.poNumber,
+    jobNumber: po.jobNumber,
     orderDate: po.orderDate,
     client: po.client,
     reference: po.reference,
@@ -229,25 +230,49 @@ async function handlePoFiles(fileList) {
     }))
   });
 
-  // The first PO in sets the delivery details; later ones only fill blanks, so
-  // anything already typed by hand is never overwritten.
-  if (!delivery.address) delivery.address = po.address;
-  if (!delivery.suburb) delivery.suburb = po.suburb;
-  if (!delivery.jobNumber) delivery.jobNumber = po.jobNumber;
+  // A PO for a different job means the delivery has moved on, so its details
+  // replace what's there — that's the whole point of loading it. For another PO
+  // on the same job, only blanks are filled, so anything typed by hand stays.
+  const previousJob = delivery.jobNumber;
+  const movedJob = Boolean(po.jobNumber) && Boolean(previousJob) && po.jobNumber !== previousJob;
+
+  if (movedJob) {
+    delivery.jobNumber = po.jobNumber;
+    // Only overwrite with something: a PO whose address didn't parse shouldn't
+    // wipe out a hand-typed one.
+    if (po.address) delivery.address = po.address;
+    if (po.suburb) delivery.suburb = po.suburb;
+  } else {
+    if (!delivery.address) delivery.address = po.address;
+    if (!delivery.suburb) delivery.suburb = po.suburb;
+    if (!delivery.jobNumber) delivery.jobNumber = po.jobNumber;
+  }
 
   persist();
   renderExtraDelivery();
 
   const parts = [`Added PO ${po.poNumber} · ${po.items.length} items. Tick the ones going on this delivery.`];
-  if (po.jobNumber && delivery.jobNumber && po.jobNumber !== delivery.jobNumber) {
-    parts.push(`Heads up: it is for job ${po.jobNumber}, not ${delivery.jobNumber}.`);
+  if (movedJob) {
+    // The earlier job's POs are left alone rather than thrown away — say so,
+    // since their items are still tickable onto this delivery.
+    const stale = delivery.pos.filter((entry) => entry.jobNumber !== po.jobNumber).length;
+    parts.push(
+      `Job, address and suburb updated to ${po.jobNumber}.` +
+        (stale > 0
+          ? ` ${stale} PO${stale === 1 ? "" : "s"} from job ${previousJob} ${
+              stale === 1
+                ? "is still on the delivery — remove it if it doesn't belong."
+                : "are still on the delivery — remove them if they don't belong."
+            }`
+          : "")
+    );
   }
   if (ignored > 0) {
     parts.push(
       `Only the first file was read — add ${ignored === 1 ? "the other one" : `the other ${ignored}`} separately.`
     );
   }
-  setStatus(parts.join(" "), ignored > 0 || parts.length > 1 ? "warning" : "success");
+  setStatus(parts.join(" "), ignored > 0 || movedJob ? "warning" : "success");
 }
 
 function removePo(id) {
@@ -296,9 +321,13 @@ function renderPoSheet() {
     const head = document.createElement("div");
     head.className = "po-card-head";
     const picked = po.items.filter((item) => item.include).length;
+    // A PO left over from an earlier job is called out, since its items are
+    // still tickable and the header no longer matches it.
+    const otherJob = po.jobNumber && delivery.jobNumber && po.jobNumber !== delivery.jobNumber;
     head.innerHTML =
       `<div class="po-card-title">` +
       `<strong>PO ${escapeHtml(po.poNumber)}</strong>` +
+      (otherJob ? `<span class="po-card-flag">Job ${escapeHtml(po.jobNumber)}</span>` : "") +
       `<span class="po-card-meta">${escapeHtml(po.orderDate || "")}${
         po.reference ? ` · ${escapeHtml(po.reference)}` : ""
       } · ${picked} of ${po.items.length} on this delivery</span>` +
