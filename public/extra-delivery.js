@@ -124,78 +124,69 @@ function nextId(prefix) {
 
 // --- Importing -------------------------------------------------------------
 
+// One PO at a time. Several can still go on the same delivery — upload them
+// one after another and they stack up in the sheet below.
 async function handlePoFiles(fileList) {
   const files = Array.from(fileList || []).filter((file) => file);
   if (files.length === 0) {
     return;
   }
 
-  setStatus(`Reading ${files.length} PO${files.length === 1 ? "" : "s"}…`);
-  const added = [];
-  const failed = [];
+  const [file] = files;
+  const ignored = files.length - 1;
+  setStatus(`Reading ${file.name}…`);
 
-  for (const file of files) {
-    try {
-      const po = await parsePurchaseOrder(file);
-      if (delivery.pos.some((entry) => entry.poNumber === po.poNumber)) {
-        failed.push(`${po.poNumber} is already on this delivery`);
-        continue;
-      }
-      delivery.pos.push({
-        id: nextId("po"),
-        poNumber: po.poNumber,
-        orderDate: po.orderDate,
-        client: po.client,
-        reference: po.reference,
-        items: po.items.map((item) => ({
-          id: nextId("item"),
-          description: item.description,
-          details: item.details.join(" · "),
-          quantity: formatQuantity(item.quantity),
-          unit: item.unit,
-          // Everything comes in ticked — this is the auto-fill. Untick whatever
-          // isn't going on this run.
-          include: true
-        }))
-      });
-      added.push(po);
-    } catch (error) {
-      console.error(error);
-      failed.push(error.message || `${file.name}: couldn't be read`);
-    }
+  let po;
+  try {
+    po = await parsePurchaseOrder(file);
+  } catch (error) {
+    console.error(error);
+    setStatus(error.message || `${file.name}: couldn't be read.`, "warning");
+    return;
   }
+
+  if (delivery.pos.some((entry) => entry.poNumber === po.poNumber)) {
+    setStatus(`PO ${po.poNumber} is already on this delivery.`, "warning");
+    return;
+  }
+
+  delivery.pos.push({
+    id: nextId("po"),
+    poNumber: po.poNumber,
+    orderDate: po.orderDate,
+    client: po.client,
+    reference: po.reference,
+    items: po.items.map((item) => ({
+      id: nextId("item"),
+      description: item.description,
+      details: item.details.join(" · "),
+      quantity: formatQuantity(item.quantity),
+      unit: item.unit,
+      // Nothing is on the delivery until it's ticked — an extra delivery is
+      // usually a handful of items off the order, not the whole thing.
+      include: false
+    }))
+  });
 
   // The first PO in sets the delivery details; later ones only fill blanks, so
   // anything already typed by hand is never overwritten.
-  added.forEach((po) => {
-    if (!delivery.address) delivery.address = po.address;
-    if (!delivery.suburb) delivery.suburb = po.suburb;
-    if (!delivery.jobNumber) delivery.jobNumber = po.jobNumber;
-  });
-
-  const differing = added.filter(
-    (po) => po.jobNumber && delivery.jobNumber && po.jobNumber !== delivery.jobNumber
-  );
+  if (!delivery.address) delivery.address = po.address;
+  if (!delivery.suburb) delivery.suburb = po.suburb;
+  if (!delivery.jobNumber) delivery.jobNumber = po.jobNumber;
 
   persist();
   renderExtraDelivery();
 
-  const parts = [];
-  if (added.length > 0) {
-    const items = added.reduce((sum, po) => sum + po.items.length, 0);
-    parts.push(`Added ${added.length} PO${added.length === 1 ? "" : "s"} · ${items} items.`);
+  const parts = [`Added PO ${po.poNumber} · ${po.items.length} items. Tick the ones going on this delivery.`];
+  if (po.jobNumber && delivery.jobNumber && po.jobNumber !== delivery.jobNumber) {
+    parts.push(`Heads up: it is for job ${po.jobNumber}, not ${delivery.jobNumber}.`);
   }
-  if (differing.length > 0) {
+  if (ignored > 0) {
     parts.push(
-      `Heads up: ${differing.map((po) => po.poNumber).join(", ")} ${
-        differing.length === 1 ? "is" : "are"
-      } for a different job number.`
+      `Only the first file was read — add ${ignored === 1 ? "the other one" : `the other ${ignored}`} separately.`
     );
   }
-  if (failed.length > 0) {
-    parts.push(failed.join(" "));
-  }
-  setStatus(parts.join(" "), failed.length > 0 || differing.length > 0 ? "warning" : "success");
+  setStatus(parts.join(" "), ignored > 0 || parts.length > 1 ? "warning" : "success");
 }
 
 function removePo(id) {

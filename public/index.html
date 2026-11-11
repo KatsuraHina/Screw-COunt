@@ -493,12 +493,12 @@
     <div class="delivery-grid">
       <div class="card">
         <h2 class="section-title">Purchase orders</h2>
-        <p class="hint">Upload the job's POs. Their items become the checklist below — untick anything that isn't going on this run.</p>
+        <p class="hint">Upload the job's POs one at a time. Nothing is on the delivery until you tick it — tick the items going on this run.</p>
 
         <div class="dropzone" id="poDropzone" tabindex="0" role="button" aria-label="Upload purchase order PDFs">
-          <p class="dropzone-text">Drag PO PDFs here, or tap to choose.<br><strong>You can add more than one.</strong></p>
+          <p class="dropzone-text">Drag a PO PDF here, or tap to choose.<br><strong>One at a time — upload again to add another.</strong></p>
         </div>
-        <input id="poFileInput" type="file" accept="application/pdf" multiple hidden>
+        <input id="poFileInput" type="file" accept="application/pdf" hidden>
         <p id="poStatus" class="hint"></p>
 
         <div id="poSheet" class="po-sheet"></div>
@@ -624,7 +624,7 @@
           <h2 class="section-title">Shortage email</h2>
           <button id="copyEmailButton" type="button" class="entry-action">Copy email</button>
         </div>
-        <p class="hint">The items on this delivery are the ones the job goes out without, so they're the list in the email.</p>
+        <p class="hint">The items you tick are the ones the job goes out without, so they're the list in the email.</p>
         <pre id="emailPreview" class="email-preview"></pre>
       </div>
     </div>
