@@ -57,6 +57,10 @@
           <span class="tab-icon" aria-hidden="true">🚚</span>
           <span>Extra delivery</span>
         </button>
+        <button class="tab-button hidden" id="printerTabButton" type="button" data-job-tab="printer" role="tab" aria-selected="false">
+          <span class="tab-icon" aria-hidden="true">📈</span>
+          <span>Printer stats</span>
+        </button>
       </div>
 
       <div class="hero-copy">
@@ -632,6 +636,31 @@
 
     <div class="checklist-wrap">
       <div class="checklist-sheet" id="checklistSheet"></div>
+    </div>
+  </section>
+
+  <section class="printer-panel hidden" id="printerPanel" hidden>
+    <div class="card">
+      <h2 class="section-title">Hourly CSVs</h2>
+      <p class="hint">Each line exports metres run per hour. The night shift starts the evening before, so every line needs the chosen day's file and the day before's.</p>
+
+      <div class="field">
+        <label for="printerDate">Day</label>
+        <input id="printerDate" type="date">
+      </div>
+
+      <div id="printerSlots" class="line-grid"></div>
+      <input id="printerFileInput" type="file" accept=".csv,text/csv" hidden>
+      <p id="printerStatus" class="hint"></p>
+
+      <div class="button-row">
+        <button id="printerClearButton" class="secondary-button" type="button">Clear all files</button>
+      </div>
+    </div>
+
+    <div class="card" id="printerResultsCard">
+      <h2 class="section-title">Who ran what</h2>
+      <div id="printerResults"></div>
     </div>
   </section>
 

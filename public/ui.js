@@ -212,6 +212,14 @@ export function getElements() {
     workerJobsSearchClear: document.getElementById("workerJobsSearchClear"),
     // Extra Delivery Maker
     deliveryPanel: document.getElementById("deliveryPanel"),
+    printerPanel: document.getElementById("printerPanel"),
+    printerTabButton: document.getElementById("printerTabButton"),
+    printerDate: document.getElementById("printerDate"),
+    printerSlots: document.getElementById("printerSlots"),
+    printerFileInput: document.getElementById("printerFileInput"),
+    printerStatus: document.getElementById("printerStatus"),
+    printerResults: document.getElementById("printerResults"),
+    printerClearButton: document.getElementById("printerClearButton"),
     deliveryTabButton: document.getElementById("deliveryTabButton"),
     poDropzone: document.getElementById("poDropzone"),
     poFileInput: document.getElementById("poFileInput"),
@@ -683,13 +691,21 @@ export function renderAdminManagement(elements, admins, superEmail, handlers) {
 // trusses/screw charts entirely.
 // Three views share the page: the logging form, the Charts dashboard and the
 // Extra Delivery Maker. Exactly one is on screen at a time.
-export function toggleWorkersView(elements, showWorkers, showJobHistory, showDelivery = false) {
-  const showForm = !showWorkers && !showDelivery;
+export function toggleWorkersView(
+  elements,
+  showWorkers,
+  showJobHistory,
+  showDelivery = false,
+  showPrinter = false
+) {
+  const showForm = !showWorkers && !showDelivery && !showPrinter;
   elements.contentSection.classList.toggle("hidden", !showForm);
   elements.workerHistoryPanel.classList.toggle("hidden", !showWorkers);
   elements.workerHistoryPanel.hidden = !showWorkers;
   elements.deliveryPanel.classList.toggle("hidden", !showDelivery);
   elements.deliveryPanel.hidden = !showDelivery;
+  elements.printerPanel.classList.toggle("hidden", !showPrinter);
+  elements.printerPanel.hidden = !showPrinter;
   elements.jobHistoryPanel.classList.toggle("hidden", !showJobHistory || !showForm);
 }
 

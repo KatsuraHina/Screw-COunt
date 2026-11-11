@@ -60,6 +60,11 @@ import {
   setExtraDeliveryUser
 } from "./extra-delivery.js";
 import {
+  initPrinterStats,
+  renderPrinterStats,
+  setPrinterStatsUser
+} from "./printer-stats.js";
+import {
   clearHistoryOutputs,
   getElements,
   renderAuthState,
@@ -551,6 +556,17 @@ function renderHistorySection() {
 }
 
 function renderApp() {
+  if (state.activeTab === "printer") {
+    toggleWorkersView(elements, false, false, false, true);
+    setActiveTabButtons(elements, state.activeTab);
+    elements.activeTabLabel.textContent = "Printer stats";
+    elements.tabTitle.textContent = "Printer stats";
+    elements.tabDescription.textContent =
+      "Upload each line's hourly CSV to see how many metres every operator ran, by shift.";
+    renderPrinterStats();
+    return;
+  }
+
   if (state.activeTab === "delivery") {
     toggleWorkersView(elements, false, false, true);
     setActiveTabButtons(elements, state.activeTab);
@@ -2167,6 +2183,7 @@ function handleAuthChanged(user) {
   syncImportsForUser();
   // The Extra Delivery Maker keeps its own per-user draft the same way.
   setExtraDeliveryUser(user?.uid || null);
+  setPrinterStatsUser(user?.uid || null);
 
   // Re-render so admin-specific panel visibility (hidden trusses/screw charts) applies.
   renderApp();
@@ -2190,7 +2207,11 @@ function applyAdminState() {
   renderWorkerAdminVisibility(elements, state.isAdmin, state.isAdmin || isBenchUser());
   // The Extra Delivery Maker is an office job, so it rides with the admin tabs.
   elements.deliveryTabButton.classList.toggle("hidden", !state.isAdmin);
-  if (!state.isAdmin && (state.activeTab === "workers" || state.activeTab === "delivery")) {
+  elements.printerTabButton.classList.toggle("hidden", !state.isAdmin);
+  if (
+    !state.isAdmin &&
+    (state.activeTab === "workers" || state.activeTab === "delivery" || state.activeTab === "printer")
+  ) {
     state.activeTab = "trusses";
   }
 }
@@ -2404,7 +2425,7 @@ function switchTab(nextTab) {
     return;
   }
 
-  if (nextTab === "workers" || nextTab === "delivery") {
+  if (nextTab === "workers" || nextTab === "delivery" || nextTab === "printer") {
     if (!state.isAdmin) {
       return;
     }
@@ -2642,6 +2663,7 @@ function startLiveUpdates() {
 function init() {
   bindEvents();
   initExtraDelivery(elements);
+  initPrinterStats(elements);
   // Imports are restored per-user once auth resolves (see syncImportsForUser),
   // so nothing is loaded here.
   renderAuthState(elements, null);
