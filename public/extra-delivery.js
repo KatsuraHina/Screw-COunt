@@ -22,6 +22,12 @@ const STORE_PREFIX = "screwcount.extraDelivery.";
 let elements = {};
 let userKey = "anon";
 
+// The places a job gets delivered to, and who picks the work up. Both are
+// chosen from a list so the spreadsheet column stays consistent.
+export const REGIONS = ["EAST", "WEST", "NOR", "SOR"];
+export const ACTION_AREAS = ["Weld bay", "Steel bay", "TL"];
+export const SHIFTS = ["Night shift", "Morning shift", "Afternoon shift"];
+
 // Load specifications and the truck boxes are deliberately absent here: the
 // form carries them so they can be written on the printed sheet, and the app
 // never asks anyone to type them.
@@ -31,8 +37,18 @@ const emptyDelivery = () => ({
   jobNumber: "",
   supervisorContact: "",
   actionedBy: "",
-  signage: false,
-  materials: false,
+  // For the spreadsheet row and the shortage email.
+  region: "",
+  deliveryDate: "",
+  toBeActionedBy: [],
+  trafficLight: "",
+  reason: "",
+  racksChecked: true,
+  substitutionConsidered: true,
+  superNotified: true,
+  trafficLightsUpdated: true,
+  yourName: "",
+  shift: SHIFTS[0],
   // [{ id, poNumber, orderDate, items: [{ id, description, details, quantity, unit, include }] }]
   pos: []
 });
@@ -327,8 +343,49 @@ function renderFields() {
   f.deliveryJobNumber.value = delivery.jobNumber;
   f.deliverySupervisor.value = delivery.supervisorContact;
   f.deliveryActionedBy.value = delivery.actionedBy;
-  f.deliverySignage.checked = delivery.signage;
-  f.deliveryMaterials.checked = delivery.materials;
+  f.deliveryRegion.value = delivery.region;
+  f.deliveryDate.value = delivery.deliveryDate;
+  f.deliveryTrafficLight.value = delivery.trafficLight;
+  f.deliveryReason.value = delivery.reason;
+  f.deliveryYourName.value = delivery.yourName;
+  f.deliveryShift.value = delivery.shift;
+  f.racksChecked.checked = delivery.racksChecked;
+  f.substitutionConsidered.checked = delivery.substitutionConsidered;
+  f.superNotified.checked = delivery.superNotified;
+  f.trafficLightsUpdated.checked = delivery.trafficLightsUpdated;
+  f.actionAreaInputs.forEach((input) => {
+    input.checked = delivery.toBeActionedBy.includes(input.value);
+  });
+}
+
+// What each cell of the row is, left to right. Two of these columns have no
+// header in the sheet itself; they're named here so the row can be checked
+// against it before pasting.
+const ROW_COLUMNS = [
+  "DATE",
+  "AREA",
+  "MANIFEST MADE",
+  "ADDRESS",
+  "SUBURB",
+  "JOB NUMBER",
+  "SUPERVISOR",
+  "ITEMS",
+  "TO BE ACTIONED BY",
+  "TRAFFIC LIGHT"
+];
+
+// The two copy-outs are shown as they will be pasted, so what you see is what
+// lands in the sheet or the email. The row stays on one line — it is one row —
+// and scrolls sideways rather than wrapping into something that looks like two.
+function renderOutputs() {
+  const cells = spreadsheetRow();
+  elements.rowPreview.innerHTML =
+    `<table class="row-table"><tr>` +
+    ROW_COLUMNS.map((name) => `<th>${escapeHtml(name)}</th>`).join("") +
+    `</tr><tr>` +
+    cells.map((cell) => `<td>${escapeHtml(cell) || "&nbsp;"}</td>`).join("") +
+    `</tr></table>`;
+  elements.emailPreview.textContent = shortageEmailText();
 }
 
 // The paper form holds nine item rows, so that is a sheet's worth when the
@@ -501,12 +558,6 @@ function renderSheet(items, pageNo, pageCount, { padTo = ITEMS_PER_SHEET } = {})
     `</div>` +
     `<div class="cl-blocks">` +
     specBlock("Load specifications", ["Weight:", "Length:", "Width:"]) +
-    `<div class="cl-block">` +
-    `<div class="cl-block-head">Site pictures</div>` +
-    `<div class="cl-block-row"><span>Signage</span><span class="cl-tick">${delivery.signage ? "✔" : ""}</span></div>` +
-    `<div class="cl-block-row"><span>Materials</span><span class="cl-tick">${delivery.materials ? "✔" : ""}</span></div>` +
-    `<div class="cl-block-row"><span></span><span></span></div>` +
-    `</div>` +
     `</div>` +
     `<div class="cl-blocks">` +
     specBlock("Iveco", ["Max weight:", "Max length:", "Max width:"]) +
@@ -553,37 +604,141 @@ export function renderExtraDelivery() {
   renderFields();
   renderPoSheet();
   renderChecklist();
+  renderOutputs();
 }
 
-// --- Email ------------------------------------------------------------------
+// --- Spreadsheet row and the shortage email ----------------------------------
 
-function checklistAsText() {
-  const lines = [
-    "Extra Deliveries checklist",
-    "",
-    `Address: ${delivery.address}`,
-    `Suburb: ${delivery.suburb}`,
-    `Job number: ${delivery.jobNumber}`,
-    `Supervisor contact: ${delivery.supervisorContact}`,
-    `Actioned by: ${delivery.actionedBy}`,
-    "",
-    "Items:"
-  ];
-  includedItems().forEach((item) => {
-    lines.push(
-      `  - ${item.description}${item.details ? ` (${item.details})` : ""} — ${item.quantity} ${item.unit || ""}`.trimEnd()
-    );
-  });
-  lines.push("");
-  lines.push(`Site pictures: signage ${delivery.signage ? "yes" : "no"}, materials ${delivery.materials ? "yes" : "no"}`);
-  lines.push("Load specifications and truck limits: see the printed sheet.");
-  const pos = delivery.pos.map((po) => po.poNumber).join(", ");
-  if (pos) {
-    lines.push(`POs: ${pos}`);
+// "Mick Malaluan" -> "MM". The spreadsheet's first two columns are built from
+// the initials rather than asked for twice.
+export function initialsOf(name) {
+  return String(name ?? "")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((part) => part[0].toUpperCase())
+    .join("");
+}
+
+// The spreadsheet writes dates as day/month.
+export function shortDate(value) {
+  const match = String(value ?? "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) {
+    return String(value ?? "");
   }
-  return lines.join("\n");
+  return `${Number(match[3])}/${Number(match[2])}`;
 }
 
+// One item as it reads in the spreadsheet's items cell and in the email: the
+// description with its PO detail lines under it.
+function itemLines(item) {
+  const detail = String(item.details ?? "").trim();
+  return [item.description, ...(detail ? detail.split(" · ") : [])].filter(Boolean);
+}
+
+// The row to paste into the tracking sheet, in its column order:
+// DATE · region · MANIFEST MADE · ADDRESS · SUBURB · JOB NUMBER · supervisor ·
+// items · TO BE ACTIONED BY · Traffic light.
+export function spreadsheetRow() {
+  const initials = initialsOf(delivery.yourName);
+  const date = [initials, shortDate(delivery.deliveryDate)].filter(Boolean).join(" ");
+  const items = includedItems().flatMap(itemLines).join("\n");
+
+  return [
+    date,
+    delivery.region,
+    initials ? `DOCKET MAKE ${initials}` : "DOCKET MAKE",
+    delivery.address,
+    delivery.suburb,
+    delivery.jobNumber,
+    delivery.supervisorContact,
+    items,
+    delivery.toBeActionedBy.join(" "),
+    delivery.trafficLight
+  ];
+}
+
+// Tab-separated, which is what a spreadsheet takes from the clipboard. A cell
+// holding more than one line is wrapped in quotes, or the sheet would spread it
+// down the column instead of keeping it in the one cell.
+export function rowAsTsv(cells) {
+  return cells
+    .map((cell) => {
+      const text = String(cell ?? "");
+      return /[\t\n"]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+    })
+    .join("\t");
+}
+
+const yn = (value) => (value ? "Y" : "N");
+
+// The shortage notice. The items on an extra delivery are the ones the job is
+// going out without, so the ticked items are what this email lists.
+export function shortageEmailText() {
+  const items = includedItems().flatMap(itemLines).join("\n");
+  return [
+    `JOB NUMBER: ${delivery.jobNumber}`,
+    "",
+    `SUBURB: ${delivery.suburb}`,
+    "",
+    `DELIVERY DATE: ${shortDate(delivery.deliveryDate)}`,
+    "",
+    delivery.reason,
+    "",
+    `RACKS AND YARD CHECKED: ${yn(delivery.racksChecked)}`,
+    "",
+    `SUBSTITUTION CONSIDERED: ${yn(delivery.substitutionConsidered)}`,
+    "",
+    `SUPER TL/NOTIFIED: ${yn(delivery.superNotified)}`,
+    "",
+    `TRAFFIC LIGHTS UPDATED: ${yn(delivery.trafficLightsUpdated)}`,
+    "",
+    "The job will be delivered without the following items",
+    "",
+    items,
+    "",
+    `YOUR NAME: ${delivery.yourName}`,
+    "",
+    `SHIFT: ${delivery.shift}`
+  ].join("\n");
+}
+
+// Clipboard access needs a secure context and can be refused, so fall back to
+// a hidden textarea rather than failing silently.
+async function copyText(text) {
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch {
+    // fall through
+  }
+  try {
+    const area = document.createElement("textarea");
+    area.value = text;
+    area.setAttribute("readonly", "");
+    area.style.cssText = "position:absolute;left:-10000px;top:0;";
+    document.body.appendChild(area);
+    area.select();
+    const ok = document.execCommand("copy");
+    area.remove();
+    return ok;
+  } catch {
+    return false;
+  }
+}
+
+function flash(button, message) {
+  const original = button.dataset.label || button.textContent;
+  button.dataset.label = original;
+  button.textContent = message;
+  window.setTimeout(() => {
+    button.textContent = button.dataset.label || original;
+  }, 1800);
+}
+
+// Opens a draft of the shortage notice to the checklist's recipients.
 function openEmail() {
   const subjectBits = ["Extra Delivery"];
   if (delivery.jobNumber) subjectBits.push(`Job ${delivery.jobNumber}`);
@@ -592,7 +747,7 @@ function openEmail() {
     `mailto:${encodeURIComponent(CHECKLIST_TO)}` +
     `?cc=${encodeURIComponent(CHECKLIST_CC.join(","))}` +
     `&subject=${encodeURIComponent(subjectBits.join(" — "))}` +
-    `&body=${encodeURIComponent(checklistAsText())}`;
+    `&body=${encodeURIComponent(shortageEmailText())}`;
   window.location.href = url;
 }
 
@@ -606,6 +761,7 @@ function bindField(el, apply) {
     apply(el.type === "checkbox" ? el.checked : el.value);
     persist();
     renderChecklist();
+    renderOutputs();
   };
   el.addEventListener("input", handler);
   el.addEventListener("change", handler);
@@ -647,8 +803,37 @@ export function initExtraDelivery(els) {
   bindField(elements.deliveryJobNumber, (v) => { delivery.jobNumber = v; });
   bindField(elements.deliverySupervisor, (v) => { delivery.supervisorContact = v; });
   bindField(elements.deliveryActionedBy, (v) => { delivery.actionedBy = v; });
-  bindField(elements.deliverySignage, (v) => { delivery.signage = v; });
-  bindField(elements.deliveryMaterials, (v) => { delivery.materials = v; });
+  bindField(elements.deliveryRegion, (v) => { delivery.region = v; });
+  bindField(elements.deliveryDate, (v) => { delivery.deliveryDate = v; });
+  bindField(elements.deliveryTrafficLight, (v) => { delivery.trafficLight = v; });
+  bindField(elements.deliveryReason, (v) => { delivery.reason = v; });
+  bindField(elements.deliveryYourName, (v) => { delivery.yourName = v; });
+  bindField(elements.deliveryShift, (v) => { delivery.shift = v; });
+  bindField(elements.racksChecked, (v) => { delivery.racksChecked = v; });
+  bindField(elements.substitutionConsidered, (v) => { delivery.substitutionConsidered = v; });
+  bindField(elements.superNotified, (v) => { delivery.superNotified = v; });
+  bindField(elements.trafficLightsUpdated, (v) => { delivery.trafficLightsUpdated = v; });
+
+  // "To be actioned by" can be more than one bay, so it's a set of ticks kept
+  // in the order the list shows them.
+  elements.actionAreaInputs.forEach((input) => {
+    input.addEventListener("change", () => {
+      delivery.toBeActionedBy = elements.actionAreaInputs
+        .filter((box) => box.checked)
+        .map((box) => box.value);
+      persist();
+      renderOutputs();
+    });
+  });
+
+  elements.copyRowButton.addEventListener("click", async () => {
+    const ok = await copyText(rowAsTsv(spreadsheetRow()));
+    flash(elements.copyRowButton, ok ? "Copied ✓" : "Couldn't copy");
+  });
+  elements.copyEmailButton.addEventListener("click", async () => {
+    const ok = await copyText(shortageEmailText());
+    flash(elements.copyEmailButton, ok ? "Copied ✓" : "Couldn't copy");
+  });
 
   elements.deliveryPrintButton.addEventListener("click", () => window.print());
   elements.deliveryEmailButton.addEventListener("click", openEmail);

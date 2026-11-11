@@ -533,10 +533,68 @@
         </div>
         <p class="hint">The PO doesn't say who the site supervisor is, so these two are entered by hand. Leave them blank to print the checklist with space to write them in.</p>
 
-        <h3 class="section-subtitle">Site pictures</h3>
+        <h3 class="section-subtitle">Tracking sheet &amp; email</h3>
+        <div class="field-grid">
+          <div class="field">
+            <label for="deliveryRegion">Delivering to</label>
+            <select id="deliveryRegion">
+              <option value="">Choose…</option>
+              <option value="EAST">EAST</option>
+              <option value="WEST">WEST</option>
+              <option value="NOR">NOR</option>
+              <option value="SOR">SOR</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="deliveryDate">Delivery date</label>
+            <input id="deliveryDate" type="date">
+          </div>
+        </div>
+
+        <div class="field">
+          <label id="actionAreaLabel">To be actioned by</label>
+          <div class="breaks" role="group" aria-labelledby="actionAreaLabel">
+            <label class="break-option"><input class="action-area" type="checkbox" value="Weld bay"><span>Weld bay</span></label>
+            <label class="break-option"><input class="action-area" type="checkbox" value="Steel bay"><span>Steel bay</span></label>
+            <label class="break-option"><input class="action-area" type="checkbox" value="TL"><span>TL</span></label>
+          </div>
+        </div>
+
+        <div class="field-grid">
+          <div class="field">
+            <label for="deliveryTrafficLight">Traffic light</label>
+            <select id="deliveryTrafficLight">
+              <option value="">Choose…</option>
+              <option value="Yes">Yes</option>
+              <option value="No">No</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="deliveryShift">Shift</label>
+            <select id="deliveryShift">
+              <option value="Night shift">Night shift</option>
+              <option value="Morning shift">Morning shift</option>
+              <option value="Afternoon shift">Afternoon shift</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="deliveryYourName">Your name</label>
+          <input id="deliveryYourName" type="text" autocomplete="off" placeholder="Mick Malaluan">
+          <p class="hint">Your initials and the delivery date fill the sheet's first two columns.</p>
+        </div>
+
+        <div class="field">
+          <label for="deliveryReason">Reason</label>
+          <textarea id="deliveryReason" rows="2" placeholder="Why the job is going out short"></textarea>
+        </div>
+
         <div class="breaks">
-          <label class="break-option"><input id="deliverySignage" type="checkbox"><span>Signage</span></label>
-          <label class="break-option"><input id="deliveryMaterials" type="checkbox"><span>Materials</span></label>
+          <label class="break-option"><input id="racksChecked" type="checkbox"><span>Racks and yard checked</span></label>
+          <label class="break-option"><input id="substitutionConsidered" type="checkbox"><span>Substitution considered</span></label>
+          <label class="break-option"><input id="superNotified" type="checkbox"><span>Super TL notified</span></label>
+          <label class="break-option"><input id="trafficLightsUpdated" type="checkbox"><span>Traffic lights updated</span></label>
         </div>
 
         <p class="hint">Load specifications and the Iveco / Hino limits stay on the printed sheet as blank boxes — write them in by hand.</p>
@@ -548,6 +606,26 @@
         <div class="button-row">
           <button id="deliveryClearButton" class="secondary-button" type="button">Clear delivery</button>
         </div>
+      </div>
+    </div>
+
+    <div class="copyouts">
+      <div class="card">
+        <div class="copyout-head">
+          <h2 class="section-title">Row for the tracking sheet</h2>
+          <button id="copyRowButton" type="button" class="entry-action">Copy row</button>
+        </div>
+        <p class="hint">Copies one row, tab separated. Click the first cell of an empty row in the sheet and paste.</p>
+        <div id="rowPreview" class="row-preview"></div>
+      </div>
+
+      <div class="card">
+        <div class="copyout-head">
+          <h2 class="section-title">Shortage email</h2>
+          <button id="copyEmailButton" type="button" class="entry-action">Copy email</button>
+        </div>
+        <p class="hint">The items on this delivery are the ones the job goes out without, so they're the list in the email.</p>
+        <pre id="emailPreview" class="email-preview"></pre>
       </div>
     </div>
 

@@ -1315,6 +1315,102 @@ button:focus-visible { outline: 3px solid var(--hivis); outline-offset: 2px; }
   color: var(--muted);
 }
 
+/* --- Copy-outs: the tracking-sheet row and the shortage email --- */
+
+.copyouts {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 20px;
+}
+
+@media (min-width: 1080px) {
+  .copyouts { grid-template-columns: 1fr 1fr; }
+}
+
+/* min-width:0 so the wide row table scrolls inside its card instead of
+   stretching the column and squeezing the email beside it. */
+.copyouts .card { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+
+.copyout-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+/* The row shown cell by cell, in the sheet's column order, so it can be checked
+   against the spreadsheet before pasting. */
+.row-preview {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow-x: auto;
+}
+
+.row-table { border-collapse: collapse; }
+
+.row-table th,
+.row-table td {
+  min-width: 112px;
+  max-width: 230px;
+  padding: 7px 10px;
+  border-right: 1px solid var(--border);
+  text-align: left;
+  vertical-align: top;
+  font-family: var(--font-data);
+  font-size: 0.76rem;
+  font-weight: 400;
+  white-space: pre-line;
+  word-break: break-word;
+}
+
+.row-table th {
+  position: sticky;
+  top: 0;
+  background: var(--panel-strong);
+  border-bottom: 1px solid var(--border);
+  font-family: var(--font-ui);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.row-table td { background: var(--steel-850); color: var(--text); }
+
+.row-table th:last-child,
+.row-table td:last-child { border-right: none; }
+
+.email-preview {
+  margin: 0;
+  padding: 12px 14px;
+  max-height: 420px;
+  overflow: auto;
+  background: var(--steel-850);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-data);
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: var(--text);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.copyouts textarea,
+.delivery-grid textarea {
+  width: 100%;
+  padding: 10px 12px;
+  background: var(--panel-strong);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.95rem;
+  resize: vertical;
+}
+
 /* --- The checklist itself ---
    This is a copy of the company's paper form, so it is deliberately NOT themed:
    black on white with the brand red headers in both night and morning mode, and
@@ -1523,7 +1619,8 @@ button:focus-visible { outline: 3px solid var(--hivis); outline-offset: 2px; }
 
   .delivery-panel { width: 100%; gap: 0; }
 
-  .delivery-grid { display: none !important; }
+  .delivery-grid,
+  .copyouts { display: none !important; }
 
   .checklist-wrap { display: block; }
 
