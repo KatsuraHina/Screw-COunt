@@ -4,6 +4,7 @@
 // Everything here is plain data in, sheet definitions out, so the numbers can
 // be checked without a browser.
 
+import { SHIFT_BANDS } from "./printer-stats.js";
 import { downloadXlsx } from "./xlsx.js";
 
 const SHIFT_LABELS = { morning: "Morning", afternoon: "Afternoon", night: "Night" };
@@ -170,7 +171,7 @@ function printerSheet(printer) {
   const block = (title, entries) => {
     rows.push([]);
     bold.push(rows.length);
-    rows.push([title, "Night", "Morning", "Afternoon", "Total"]);
+    rows.push([title, ...SHIFT_BANDS.map((band) => band.label), "Total"]);
     entries.forEach((entry) => rows.push([entry.name, ...entry.values, entry.total]));
     bold.push(rows.length);
     rows.push(["All", ...shiftTotals, grand]);

@@ -2,32 +2,39 @@
 // totals for each shift.
 //
 // Each line (E1–E5) exports a CSV of metres run per hour per operator. A shift
-// is read off the hour band, and because the night shift starts the evening
-// before, each line needs two days of CSV: the night is the previous day's last
-// two hours plus the chosen day's first six.
+// is read off the hour band and belongs to the day it starts on, so a day's
+// night shift runs past midnight: each line needs two days of CSV, the chosen
+// day's last two hours plus the next day's first six.
 
 export const LINES = ["E1", "E2", "E3", "E4", "E5"];
 
 // Whole-hour shift bands, so every row of the CSV lands in exactly one shift
 // and the totals reconcile against the file. (The job log's own shifts change
 // at 5:45 and 1:30; these are rounded to the hour to match the data.)
+// In the order the day runs, now that a day's night is the one that starts
+// that evening: morning, afternoon, then night out the other side of midnight.
 export const SHIFT_BANDS = [
-  { key: "night", label: "Night", hint: "10pm–6am" },
   { key: "morning", label: "Morning", hint: "6am–2pm" },
-  { key: "afternoon", label: "Afternoon", hint: "2pm–10pm" }
+  { key: "afternoon", label: "Afternoon", hint: "2pm–10pm" },
+  { key: "night", label: "Night", hint: "10pm–6am" }
 ];
 
-// Which shift an hour belongs to. `fromPreviousDay` marks rows read out of the
-// day-before's file: only its last two hours count, as the start of the night.
-export function shiftForHour(hour, fromPreviousDay) {
+// Which shift an hour belongs to. A shift belongs to the day it starts on, the
+// same way the job log dates one: the night shift of the 12th runs 10pm on the
+// 12th through 6am on the 13th. `fromNextDay` marks rows read out of the
+// following day's file, where only the first six hours count — they are the
+// tail of this day's night.
+export function shiftForHour(hour, fromNextDay) {
   if (!Number.isInteger(hour) || hour < 0 || hour > 23) {
     return null;
   }
-  if (fromPreviousDay) {
-    return hour >= 22 ? "night" : null;
+  if (fromNextDay) {
+    return hour < 6 ? "night" : null;
   }
+  // Before 6am on the chosen day is the tail of the PREVIOUS day's night, and
+  // belongs to that day's report.
   if (hour < 6) {
-    return "night";
+    return null;
   }
   if (hour < 14) {
     return "morning";
@@ -35,8 +42,7 @@ export function shiftForHour(hour, fromPreviousDay) {
   if (hour < 22) {
     return "afternoon";
   }
-  // The chosen day's own evening belongs to the next day's night shift.
-  return null;
+  return "night";
 }
 
 // Splits one CSV line, honouring quoted fields so a name with a comma survives.
@@ -129,7 +135,7 @@ export function parseMetersCsv(text) {
 }
 
 // Roll the loaded files up into per-operator and per-line totals for each shift.
-// `files` is { E1: { previous: rows|null, day: rows|null }, … }.
+// `files` is { E1: { day: rows|null, next: rows|null }, … }.
 export function summarise(files) {
   const operators = new Map();
   const lines = new Map();
@@ -141,15 +147,15 @@ export function summarise(files) {
   LINES.forEach((line) => {
     const slots = files[line] || {};
     [
-      ["previous", true],
-      ["day", false]
-    ].forEach(([slot, fromPreviousDay]) => {
+      ["day", false],
+      ["next", true]
+    ].forEach(([slot, fromNextDay]) => {
       const rows = slots[slot];
       if (!Array.isArray(rows)) {
         return;
       }
       rows.forEach((row) => {
-        const shift = shiftForHour(row.hour, fromPreviousDay);
+        const shift = shiftForHour(row.hour, fromNextDay);
         if (!shift) {
           return;
         }
@@ -194,8 +200,8 @@ let pendingSlot = null;
 
 const emptyState = () => ({
   workDate: "",
-  // { E1: { previous: {name, rows} | null, day: {name, rows} | null }, … }
-  files: Object.fromEntries(LINES.map((line) => [line, { previous: null, day: null }]))
+  // { E1: { day: {name, rows} | null, next: {name, rows} | null }, … }
+  files: Object.fromEntries(LINES.map((line) => [line, { day: null, next: null }]))
 });
 
 let state = emptyState();
@@ -230,7 +236,7 @@ function restore() {
       if (!slot) {
         return;
       }
-      ["previous", "day"].forEach((key) => {
+      ["day", "next"].forEach((key) => {
         const entry = slot[key];
         if (entry && Array.isArray(entry.rows)) {
           state.files[line][key] = { name: String(entry.name ?? ""), rows: entry.rows };
@@ -249,8 +255,8 @@ function rowsByLine() {
     LINES.map((line) => [
       line,
       {
-        previous: state.files[line].previous?.rows ?? null,
-        day: state.files[line].day?.rows ?? null
+        day: state.files[line].day?.rows ?? null,
+        next: state.files[line].next?.rows ?? null
       }
     ])
   );
@@ -261,10 +267,10 @@ function rowsByLine() {
 export function getPrinterSnapshot() {
   const files = [];
   LINES.forEach((line) => {
-    ["previous", "day"].forEach((slot) => {
+    ["day", "next"].forEach((slot) => {
       const loaded = state.files[line]?.[slot];
       if (loaded) {
-        files.push(`${line} · ${slot === "previous" ? "day before" : "chosen day"} · ${loaded.name}`);
+        files.push(`${line} · ${slot === "day" ? "chosen day" : "next day"} · ${loaded.name}`);
       }
     });
   });
@@ -292,14 +298,14 @@ function escapeHtml(value) {
 const fmt = (metres) =>
   metres.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 
-// The day before the chosen one, as YYYY-MM-DD.
-export function previousDay(dateKey) {
+// The day after the chosen one, as YYYY-MM-DD — where the night shift finishes.
+export function nextDay(dateKey) {
   const match = String(dateKey ?? "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
   if (!match) {
     return "";
   }
   const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
-  date.setDate(date.getDate() - 1);
+  date.setDate(date.getDate() + 1);
   const pad = (n) => String(n).padStart(2, "0");
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 }
@@ -328,7 +334,7 @@ async function loadFile(file, line, slot) {
     state.files[line][slot] = { name: file.name, rows };
     persist();
     renderPrinterStats();
-    const kept = rows.filter((row) => shiftForHour(row.hour, slot === "previous")).length;
+    const kept = rows.filter((row) => shiftForHour(row.hour, slot === "next")).length;
     setStatus(
       `${line} · ${file.name}: ${rows.length} hourly rows, ${kept} counted toward this day.`,
       "success"
@@ -346,7 +352,7 @@ function clearSlot(line, slot) {
 }
 
 function renderSlots() {
-  const prevKey = previousDay(state.workDate);
+  const nextKey = nextDay(state.workDate);
   const wrap = elements.printerSlots;
   wrap.innerHTML = "";
 
@@ -361,8 +367,8 @@ function renderSlots() {
 
     // Each line takes two days: the night shift starts on the one before.
     [
-      ["previous", prevKey],
-      ["day", state.workDate]
+      ["day", state.workDate],
+      ["next", nextKey]
     ].forEach(([slot, dateKey]) => {
       const loaded = state.files[line][slot];
       const box = document.createElement("div");
@@ -370,7 +376,7 @@ function renderSlots() {
 
       const label = document.createElement("div");
       label.className = "line-slot-label";
-      label.textContent = dateKey ? dayLabel(dateKey) : slot === "previous" ? "Day before" : "Chosen day";
+      label.textContent = dateKey ? dayLabel(dateKey) : slot === "day" ? "Chosen day" : "Next day";
 
       // Only the loaded file's name goes here; an empty slot says it with the
       // date above and the button below.
@@ -435,7 +441,7 @@ function table(caption, rows, firstHeading, totals, grand) {
 
 function renderResults() {
   const loadedCount = LINES.reduce(
-    (sum, line) => sum + (state.files[line].previous ? 1 : 0) + (state.files[line].day ? 1 : 0),
+    (sum, line) => sum + (state.files[line].day ? 1 : 0) + (state.files[line].next ? 1 : 0),
     0
   );
 
