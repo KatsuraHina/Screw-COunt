@@ -383,7 +383,6 @@ export function renderSteelBay() {
   if (elements.steelBayCutBy) {
     elements.steelBayCutBy.disabled = !canEdit;
   }
-  elements.steelBayAddRow.classList.toggle("hidden", !canEdit);
   elements.steelBayClearButton.classList.toggle("hidden", !canEdit);
 
   const sums = totals(sheet.rows);
@@ -399,7 +398,7 @@ export function renderSteelBay() {
     `<tbody>` +
     sheet.rows
       .map(
-        (row) =>
+        (row, index) =>
           `<tr data-sb-row-id="${row.id}">` +
           FIELDS.map(
             (f) =>
@@ -413,7 +412,9 @@ export function renderSteelBay() {
               `</td>`
           ).join("") +
           `<td class="sb-cell sb-cell-actions">` +
-          (canEdit
+          // The empty row at the bottom is the one waiting to be typed into,
+          // not a row to delete.
+          (canEdit && !(index === sheet.rows.length - 1 && !isRowFilled(row))
             ? `<button type="button" class="entry-remove sb-remove" data-sb-remove="${row.id}" aria-label="Remove row">×</button>`
             : "") +
           `</td>` +
@@ -543,7 +544,10 @@ function addRow(focusField) {
 
 function removeRow(id) {
   sheet.rows = sheet.rows.filter((row) => row.id !== id);
-  if (sheet.rows.length === 0) {
+  const last = sheet.rows[sheet.rows.length - 1];
+  // Deleting the blank row at the bottom, or the only row, leaves nothing to
+  // type into — put one back.
+  if (!last || isRowFilled(last)) {
     sheet.rows.push(emptyRow());
   }
   renderSteelBay();
@@ -614,8 +618,6 @@ export function initSteelBay(els) {
     sheet.cutBy = elements.steelBayCutBy.value;
     scheduleSave();
   });
-
-  elements.steelBayAddRow.addEventListener("click", () => addRow("jobNumber"));
 
   elements.steelBayCopyButton.addEventListener("click", async () => {
     const ok = await copyText(sheetAsTsv());

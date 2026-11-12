@@ -2114,16 +2114,12 @@ button:focus-visible { outline: 3px solid var(--hivis); outline-offset: 2px; }
   box-shadow: 0 10px 22px rgba(201, 132, 7, 0.22);
 }
 
-/* The steel bay's tile sits on its own row, wide rather than square, so it
-   reads as a different kind of login from the numbered benches. */
-.bench-grid-wide {
-  grid-template-columns: 1fr;
-}
-
-.bench-tile-wide {
-  aspect-ratio: auto;
-  padding: 14px 0;
-  letter-spacing: 0.12em;
+/* The steel bay's tile sits in the grid after bench 19. Same size as a bench,
+   lettered rather than numbered, so it is obvious it isn't bench 20. */
+.bench-tile-sb {
+  font-size: 1.1rem;
+  letter-spacing: 0.08em;
+  border-style: dashed;
 }
 
 /* Small text link to swap between the bench picker and the admin login. */

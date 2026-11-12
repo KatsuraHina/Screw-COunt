@@ -13,7 +13,6 @@ const elements = {
   themeToggle: document.getElementById("themeToggle"),
   benchPanel: document.getElementById("benchPanel"),
   benchGrid: document.getElementById("benchGrid"),
-  steelBayTile: document.getElementById("steelBayTile"),
   adminPanel: document.getElementById("adminPanel"),
   showAdminLogin: document.getElementById("showAdminLogin"),
   showBenchPicker: document.getElementById("showBenchPicker"),
@@ -52,17 +51,28 @@ function redirectToCalculator() {
   window.location.href = "./index.html";
 }
 
-// Build the tappable bench grid (1–19). Each button signs in as that bench.
+// Build the tappable bench grid (1–19), with the steel bay's own tile last.
+// Each button signs in as that bench, or as the bay.
 function renderBenchGrid() {
   BENCH_NUMBERS.forEach((bench) => {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "bench-tile";
-    button.textContent = String(bench);
-    button.setAttribute("aria-label", `Bench ${bench}`);
-    button.addEventListener("click", () => handleBenchPick(bench));
-    elements.benchGrid.appendChild(button);
+    elements.benchGrid.appendChild(
+      benchTile(String(bench), `Bench ${bench}`, () => handleBenchPick(bench))
+    );
   });
+  const steelBay = benchTile("SB", "Steel bay", handleSteelBayPick);
+  steelBay.id = "steelBayTile";
+  steelBay.classList.add("bench-tile-sb");
+  elements.benchGrid.appendChild(steelBay);
+}
+
+function benchTile(label, ariaLabel, onPick) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "bench-tile";
+  button.textContent = label;
+  button.setAttribute("aria-label", ariaLabel);
+  button.addEventListener("click", onPick);
+  return button;
 }
 
 async function handleBenchPick(bench) {
@@ -147,7 +157,6 @@ async function handleCreateAccount() {
 
 function bindEvents() {
   bindThemeToggle(elements.themeToggle);
-  elements.steelBayTile.addEventListener("click", handleSteelBayPick);
   elements.showAdminLogin.addEventListener("click", () => showAdminPanel(true));
   elements.showBenchPicker.addEventListener("click", () => showAdminPanel(false));
   elements.loginButton.addEventListener("click", handleLogin);

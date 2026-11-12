@@ -230,7 +230,6 @@ export function getElements() {
     steelBayTable: document.getElementById("steelBayTable"),
     steelBayStatus: document.getElementById("steelBayStatus"),
     steelBayDays: document.getElementById("steelBayDays"),
-    steelBayAddRow: document.getElementById("steelBayAddRow"),
     steelBayCopyButton: document.getElementById("steelBayCopyButton"),
     steelBayClearButton: document.getElementById("steelBayClearButton"),
     logTabButton: document.getElementById("logTabButton"),
