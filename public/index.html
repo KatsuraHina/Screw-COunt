@@ -98,7 +98,6 @@
             <details class="worker-manage hidden" id="adminManage">
               <summary>Manage admins</summary>
               <div class="worker-manage-body">
-                <p class="hint">Admins can log jobs, manage workers, and see the charts. They share the same data as you.</p>
                 <div class="worker-add-row">
                   <input id="adminEmailInput" type="text" placeholder="Add admin by username" autocomplete="off" autocapitalize="none" spellcheck="false">
                   <button id="addAdminButton" type="button">Add</button>
@@ -501,7 +500,6 @@
     <div class="delivery-grid">
       <div class="card">
         <h2 class="section-title">Purchase orders</h2>
-        <p class="hint">Upload the job's POs one at a time. Nothing is on the delivery until you tick it — tick the items going on this run.</p>
 
         <div class="dropzone" id="poDropzone" tabindex="0" role="button" aria-label="Upload purchase order PDFs">
           <p class="dropzone-text">Drag a PO PDF here, or tap to choose.<br><strong>One at a time — upload again to add another.</strong></p>
@@ -539,7 +537,7 @@
             <input id="deliveryActionedBy" type="text" autocomplete="off" placeholder="Name">
           </div>
         </div>
-        <p class="hint">The PO doesn't say who the site supervisor is, so these two are entered by hand. Leave them blank to print the checklist with space to write them in.</p>
+        <p class="hint">Entered by hand. Leave blank to print space to write them in.</p>
 
         <h3 class="section-subtitle">Tracking sheet &amp; email</h3>
         <div class="field-grid">
@@ -590,7 +588,6 @@
         <div class="field">
           <label for="deliveryYourName">Your name</label>
           <input id="deliveryYourName" type="text" autocomplete="off" placeholder="Mick Malaluan">
-          <p class="hint">Your initials and the delivery date fill the sheet's first two columns.</p>
         </div>
 
         <div class="field">
@@ -605,13 +602,12 @@
           <label class="break-option"><input id="trafficLightsUpdated" type="checkbox"><span>Traffic lights updated</span></label>
         </div>
 
-        <p class="hint">Load specifications and the Iveco / Hino limits stay on the printed sheet as blank boxes — write them in by hand.</p>
 
         <div class="button-row">
           <button id="deliveryPrintButton" type="button">Print / Save as PDF</button>
           <button id="deliveryEmailButton" class="secondary-button" type="button">Email…</button>
         </div>
-        <p class="hint">If the date, page title and web address still print along the edges, untick "Headers and footers" under More settings in the print box.</p>
+        <p class="hint">Still printing the date and web address along the edges? Untick "Headers and footers" in the print box.</p>
         <div class="button-row">
           <button id="deliveryClearButton" class="secondary-button" type="button">Clear delivery</button>
         </div>
@@ -624,7 +620,7 @@
           <h2 class="section-title">Row for the tracking sheet</h2>
           <button id="copyRowButton" type="button" class="entry-action">Copy row</button>
         </div>
-        <p class="hint">Copies one row, tab separated. Click the first cell of an empty row in the sheet and paste.</p>
+        <p class="hint">Tab separated — paste into the first cell of an empty row.</p>
         <div id="rowPreview" class="row-preview"></div>
       </div>
 
@@ -633,7 +629,6 @@
           <h2 class="section-title">Shortage email</h2>
           <button id="copyEmailButton" type="button" class="entry-action">Copy email</button>
         </div>
-        <p class="hint">The items you tick are the ones the job goes out without, so they're the list in the email.</p>
         <pre id="emailPreview" class="email-preview"></pre>
       </div>
     </div>
@@ -646,7 +641,6 @@
   <section class="printer-panel hidden" id="printerPanel" hidden>
     <div class="card">
       <h2 class="section-title">Hourly CSVs</h2>
-      <p class="hint">Each line exports metres run per hour. The night shift starts the evening before, so every line needs the chosen day's file and the day before's.</p>
 
       <div class="field">
         <label for="printerDate">Day</label>
@@ -671,7 +665,6 @@
   <section class="steel-bay-panel hidden" id="steelBayPanel" hidden>
     <div class="card">
       <h2 class="section-title" id="steelBaySheetTitle">Cut breakdown</h2>
-      <p class="hint">One sheet a day. Type the cut, what's left on the bar and what went in the bin — it saves as you go, and a new row appears as soon as you start the last one.</p>
 
       <div class="sb-head">
         <div class="field">

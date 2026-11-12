@@ -325,10 +325,11 @@ summary:focus-visible,
 
 .hero { display: flex; flex-direction: column; gap: 16px; }
 
+/* The tabs share the row evenly while they fit and drop onto a second row
+   when they don't, rather than squeezing until the last one is cut off. */
 .tab-strip {
-  display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: 1fr;
+  display: flex;
+  flex-wrap: wrap;
   gap: 2px;
   padding: 2px;
   background: var(--steel-850);
@@ -340,16 +341,21 @@ summary:focus-visible,
 
 .tab-button {
   display: flex;
+  /* Each tab starts at the width its own name needs and shares what's left,
+     so the longest label sets the pace instead of being squeezed. */
+  flex: 1 1 auto;
+  min-width: 0;
   align-items: center;
   justify-content: center;
   gap: 8px;
   min-height: var(--tap-lg);
-  padding: 0 12px;
+  padding: 8px 12px;
   font-family: var(--font-ui);
   font-size: 1rem;
   font-weight: 700;
   letter-spacing: 0.09em;
   text-transform: uppercase;
+  text-align: center;
   color: var(--slate);
   background: transparent;
   border: 0;
@@ -368,6 +374,12 @@ summary:focus-visible,
 }
 
 .tab-icon { font-size: 1.1rem; line-height: 1; }
+
+/* On a phone the icons are what goes: the words are what people read. */
+@media (max-width: 560px) {
+  .tab-button { flex-basis: 108px; font-size: 0.88rem; letter-spacing: 0.05em; padding: 8px 6px; }
+  .tab-icon { display: none; }
+}
 
 .hero-copy { display: flex; flex-direction: column; gap: 6px; }
 
@@ -2052,8 +2064,9 @@ button:focus-visible { outline: 3px solid var(--hivis); outline-offset: 2px; }
 
   .history-panel { padding: 24px; }
 
-  /* A mode switch, not a banner — it stops at a hand's width. */
-  .tab-strip { max-width: 560px; }
+  /* A mode switch, not a banner — it stops well short of the page. The cap is
+     set by the five tabs: squeezed below this, the longest name is cut off. */
+  .tab-strip { max-width: 880px; }
 
   .history-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 

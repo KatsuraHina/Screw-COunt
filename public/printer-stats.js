@@ -330,10 +330,11 @@ function renderSlots() {
     name.textContent = line;
     card.appendChild(name);
 
+    // Each line takes two days: the night shift starts on the one before.
     [
-      ["previous", prevKey, "Night starts here (10pm–midnight)"],
-      ["day", state.workDate, "Night finishes, then morning and afternoon"]
-    ].forEach(([slot, dateKey, note]) => {
+      ["previous", prevKey],
+      ["day", state.workDate]
+    ].forEach(([slot, dateKey]) => {
       const loaded = state.files[line][slot];
       const box = document.createElement("div");
       box.className = loaded ? "line-slot is-loaded" : "line-slot";
@@ -342,9 +343,11 @@ function renderSlots() {
       label.className = "line-slot-label";
       label.textContent = dateKey ? dayLabel(dateKey) : slot === "previous" ? "Day before" : "Chosen day";
 
+      // Only the loaded file's name goes here; an empty slot says it with the
+      // date above and the button below.
       const hint = document.createElement("div");
       hint.className = "line-slot-note";
-      hint.textContent = loaded ? loaded.name : note;
+      hint.textContent = loaded ? loaded.name : "";
 
       const button = document.createElement("button");
       button.type = "button";

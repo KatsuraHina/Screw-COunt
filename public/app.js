@@ -572,7 +572,7 @@ function renderApp() {
     elements.activeTabLabel.textContent = "Printer stats";
     elements.tabTitle.textContent = "Printer stats";
     elements.tabDescription.textContent =
-      "Upload each line's hourly CSV to see how many metres every operator ran, by shift.";
+      "Metres run per operator, by shift.";
     renderPrinterStats();
     return;
   }
@@ -583,7 +583,7 @@ function renderApp() {
     elements.activeTabLabel.textContent = "Steel bay";
     elements.tabTitle.textContent = "Cut breakdown";
     elements.tabDescription.textContent =
-      "Record each cut against its job — length, what's left on the bar, and what's waste.";
+      "Cut lengths, leftovers and waste, by job.";
     renderSteelBay();
     return;
   }
@@ -594,7 +594,7 @@ function renderApp() {
     elements.activeTabLabel.textContent = "Extra delivery";
     elements.tabTitle.textContent = "Extra Delivery Maker";
     elements.tabDescription.textContent =
-      "Upload the job's POs, pick what's going on the truck, and the checklist fills itself in.";
+      "POs in, checklist out.";
     renderExtraDelivery();
     return;
   }
@@ -604,7 +604,7 @@ function renderApp() {
     setActiveTabButtons(elements, state.activeTab);
     elements.activeTabLabel.textContent = "Charts";
     elements.tabTitle.textContent = "Worker history";
-    elements.tabDescription.textContent = "Review each worker's logged jobs, hours, and output.";
+    elements.tabDescription.textContent = "Each worker's jobs, hours and output.";
     renderWorkerHistoryView();
     return;
   }
