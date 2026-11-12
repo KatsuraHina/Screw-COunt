@@ -222,6 +222,7 @@ export function getElements() {
     printerResults: document.getElementById("printerResults"),
     printerClearButton: document.getElementById("printerClearButton"),
     // Steel bay cut breakdown
+    exportReportButton: document.getElementById("exportReportButton"),
     steelBayPanel: document.getElementById("steelBayPanel"),
     steelBayTabButton: document.getElementById("steelBayTabButton"),
     steelBayDate: document.getElementById("steelBayDate"),

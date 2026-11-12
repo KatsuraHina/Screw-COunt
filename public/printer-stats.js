@@ -242,6 +242,35 @@ function restore() {
   }
 }
 
+// summarise() reads a line's rows per slot; the loaded files carry their name
+// alongside, so the rows are unwrapped here for both the tab and the report.
+function rowsByLine() {
+  return Object.fromEntries(
+    LINES.map((line) => [
+      line,
+      {
+        previous: state.files[line].previous?.rows ?? null,
+        day: state.files[line].day?.rows ?? null
+      }
+    ])
+  );
+}
+
+// What the tab currently holds, for the shared report: the chosen day, the
+// totals it is showing, and which files they came from.
+export function getPrinterSnapshot() {
+  const files = [];
+  LINES.forEach((line) => {
+    ["previous", "day"].forEach((slot) => {
+      const loaded = state.files[line]?.[slot];
+      if (loaded) {
+        files.push(`${line} · ${slot === "previous" ? "day before" : "chosen day"} · ${loaded.name}`);
+      }
+    });
+  });
+  return { workDate: state.workDate, summary: summarise(rowsByLine()), files };
+}
+
 export function setPrinterStatsUser(uid) {
   const next = uid || "anon";
   if (next === userKey) {
@@ -416,17 +445,7 @@ function renderResults() {
     return;
   }
 
-  const summary = summarise(
-    Object.fromEntries(
-      LINES.map((line) => [
-        line,
-        {
-          previous: state.files[line].previous?.rows ?? null,
-          day: state.files[line].day?.rows ?? null
-        }
-      ])
-    )
-  );
+  const summary = summarise(rowsByLine());
 
   elements.printerResults.innerHTML =
     table("Metres per operator", summary.operators, "Operator", summary.shiftTotals, summary.grand) +

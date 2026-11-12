@@ -297,6 +297,19 @@ export async function loadSteelBaySheetDates() {
     .sort((a, b) => b.date.localeCompare(a.date));
 }
 
+// Every saved sheet, rows included, oldest first — the shared report filters
+// these down to the period it covers.
+export async function loadSteelBaySheets() {
+  const snapshot = await getDocs(collection(db, "steelBaySheets"));
+  return snapshot.docs
+    .map((docSnapshot) => ({
+      date: docSnapshot.id,
+      cutBy: docSnapshot.data()?.cutBy ?? "",
+      rows: Array.isArray(docSnapshot.data()?.rows) ? docSnapshot.data().rows : []
+    }))
+    .sort((a, b) => a.date.localeCompare(b.date));
+}
+
 // --- Admin roster (the `admins` collection, keyed by lowercased email) ---
 
 function adminEmailKey(email) {

@@ -8,6 +8,7 @@ import {
   isEmailAdmin,
   loadAdminRecords,
   loadJobRecords,
+  loadSteelBaySheets,
   loadWorkerRecords,
   logoutCurrentUser,
   markImportRowsLogged,
@@ -61,10 +62,12 @@ import {
   setExtraDeliveryUser
 } from "./extra-delivery.js";
 import {
+  getPrinterSnapshot,
   initPrinterStats,
   renderPrinterStats,
   setPrinterStatsUser
 } from "./printer-stats.js";
+import { exportReport } from "./report.js";
 import { initSteelBay, renderSteelBay, setSteelBayUser } from "./steel-bay.js";
 import {
   clearHistoryOutputs,
@@ -1711,6 +1714,72 @@ function closeWorkerCalendar() {
   renderWorkerRangeControl();
 }
 
+// One workbook with everything the office shares around: the jobs the Charts
+// tab is showing (same filters, same period), the printer stats as loaded on
+// their tab, and the steel bay's cut breakdown for those same days.
+async function handleExportReport() {
+  const button = elements.exportReportButton;
+  if (button.disabled) {
+    return;
+  }
+  const original = button.textContent;
+  button.disabled = true;
+  button.textContent = "Building…";
+
+  try {
+    const { start, end } = resolveWorkerRange();
+    const startKey = formatDateKey(start);
+    const endKey = formatDateKey(end);
+
+    // The bay's sheets live in Firestore, so this is the one part that waits on
+    // the network. A failure there still leaves a usable workbook.
+    let steelBay = [];
+    try {
+      steelBay = (await loadSteelBaySheets()).filter(
+        (day) => day.date >= startKey && day.date <= endKey
+      );
+    } catch (error) {
+      console.error(error);
+    }
+
+    const workerName =
+      state.workerHistory.selectedWorkerId === "all"
+        ? "All workers"
+        : state.workers.find((worker) => worker.id === state.workerHistory.selectedWorkerId)?.name ||
+          "Selected worker";
+
+    exportReport({
+      generatedAt: new Date().toLocaleString("en-AU"),
+      generatedKey: formatDateKey(new Date()),
+      range: { startKey, endKey, label: formatRangeLabel(startKey, endKey) },
+      filters: {
+        worker: workerName,
+        bench:
+          elements.benchFilterSelect.value === "all"
+            ? "All benches"
+            : `Bench ${elements.benchFilterSelect.value}`,
+        shift:
+          elements.shiftFilterSelect.value === "all"
+            ? "All shifts"
+            : elements.shiftFilterSelect.options[elements.shiftFilterSelect.selectedIndex].text
+      },
+      jobs: getFilteredWorkerHistoryJobs(),
+      workers: state.workers,
+      printer: getPrinterSnapshot(),
+      steelBay
+    });
+    button.textContent = "Downloaded ✓";
+  } catch (error) {
+    console.error(error);
+    button.textContent = "Couldn't build it";
+  } finally {
+    window.setTimeout(() => {
+      button.textContent = original;
+      button.disabled = false;
+    }, 2000);
+  }
+}
+
 // The period shown on the Charts tab: either a rolling window ending today
 // ("Last N days") or an explicit custom range chosen from the calendar. An
 // unfinished custom range falls back to the last 30 days; the two picked days
@@ -2634,6 +2703,7 @@ function bindEvents() {
     renderWorkerHistoryView();
   });
   elements.workerJobsClearDay.addEventListener("click", () => selectHistoryDay(null));
+  elements.exportReportButton.addEventListener("click", handleExportReport);
 
   // Truss PDF import: click/keyboard to browse, drag-and-drop, and clear.
   elements.trussDropzone.addEventListener("click", () => elements.trussFileInput.click());
