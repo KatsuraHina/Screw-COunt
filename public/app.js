@@ -1785,12 +1785,6 @@ async function handleExportReport() {
       console.error(error);
     }
 
-    const workerName =
-      state.workerHistory.selectedWorkerId === "all"
-        ? "All workers"
-        : state.workers.find((worker) => worker.id === state.workerHistory.selectedWorkerId)?.name ||
-          "Selected worker";
-
     exportReport({
       generatedAt: new Date().toLocaleString("en-AU"),
       generatedKey: formatDateKey(new Date()),
@@ -1800,13 +1794,9 @@ async function handleExportReport() {
         label: shiftNow ? `This shift — ${thisShiftLabel()}` : formatRangeLabel(startKey, endKey)
       },
       filters: {
-        worker: workerName,
-        bench:
-          elements.benchFilterSelect.value === "all"
-            ? "All benches"
-            : `Bench ${elements.benchFilterSelect.value}`,
+        // Blank while "This shift" is on: the period line already names it.
         shift: shiftNow
-          ? thisShiftLabel()
+          ? ""
           : elements.shiftFilterSelect.value === "all"
             ? "All shifts"
             : elements.shiftFilterSelect.options[elements.shiftFilterSelect.selectedIndex].text

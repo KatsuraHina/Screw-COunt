@@ -247,36 +247,43 @@ function summarySheet({ generatedAt, range, filters, jobs, printer, steelBay }) 
     0
   );
 
-  return {
-    name: "Summary",
-    freezeHeader: false,
-    // The title and each section heading.
-    boldRows: [0, 7, 14, 18],
-    rows: [
-      ["BBS Count"],
-      ["Generated", generatedAt],
-      ["Period", range.label],
-      ["Worker", filters.worker],
-      ["Bench", filters.bench],
-      ["Shift", filters.shift],
-      [],
-      ["Jobs"],
-      ["Logged", visible.length],
-      ["Hidden", jobs.length - visible.length],
-      ["Hours worked", visible.reduce((sum, job) => sum + hours(job.netWorkedMinutes), 0)],
-      ["Metres", metres],
-      ["Screws", screws],
-      [],
-      ["Printer stats"],
-      ["Day", printer?.workDate ? { date: printer.workDate } : "No CSVs loaded"],
-      ["Metres run", printer?.summary?.grand || 0],
-      [],
-      ["Steel bay"],
-      ["Days", steelBay.length],
-      ["Cut (mm)", cut],
-      ["Waste (mm)", waste]
-    ]
+  // Built row by row rather than as one literal, so a row that doesn't apply
+  // can be left out without the bold headings sliding off their lines.
+  const rows = [];
+  const boldRows = [];
+  const head = (text) => {
+    boldRows.push(rows.length);
+    rows.push([text]);
   };
+  const line = (label, value) => rows.push([label, value]);
+  const gap = () => rows.push([]);
+
+  head("BBS Count");
+  line("Generated", generatedAt);
+  line("Period", range.label);
+  // Left out when the period already names the shift ("This shift — …").
+  if (filters.shift) {
+    line("Shift", filters.shift);
+  }
+
+  gap();
+  head("Jobs");
+  line("Logged", visible.length);
+  line("Metres", metres);
+  line("Screws", screws);
+
+  gap();
+  head("Printer stats");
+  line("Day", printer?.workDate ? { date: printer.workDate } : "No CSVs loaded");
+  line("Metres run", printer?.summary?.grand || 0);
+
+  gap();
+  head("Steel bay");
+  line("Days", steelBay.length);
+  line("Cut (mm)", cut);
+  line("Waste (mm)", waste);
+
+  return { name: "Summary", freezeHeader: false, boldRows, rows };
 }
 
 export function buildReport(data) {
