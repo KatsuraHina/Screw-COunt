@@ -336,6 +336,8 @@ summary:focus-visible,
   border-radius: var(--radius);
 }
 
+.tab-strip.is-single { width: fit-content; }
+
 .tab-button {
   display: flex;
   align-items: center;
@@ -1464,6 +1466,131 @@ button:focus-visible { outline: 3px solid var(--hivis); outline-offset: 2px; }
   font-weight: 700;
 }
 
+/* --------------------------------------------------------------------------
+   Steel bay — the cut breakdown sheet
+   -------------------------------------------------------------------------- */
+
+.steel-bay-panel {
+  width: min(1400px, 100%);
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 20px;
+  align-items: start;
+}
+
+@media (min-width: 1080px) {
+  .steel-bay-panel { grid-template-columns: minmax(0, 2.6fr) minmax(220px, 0.8fr); }
+}
+
+.steel-bay-panel .card { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+
+.sb-head { display: grid; grid-template-columns: 1fr; gap: 12px; }
+
+@media (min-width: 560px) {
+  .sb-head { grid-template-columns: 180px 1fr; }
+}
+
+/* The sheet scrolls sideways rather than squashing the columns on a tablet. */
+.sb-table-wrap { overflow-x: auto; }
+
+.sb-table { width: 100%; min-width: 720px; border-collapse: collapse; }
+
+.sb-h {
+  padding: 6px 8px;
+  text-align: left;
+  font-family: var(--font-ui);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.sb-h-length, .sb-h-leftover, .sb-h-waste { text-align: right; }
+.sb-h-actions { width: 40px; }
+
+.sb-h-jobnumber { width: 110px; }
+.sb-h-material { width: 150px; }
+.sb-h-length, .sb-h-leftover, .sb-h-waste { width: 92px; }
+
+.sb-cell { padding: 2px; }
+
+.sb-input {
+  width: 100%;
+  padding: 8px 9px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: var(--steel-850);
+  color: var(--text);
+  font-family: var(--font-data);
+  font-size: 0.86rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.sb-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  background: var(--steel-800);
+}
+
+.sb-input:read-only { background: transparent; cursor: default; }
+
+.sb-input-num { text-align: right; }
+
+.sb-remove {
+  width: 32px;
+  padding: 6px 0;
+  font-size: 1rem;
+  line-height: 1;
+}
+
+/* The totals the spreadsheet keeps: everything cut, and everything binned. */
+.sb-table tfoot td {
+  padding: 10px 9px;
+  border-top: 2px solid var(--border);
+  font-family: var(--font-data);
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  color: var(--accent);
+  text-align: right;
+}
+
+.sb-total-label {
+  text-align: left !important;
+  color: var(--muted) !important;
+  font-family: var(--font-ui) !important;
+  font-size: 0.78rem;
+  font-weight: 600 !important;
+}
+
+.sb-waste-note { margin: 10px 2px 0; font-size: 0.8rem; color: var(--muted); }
+
+.sb-days { display: flex; flex-direction: column; gap: 8px; }
+
+.sb-day {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  align-items: flex-start;
+  padding: 9px 11px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--steel-850);
+  color: var(--text);
+  text-align: left;
+  box-shadow: none;
+}
+
+.sb-day span { font-size: 0.78rem; color: var(--muted); }
+
+.sb-day:hover { border-color: var(--accent); }
+
+.sb-day.is-active { border-color: var(--accent); color: var(--accent); }
+
+.sb-day.is-active span { color: var(--accent); }
+
 /* --- Copy-outs: the tracking-sheet row and the shortage email --- */
 
 .copyouts {
@@ -1791,7 +1918,8 @@ button:focus-visible { outline: 3px solid var(--hivis); outline-offset: 2px; }
 
   .delivery-grid,
   .copyouts,
-  .printer-panel { display: none !important; }
+  .printer-panel,
+  .steel-bay-panel { display: none !important; }
 
   .checklist-wrap { display: block; }
 
@@ -1984,6 +2112,18 @@ button:focus-visible { outline: 3px solid var(--hivis); outline-offset: 2px; }
   background: var(--accent);
   color: var(--steel-950);
   box-shadow: 0 10px 22px rgba(201, 132, 7, 0.22);
+}
+
+/* The steel bay's tile sits on its own row, wide rather than square, so it
+   reads as a different kind of login from the numbered benches. */
+.bench-grid-wide {
+  grid-template-columns: 1fr;
+}
+
+.bench-tile-wide {
+  aspect-ratio: auto;
+  padding: 14px 0;
+  letter-spacing: 0.12em;
 }
 
 /* Small text link to swap between the bench picker and the admin login. */

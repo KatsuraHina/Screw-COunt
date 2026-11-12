@@ -5,6 +5,7 @@ import {
   aggregateShiftSeriesByDay,
   authEmailToUsername,
   benchFromAuthEmail,
+  isSteelBayAuthEmail,
   formatClockTime,
   formatDateKey,
   formatDateLabel,
@@ -220,6 +221,20 @@ export function getElements() {
     printerStatus: document.getElementById("printerStatus"),
     printerResults: document.getElementById("printerResults"),
     printerClearButton: document.getElementById("printerClearButton"),
+    // Steel bay cut breakdown
+    steelBayPanel: document.getElementById("steelBayPanel"),
+    steelBayTabButton: document.getElementById("steelBayTabButton"),
+    steelBayDate: document.getElementById("steelBayDate"),
+    steelBayCutBy: document.getElementById("steelBayCutBy"),
+    steelBaySheetTitle: document.getElementById("steelBaySheetTitle"),
+    steelBayTable: document.getElementById("steelBayTable"),
+    steelBayStatus: document.getElementById("steelBayStatus"),
+    steelBayDays: document.getElementById("steelBayDays"),
+    steelBayAddRow: document.getElementById("steelBayAddRow"),
+    steelBayCopyButton: document.getElementById("steelBayCopyButton"),
+    steelBayClearButton: document.getElementById("steelBayClearButton"),
+    logTabButton: document.getElementById("logTabButton"),
+    tabStrip: document.querySelector(".tab-strip"),
     deliveryTabButton: document.getElementById("deliveryTabButton"),
     poDropzone: document.getElementById("poDropzone"),
     poFileInput: document.getElementById("poFileInput"),
@@ -384,10 +399,14 @@ export function renderAuthState(elements, user) {
   elements.rangeSelect.disabled = !isSignedIn;
 
   if (isSignedIn) {
+    // The shared accounts are named for the place they belong to, not their
+    // synthetic address — nobody in the bay thinks of themselves as an email.
     const bench = benchFromAuthEmail(user.email);
     elements.currentUserEmail.textContent = bench !== null
       ? `Bench ${bench}`
-      : user.email ? authEmailToUsername(user.email) : "Signed-in user";
+      : isSteelBayAuthEmail(user.email)
+        ? "Steel bay"
+        : user.email ? authEmailToUsername(user.email) : "Signed-in user";
     return;
   }
 
@@ -686,27 +705,31 @@ export function renderAdminManagement(elements, admins, superEmail, handlers) {
   });
 }
 
-// Show the worker-history view (Charts tab) and the calculator/job history.
-// `showJobHistory` is controlled separately so the admin can hide the
-// trusses/screw charts entirely.
-// Three views share the page: the logging form, the Charts dashboard and the
-// Extra Delivery Maker. Exactly one is on screen at a time.
-export function toggleWorkersView(
-  elements,
-  showWorkers,
-  showJobHistory,
-  showDelivery = false,
-  showPrinter = false
-) {
-  const showForm = !showWorkers && !showDelivery && !showPrinter;
-  elements.contentSection.classList.toggle("hidden", !showForm);
-  elements.workerHistoryPanel.classList.toggle("hidden", !showWorkers);
-  elements.workerHistoryPanel.hidden = !showWorkers;
-  elements.deliveryPanel.classList.toggle("hidden", !showDelivery);
-  elements.deliveryPanel.hidden = !showDelivery;
-  elements.printerPanel.classList.toggle("hidden", !showPrinter);
-  elements.printerPanel.hidden = !showPrinter;
-  elements.jobHistoryPanel.classList.toggle("hidden", !showJobHistory || !showForm);
+// Each tab owns one top-level panel; exactly one is on screen at a time.
+// "form" is the logging calculator, which alone can also show the job-history
+// charts below it — controlled separately so the admin can hide them.
+const PANELS = {
+  form: "contentSection",
+  workers: "workerHistoryPanel",
+  delivery: "deliveryPanel",
+  printer: "printerPanel",
+  steelbay: "steelBayPanel"
+};
+
+export function showPanel(elements, panel, showJobHistory = false) {
+  Object.entries(PANELS).forEach(([key, ref]) => {
+    const node = elements[ref];
+    if (!node) {
+      return;
+    }
+    const show = key === panel;
+    node.classList.toggle("hidden", !show);
+    // contentSection has no `hidden` attribute of its own to manage.
+    if (key !== "form") {
+      node.hidden = !show;
+    }
+  });
+  elements.jobHistoryPanel.classList.toggle("hidden", !showJobHistory || panel !== "form");
 }
 
 // The "Log job" tab covers both job types, so it stays active for trusses and

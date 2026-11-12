@@ -27,6 +27,7 @@ import {
   adjustStrapForBreakOverflow,
   autoWorkDateKey,
   benchFromAuthEmail,
+  isSteelBayAuthEmail,
   calculateBreakMinutes,
   calculateStrapMinutes,
   calculateWorkedMinutes,
@@ -64,6 +65,7 @@ import {
   renderPrinterStats,
   setPrinterStatsUser
 } from "./printer-stats.js";
+import { initSteelBay, renderSteelBay, setSteelBayUser } from "./steel-bay.js";
 import {
   clearHistoryOutputs,
   getElements,
@@ -95,7 +97,7 @@ import {
   setImportVisible,
   setStatus,
   setWorkerStatus,
-  toggleWorkersView
+  showPanel
 } from "./ui.js";
 
 const elements = getElements();
@@ -119,6 +121,8 @@ const state = {
   // The bench a worker signed in as (1–19), or null for admins / logged out.
   // In bench mode the app shows only the logging form with this bench locked.
   benchNumber: null,
+  // True for the shared steel bay account: the Steel bay tab is all it gets.
+  isSteelBay: false,
   importLibrary: {
     trusses: [],
     walls: []
@@ -408,6 +412,12 @@ function loadDraftIntoInputs() {
 
 function renderWorkerPickerSection() {
   const draft = getActiveDraft();
+  // Only the logging tabs (trusses/walls) have a draft. On Charts, Extra
+  // delivery, Printer stats or Steel bay there is no crew to pick — and jobs
+  // and workers both finish loading while one of those may be on screen.
+  if (!draft) {
+    return;
+  }
   draft.assignedWorkerIds = renderWorkerPicker(
     elements,
     state.workers,
@@ -557,7 +567,7 @@ function renderHistorySection() {
 
 function renderApp() {
   if (state.activeTab === "printer") {
-    toggleWorkersView(elements, false, false, false, true);
+    showPanel(elements, "printer");
     setActiveTabButtons(elements, state.activeTab);
     elements.activeTabLabel.textContent = "Printer stats";
     elements.tabTitle.textContent = "Printer stats";
@@ -567,8 +577,19 @@ function renderApp() {
     return;
   }
 
+  if (state.activeTab === "steelbay") {
+    showPanel(elements, "steelbay");
+    setActiveTabButtons(elements, state.activeTab);
+    elements.activeTabLabel.textContent = "Steel bay";
+    elements.tabTitle.textContent = "Cut breakdown";
+    elements.tabDescription.textContent =
+      "Record each cut against its job — length, what's left on the bar, and what's waste.";
+    renderSteelBay();
+    return;
+  }
+
   if (state.activeTab === "delivery") {
-    toggleWorkersView(elements, false, false, true);
+    showPanel(elements, "delivery");
     setActiveTabButtons(elements, state.activeTab);
     elements.activeTabLabel.textContent = "Extra delivery";
     elements.tabTitle.textContent = "Extra Delivery Maker";
@@ -579,7 +600,7 @@ function renderApp() {
   }
 
   if (state.activeTab === "workers") {
-    toggleWorkersView(elements, true, false);
+    showPanel(elements, "workers");
     setActiveTabButtons(elements, state.activeTab);
     elements.activeTabLabel.textContent = "Charts";
     elements.tabTitle.textContent = "Worker history";
@@ -592,7 +613,7 @@ function renderApp() {
   // when signed in (it would otherwise be an empty chart box) and not for the
   // admin (aggregate Charts tab) or a bench worker (logging form only).
   const showJobHistory = !state.isAdmin && Boolean(state.currentUser) && !isBenchUser();
-  toggleWorkersView(elements, false, showJobHistory);
+  showPanel(elements, "form", showJobHistory);
   renderTabState(elements, getActiveConfig(), state.activeTab);
   renderJobTypeToggle(elements, state.activeTab);
   renderShiftToggle(elements, getActiveDraft().shift);
@@ -2167,10 +2188,17 @@ function isBenchUser() {
   return state.benchNumber !== null;
 }
 
+// The steel bay account sees one tab and nothing else: no logging, no charts,
+// no deliveries, no printer stats.
+function isSteelBayUser() {
+  return state.isSteelBay;
+}
+
 function handleAuthChanged(user) {
   state.currentUser = user;
   // A bench account (worker) puts the app in locked bench mode; admins/others get null.
   state.benchNumber = benchFromAuthEmail(user?.email);
+  state.isSteelBay = isSteelBayAuthEmail(user?.email);
   // The super-admin resolves instantly; roster admins are confirmed by an async
   // Firestore check below. Start from the synchronous answer so the UI is right
   // for the common (super-admin) case without waiting on the network.
@@ -2184,6 +2212,9 @@ function handleAuthChanged(user) {
   // The Extra Delivery Maker keeps its own per-user draft the same way.
   setExtraDeliveryUser(user?.uid || null);
   setPrinterStatsUser(user?.uid || null);
+  // The cut breakdown is shared, not per-user: the bay writes it, the office
+  // reads it, so it takes the account and whether that account may edit.
+  setSteelBayUser(user || null, Boolean(user) && (state.isAdmin || state.isSteelBay));
 
   // Re-render so admin-specific panel visibility (hidden trusses/screw charts) applies.
   renderApp();
@@ -2204,13 +2235,33 @@ function handleAuthChanged(user) {
 function applyAdminState() {
   // Admins and bench workers can both pick workers for a job; the admin-only
   // management/charts panels stay admin-only.
-  renderWorkerAdminVisibility(elements, state.isAdmin, state.isAdmin || isBenchUser());
+  renderWorkerAdminVisibility(
+    elements,
+    state.isAdmin,
+    (state.isAdmin || isBenchUser()) && !isSteelBayUser()
+  );
   // The Extra Delivery Maker is an office job, so it rides with the admin tabs.
   elements.deliveryTabButton.classList.toggle("hidden", !state.isAdmin);
   elements.printerTabButton.classList.toggle("hidden", !state.isAdmin);
+  // The steel bay's own tab: the bay account has it, and admins see it too so
+  // the office can read the day's cut breakdown.
+  elements.steelBayTabButton.classList.toggle("hidden", !state.isAdmin && !isSteelBayUser());
+  // The bay logs no jobs, so its account doesn't get the logging tab at all.
+  elements.logTabButton.classList.toggle("hidden", isSteelBayUser());
+  // One tab on its own shouldn't stretch across the whole strip.
+  const visibleTabs = elements.tabButtons.filter((button) => !button.classList.contains("hidden"));
+  elements.tabStrip.classList.toggle("is-single", visibleTabs.length === 1);
+
+  if (isSteelBayUser()) {
+    state.activeTab = "steelbay";
+    return;
+  }
   if (
     !state.isAdmin &&
-    (state.activeTab === "workers" || state.activeTab === "delivery" || state.activeTab === "printer")
+    (state.activeTab === "workers" ||
+      state.activeTab === "delivery" ||
+      state.activeTab === "printer" ||
+      state.activeTab === "steelbay")
   ) {
     state.activeTab = "trusses";
   }
@@ -2425,7 +2476,16 @@ function switchTab(nextTab) {
     return;
   }
 
-  if (nextTab === "workers" || nextTab === "delivery" || nextTab === "printer") {
+  // The steel bay account has exactly one tab, so nothing else is reachable.
+  if (isSteelBayUser() && nextTab !== "steelbay") {
+    return;
+  }
+
+  if (nextTab === "steelbay") {
+    if (!state.isAdmin && !isSteelBayUser()) {
+      return;
+    }
+  } else if (nextTab === "workers" || nextTab === "delivery" || nextTab === "printer") {
     if (!state.isAdmin) {
       return;
     }
@@ -2664,6 +2724,7 @@ function init() {
   bindEvents();
   initExtraDelivery(elements);
   initPrinterStats(elements);
+  initSteelBay(elements);
   // Imports are restored per-user once auth resolves (see syncImportsForUser),
   // so nothing is loaded here.
   renderAuthState(elements, null);

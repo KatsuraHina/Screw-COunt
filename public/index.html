@@ -45,7 +45,7 @@
   <main class="app">
     <section class="hero">
       <div class="tab-strip" role="tablist" aria-label="View">
-        <button class="tab-button is-active" type="button" data-job-tab="log" role="tab" aria-selected="true">
+        <button class="tab-button is-active" id="logTabButton" type="button" data-job-tab="log" role="tab" aria-selected="true">
           <span class="tab-icon" aria-hidden="true">🏗</span>
           <span>Log job</span>
         </button>
@@ -60,6 +60,10 @@
         <button class="tab-button hidden" id="printerTabButton" type="button" data-job-tab="printer" role="tab" aria-selected="false">
           <span class="tab-icon" aria-hidden="true">📈</span>
           <span>Printer stats</span>
+        </button>
+        <button class="tab-button hidden" id="steelBayTabButton" type="button" data-job-tab="steelbay" role="tab" aria-selected="false">
+          <span class="tab-icon" aria-hidden="true">🪚</span>
+          <span>Steel bay</span>
         </button>
       </div>
 
@@ -661,6 +665,38 @@
     <div class="card" id="printerResultsCard">
       <h2 class="section-title">Who ran what</h2>
       <div id="printerResults"></div>
+    </div>
+  </section>
+
+  <section class="steel-bay-panel hidden" id="steelBayPanel" hidden>
+    <div class="card">
+      <h2 class="section-title" id="steelBaySheetTitle">Cut breakdown</h2>
+      <p class="hint">One sheet a day. Type the cut, what's left on the bar and what went in the bin — it saves as you go.</p>
+
+      <div class="sb-head">
+        <div class="field">
+          <label for="steelBayDate">Day</label>
+          <input id="steelBayDate" type="date">
+        </div>
+        <div class="field">
+          <label for="steelBayCutBy">Cut by</label>
+          <input id="steelBayCutBy" type="text" placeholder="Who was on the saw" autocomplete="off">
+        </div>
+      </div>
+
+      <div id="steelBayTable" class="sb-table-wrap"></div>
+      <p id="steelBayStatus" class="hint"></p>
+
+      <div class="button-row">
+        <button id="steelBayAddRow" type="button">Add row</button>
+        <button id="steelBayCopyButton" class="secondary-button" type="button">Copy for Excel</button>
+        <button id="steelBayClearButton" class="secondary-button" type="button">Clear sheet</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2 class="section-title">Saved days</h2>
+      <div id="steelBayDays" class="sb-days"></div>
     </div>
   </section>
 

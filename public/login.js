@@ -3,6 +3,7 @@ import {
   formatAuthError,
   loginWithEmail,
   signInBench,
+  signInSteelBay,
   subscribeToAuthChanges
 } from "./firebase-service.js";
 import { BENCH_NUMBERS, isValidUsername, usernameToAuthEmail } from "./jobs.js";
@@ -12,6 +13,7 @@ const elements = {
   themeToggle: document.getElementById("themeToggle"),
   benchPanel: document.getElementById("benchPanel"),
   benchGrid: document.getElementById("benchGrid"),
+  steelBayTile: document.getElementById("steelBayTile"),
   adminPanel: document.getElementById("adminPanel"),
   showAdminLogin: document.getElementById("showAdminLogin"),
   showBenchPicker: document.getElementById("showBenchPicker"),
@@ -64,13 +66,22 @@ function renderBenchGrid() {
 }
 
 async function handleBenchPick(bench) {
+  await signInShared(`Bench ${bench}`, () => signInBench(bench));
+}
+
+// The steel bay signs in the same way a bench does — one tap, no credentials.
+async function handleSteelBayPick() {
+  await signInShared("the steel bay", () => signInSteelBay());
+}
+
+async function signInShared(label, signIn) {
   if (isSigningIn) {
     return;
   }
   isSigningIn = true;
-  setAuthStatus(`Signing in to Bench ${bench}...`);
+  setAuthStatus(`Signing in to ${label}...`);
   try {
-    await signInBench(bench);
+    await signIn();
     // subscribeToAuthChanges below redirects once the sign-in resolves.
   } catch (error) {
     console.error(error);
@@ -82,7 +93,7 @@ async function handleBenchPick(bench) {
 function showAdminPanel(show) {
   elements.adminPanel.classList.toggle("hidden", !show);
   elements.benchPanel.classList.toggle("hidden", show);
-  setAuthStatus(show ? "Admins sign in with a username and password." : "Tap your bench to get started.");
+  setAuthStatus(show ? "Admins sign in with a username and password." : "Tap your bench, or SB for the steel bay.");
   if (show) {
     elements.usernameInput.focus();
   }
@@ -136,6 +147,7 @@ async function handleCreateAccount() {
 
 function bindEvents() {
   bindThemeToggle(elements.themeToggle);
+  elements.steelBayTile.addEventListener("click", handleSteelBayPick);
   elements.showAdminLogin.addEventListener("click", () => showAdminPanel(true));
   elements.showBenchPicker.addEventListener("click", () => showAdminPanel(false));
   elements.loginButton.addEventListener("click", handleLogin);

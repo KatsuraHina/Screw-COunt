@@ -22,7 +22,7 @@ import {
   where
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 import { firebaseConfig, firebaseProjectId } from "./firebase-config.js";
-import { BENCH_PASSWORD, benchAuthEmail, importClaimId } from "./jobs.js";
+import { BENCH_PASSWORD, STEEL_BAY_EMAIL, benchAuthEmail, importClaimId } from "./jobs.js";
 
 const firebaseApp = initializeApp(firebaseConfig);
 const db = getFirestore(firebaseApp);
@@ -45,7 +45,15 @@ export async function logoutCurrentUser() {
 // Sign in as a bench: reuse the bench's shared account, creating it the first
 // time it's tapped. Workers never type credentials — the bench is the login.
 export async function signInBench(benchNumber) {
-  const email = benchAuthEmail(benchNumber);
+  return signInSharedAccount(benchAuthEmail(benchNumber));
+}
+
+// The steel bay signs in the same way, on its own shared account.
+export async function signInSteelBay() {
+  return signInSharedAccount(STEEL_BAY_EMAIL);
+}
+
+async function signInSharedAccount(email) {
   try {
     const credential = await signInWithEmailAndPassword(auth, email, BENCH_PASSWORD);
     return credential.user;
@@ -244,6 +252,49 @@ export function subscribeToImportClaims(jobKey, onChange, onError) {
       }
     }
   );
+}
+
+// --- Steel bay cut breakdown (one document per day, keyed YYYY-MM-DD) ---
+//
+// The whole day's rows live in one document so the sheet reads back in one go
+// and stays live across devices. The steel bay is one bay with one account, so
+// two people editing the same day at once is the one case this doesn't handle:
+// the later save wins, which the live listener then shows everyone.
+
+export async function saveSteelBaySheet(dateKey, sheet, user) {
+  await setDoc(doc(db, "steelBaySheets", dateKey), {
+    ...sheet,
+    date: dateKey,
+    updatedAt: Date.now(),
+    updatedBy: user?.uid ?? "",
+    updatedByEmail: user?.email ?? ""
+  });
+}
+
+export function subscribeToSteelBaySheet(dateKey, onChange, onError) {
+  return onSnapshot(
+    doc(db, "steelBaySheets", dateKey),
+    (snapshot) => onChange(snapshot.exists() ? snapshot.data() : null),
+    (error) => {
+      console.error(error);
+      if (onError) {
+        onError(error);
+      }
+    }
+  );
+}
+
+// The days that already have a sheet, newest first — so a day's work can be
+// found without guessing dates.
+export async function loadSteelBaySheetDates() {
+  const snapshot = await getDocs(collection(db, "steelBaySheets"));
+  return snapshot.docs
+    .map((docSnapshot) => ({
+      date: docSnapshot.id,
+      rows: Array.isArray(docSnapshot.data()?.rows) ? docSnapshot.data().rows.length : 0,
+      cutBy: docSnapshot.data()?.cutBy ?? ""
+    }))
+    .sort((a, b) => b.date.localeCompare(a.date));
 }
 
 // --- Admin roster (the `admins` collection, keyed by lowercased email) ---

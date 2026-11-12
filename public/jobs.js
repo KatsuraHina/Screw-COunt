@@ -44,8 +44,18 @@ export function benchAuthEmail(benchNumber) {
   return `bench-${benchNumber}@${BENCH_EMAIL_DOMAIN}`;
 }
 
+// The steel bay has one shared account of its own, signed into the same way a
+// bench is — tap the tile, no credentials. It is not a bench: it logs no jobs
+// and sees only the Steel bay cut breakdown.
+export const STEEL_BAY_EMAIL = `steel-bay@${BENCH_EMAIL_DOMAIN}`;
+
+export function isSteelBayAuthEmail(email) {
+  return String(email ?? "").trim().toLowerCase() === STEEL_BAY_EMAIL;
+}
+
 // The bench number for a bench account's email, or null for anything else
-// (admins, logged-out). Used to switch the app into locked bench mode.
+// (admins, the steel bay, logged-out). Used to switch the app into locked bench
+// mode.
 export function benchFromAuthEmail(email) {
   const value = String(email ?? "").trim().toLowerCase();
   const match = value.match(/^bench-(\d+)@benches\.bbscount\.app$/);
@@ -63,6 +73,9 @@ export function claimLabelForUser(user) {
   const bench = benchFromAuthEmail(user?.email);
   if (bench !== null) {
     return `Bench ${bench}`;
+  }
+  if (isSteelBayAuthEmail(user?.email)) {
+    return "Steel bay";
   }
   return user?.email ? authEmailToUsername(user.email) : "Someone";
 }

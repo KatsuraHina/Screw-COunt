@@ -81,6 +81,21 @@ service cloud.firestore {
         );
     }
 
+    // The steel bay's cut breakdown: one document per day, keyed YYYY-MM-DD.
+    // Any signed-in user may read it (the office looks the day up on the Steel
+    // bay tab), but only the steel bay's own account and admins may write —
+    // benches have no business editing it.
+    match /steelBaySheets/{dateKey} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null
+        && (
+          request.auth.token.email.lower() == 'steel-bay@benches.bbscount.app'
+          || isAdmin()
+        )
+        && request.resource.data.rows is list
+        && request.resource.data.rows.size() <= 500;
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }
