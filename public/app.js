@@ -33,6 +33,7 @@ import {
   calculateStrapMinutes,
   calculateWorkedMinutes,
   claimLabelForUser,
+  currentShiftWindow,
   createEmptyDraft,
   createEntry,
   createJobPayload,
@@ -50,6 +51,7 @@ import {
   meridiemForShift,
   normalizeJob,
   parseFlexibleTime,
+  resolveJobShift,
   SUPER_ADMIN_EMAIL,
   to24hString,
   usernameToAuthEmail
@@ -144,6 +146,9 @@ const state = {
   workerHistory: {
     selectedWorkerId: "all",
     showHidden: false,
+    // "This shift": show only the shift running right now, whatever period and
+    // shift the pickers say. Off by default; both pickers are dimmed while on.
+    thisShift: false,
     // Job-number search box: narrows the logged-jobs list only, so the charts
     // and stats above it keep showing the whole selected period.
     jobNumberQuery: "",
@@ -1513,6 +1518,32 @@ function getHistoryWorkers() {
   return Array.from(byId.values()).sort((a, b) => a.name.localeCompare(b.name));
 }
 
+// The "This shift" toggle, and the two pickers it takes over while it is on.
+function renderThisShiftButton() {
+  const on = state.workerHistory.thisShift;
+  elements.thisShiftButton.setAttribute("aria-pressed", String(on));
+  elements.thisShiftButton.textContent = on ? thisShiftLabel() : "This shift";
+  [elements.workerRangeSelect, elements.shiftFilterSelect].forEach((select) => {
+    select.disabled = on;
+    select.closest("label")?.classList.toggle("is-overridden", on);
+  });
+  if (on) {
+    elements.workerCustomRange.classList.add("hidden");
+  }
+}
+
+// Names the shift being shown, so it is never a mystery which one "this" is.
+function thisShiftLabel(now = new Date()) {
+  const { shift, dayKey } = currentShiftWindow(now);
+  const [year, month, day] = dayKey.split("-").map(Number);
+  const date = new Date(year, month - 1, day).toLocaleDateString(undefined, {
+    weekday: "short",
+    day: "numeric",
+    month: "short"
+  });
+  return `${shift.charAt(0).toUpperCase()}${shift.slice(1)} · ${date}`;
+}
+
 function renderWorkerHistoryView() {
   if (!state.isAdmin) {
     return;
@@ -1525,6 +1556,8 @@ function renderWorkerHistoryView() {
     state.workerHistory.selectedWorkerId
   );
   state.workerHistory.selectedWorkerId = selectedId;
+
+  renderThisShiftButton();
 
   // Show the calendar picker only when the "Custom range…" period is chosen.
   const isCustom = elements.workerRangeSelect.value === "custom";
@@ -1582,9 +1615,16 @@ function getFilteredWorkerHistoryJobs() {
   const isAllBenches = benchFilter === "all";
   const shiftFilter = elements.shiftFilterSelect.value;
   const isAllShifts = shiftFilter === "all";
+  // "This shift" replaces the period and shift pickers: it is the shift running
+  // right now, matched by the day it belongs to rather than by a clock window,
+  // so a night job logged after midnight still counts for the night it started.
+  const shiftNow = state.workerHistory.thisShift ? currentShiftWindow() : null;
 
   return state.savedJobs
     .filter((job) => {
+      if (shiftNow) {
+        return resolveJobShift(job) === shiftNow.shift && getShiftDayKey(job) === shiftNow.dayKey;
+      }
       const ended = new Date(job.endedAt);
       return ended >= rangeStart && ended <= rangeEnd;
     })
@@ -1592,7 +1632,7 @@ function getFilteredWorkerHistoryJobs() {
       isAll ? job.assignedWorkerIds.length > 0 : job.assignedWorkerIds.includes(selectedId)
     )
     .filter((job) => isAllBenches || job.benchNumber === Number(benchFilter))
-    .filter((job) => isAllShifts || job.shift === shiftFilter)
+    .filter((job) => Boolean(shiftNow) || isAllShifts || job.shift === shiftFilter)
     .sort((a, b) => new Date(b.endedAt) - new Date(a.endedAt));
 }
 
@@ -1727,9 +1767,12 @@ async function handleExportReport() {
   button.textContent = "Building…";
 
   try {
+    // With "This shift" on, the workbook covers that one shift and its day —
+    // including the steel bay rows for the day the shift belongs to.
+    const shiftNow = state.workerHistory.thisShift ? currentShiftWindow() : null;
     const { start, end } = resolveWorkerRange();
-    const startKey = formatDateKey(start);
-    const endKey = formatDateKey(end);
+    const startKey = shiftNow ? shiftNow.dayKey : formatDateKey(start);
+    const endKey = shiftNow ? formatDateKey(shiftNow.end) : formatDateKey(end);
 
     // The bay's sheets live in Firestore, so this is the one part that waits on
     // the network. A failure there still leaves a usable workbook.
@@ -1751,15 +1794,20 @@ async function handleExportReport() {
     exportReport({
       generatedAt: new Date().toLocaleString("en-AU"),
       generatedKey: formatDateKey(new Date()),
-      range: { startKey, endKey, label: formatRangeLabel(startKey, endKey) },
+      range: {
+        startKey,
+        endKey,
+        label: shiftNow ? `This shift — ${thisShiftLabel()}` : formatRangeLabel(startKey, endKey)
+      },
       filters: {
         worker: workerName,
         bench:
           elements.benchFilterSelect.value === "all"
             ? "All benches"
             : `Bench ${elements.benchFilterSelect.value}`,
-        shift:
-          elements.shiftFilterSelect.value === "all"
+        shift: shiftNow
+          ? thisShiftLabel()
+          : elements.shiftFilterSelect.value === "all"
             ? "All shifts"
             : elements.shiftFilterSelect.options[elements.shiftFilterSelect.selectedIndex].text
       },
@@ -2703,6 +2751,13 @@ function bindEvents() {
     renderWorkerHistoryView();
   });
   elements.workerJobsClearDay.addEventListener("click", () => selectHistoryDay(null));
+  elements.thisShiftButton.addEventListener("click", () => {
+    state.workerHistory.thisShift = !state.workerHistory.thisShift;
+    // A day drilled into from a chart belongs to the old period.
+    state.workerHistory.selectedDayKey = null;
+    state.workerHistory.selectedJobType = null;
+    renderWorkerHistoryView();
+  });
   elements.exportReportButton.addEventListener("click", handleExportReport);
 
   // Truss PDF import: click/keyboard to browse, drag-and-drop, and clear.

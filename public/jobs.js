@@ -637,6 +637,43 @@ export function resolveJobShift(job) {
   return job.shift || getJobShift(job);
 }
 
+// The shift running right now, and the day it belongs to. A night shift belongs
+// to the evening it started, so between midnight and 5:45am this is still the
+// previous day's night — the same roll-back getShiftDayKey does for a job.
+export function currentShiftWindow(now = new Date()) {
+  const minutes = now.getHours() * 60 + now.getMinutes();
+  const day = new Date(now);
+  day.setHours(0, 0, 0, 0);
+
+  let shift;
+  if (minutes >= NIGHT_START) {
+    shift = "night";
+  } else if (minutes < MORNING_START) {
+    shift = "night";
+    day.setDate(day.getDate() - 1);
+  } else if (minutes < AFTERNOON_START) {
+    shift = "morning";
+  } else {
+    shift = "afternoon";
+  }
+
+  const at = (offset) => {
+    const time = new Date(day);
+    time.setMinutes(time.getMinutes() + offset);
+    return time;
+  };
+
+  const spans = {
+    morning: [MORNING_START, AFTERNOON_START],
+    afternoon: [AFTERNOON_START, NIGHT_START],
+    // Night runs past midnight into the next day's 5:45am.
+    night: [NIGHT_START, 24 * 60 + MORNING_START]
+  };
+  const [from, to] = spans[shift];
+
+  return { shift, dayKey: formatDateKey(day), start: at(from), end: at(to) };
+}
+
 // Which AM/PM a bare 12-hour time takes for a given shift, so the admin never
 // picks AM/PM — the selected shift decides it:
 //   night     → 10 & 11 are PM (10–11pm); everything else (12, 1–9) is AM (12–5:45am)

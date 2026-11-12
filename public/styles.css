@@ -1478,6 +1478,18 @@ button:focus-visible { outline: 3px solid var(--hivis); outline-offset: 2px; }
   font-weight: 700;
 }
 
+/* "This shift" is a toggle, so it has to read as on or off at a glance. */
+.shift-now-button[aria-pressed="true"] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--steel-950);
+}
+
+/* The period and shift pickers it overrides, dimmed while it is on. */
+.history-controls label.is-overridden {
+  opacity: 0.45;
+}
+
 /* --------------------------------------------------------------------------
    Steel bay — the cut breakdown sheet
    -------------------------------------------------------------------------- */
