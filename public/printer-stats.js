@@ -190,6 +190,20 @@ export function summarise(files) {
   };
 }
 
+// The two days the loaded files describe, each totalled on its own rather than
+// lumped together. The chosen day is complete; the day after it only has its
+// night up to midnight, because finishing that night would need the day after
+// THAT — so it is marked partial and the tab says so.
+export function summariseDays(files) {
+  const onlyDay = (slot) =>
+    Object.fromEntries(LINES.map((line) => [line, { day: files[line]?.[slot] ?? null, next: null }]));
+
+  return [
+    { slot: "day", partialNight: false, summary: summarise(files) },
+    { slot: "next", partialNight: true, summary: summarise(onlyDay("next")) }
+  ];
+}
+
 // --- The tab ----------------------------------------------------------------
 
 const STORE_PREFIX = "screwcount.printerStats.";
@@ -274,7 +288,15 @@ export function getPrinterSnapshot() {
       }
     });
   });
-  return { workDate: state.workDate, summary: summarise(rowsByLine()), files };
+  const rows = rowsByLine();
+  return {
+    workDate: state.workDate,
+    days: summariseDays(rows).map((entry) => ({
+      ...entry,
+      dateKey: entry.slot === "day" ? state.workDate : nextDay(state.workDate)
+    })),
+    files
+  };
 }
 
 export function setPrinterStatsUser(uid) {
@@ -451,11 +473,29 @@ function renderResults() {
     return;
   }
 
-  const summary = summarise(rowsByLine());
+  const rows = rowsByLine();
+  const days = summariseDays(rows);
 
-  elements.printerResults.innerHTML =
-    table("Metres per operator", summary.operators, "Operator", summary.shiftTotals, summary.grand) +
-    table("Metres per line", summary.lines, "Line", summary.shiftTotals, summary.grand);
+  elements.printerResults.innerHTML = days
+    .map(({ slot, partialNight, summary }) => {
+      if (summary.grand === 0) {
+        return "";
+      }
+      const dateKey = slot === "day" ? state.workDate : nextDay(state.workDate);
+      const heading = dateKey ? dayLabel(dateKey) : slot === "day" ? "Chosen day" : "Next day";
+      return (
+        `<section class="day-block">` +
+        `<h3 class="day-block-title">${escapeHtml(heading)}` +
+        // Its night can't be finished without the following day's file, so the
+        // figure is only the evening half and must not read as a full night.
+        (partialNight ? `<span>night to midnight only</span>` : "") +
+        `</h3>` +
+        table("Metres per operator", summary.operators, "Operator", summary.shiftTotals, summary.grand) +
+        table("Metres per line", summary.lines, "Line", summary.shiftTotals, summary.grand) +
+        `</section>`
+      );
+    })
+    .join("");
 }
 
 export function renderPrinterStats() {

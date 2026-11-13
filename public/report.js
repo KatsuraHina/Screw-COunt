@@ -158,27 +158,43 @@ function workersSheet(jobs, workers) {
   return { name: "Workers", rows: [header, ...body, totals], boldRows: [0, body.length + 1] };
 }
 
-function printerSheet(printer) {
-  const rows = [["Printer stats"], ["Day", printer?.workDate ? { date: printer.workDate } : "Not set"]];
+// Days with something in them, each kept apart. The one after the chosen day
+// can only have its night as far as midnight, so it says so rather than
+// pretending to a full night.
+const printerDays = (printer) => (printer?.days || []).filter((day) => day.summary?.grand > 0);
 
-  if (!printer || !printer.summary || printer.summary.grand === 0) {
+function printerSheet(printer) {
+  const rows = [["Printer stats"]];
+  const bold = [0];
+  const days = printerDays(printer);
+
+  if (days.length === 0) {
     rows.push([], ["No CSVs loaded on the Printer stats tab."]);
-    return { name: "Printer stats", rows, boldRows: [0], freezeHeader: false };
+    return { name: "Printer stats", rows, boldRows: bold, freezeHeader: false };
   }
 
-  const { operators, lines, shiftTotals, grand } = printer.summary;
-  const bold = [0];
-  const block = (title, entries) => {
+  days.forEach((day) => {
+    const { operators, lines, shiftTotals, grand } = day.summary;
+
     rows.push([]);
     bold.push(rows.length);
-    rows.push([title, ...SHIFT_BANDS.map((band) => band.label), "Total"]);
-    entries.forEach((entry) => rows.push([entry.name, ...entry.values, entry.total]));
-    bold.push(rows.length);
-    rows.push(["All", ...shiftTotals, grand]);
-  };
+    rows.push([
+      day.dateKey ? { date: day.dateKey } : "Day",
+      day.partialNight ? "night to midnight only" : ""
+    ]);
 
-  block("Operator", operators);
-  block("Line", lines);
+    const block = (title, entries) => {
+      rows.push([]);
+      bold.push(rows.length);
+      rows.push([title, ...SHIFT_BANDS.map((band) => band.label), "Total"]);
+      entries.forEach((entry) => rows.push([entry.name, ...entry.values, entry.total]));
+      bold.push(rows.length);
+      rows.push(["All", ...shiftTotals, grand]);
+    };
+
+    block("Operator", operators);
+    block("Line", lines);
+  });
 
   if (printer.files?.length) {
     rows.push([]);
@@ -274,8 +290,16 @@ function summarySheet({ generatedAt, range, filters, jobs, printer, steelBay }) 
 
   gap();
   head("Printer stats");
-  line("Day", printer?.workDate ? { date: printer.workDate } : "No CSVs loaded");
-  line("Metres run", printer?.summary?.grand || 0);
+  const days = printerDays(printer);
+  if (days.length === 0) {
+    line("Metres run", "No CSVs loaded");
+  }
+  days.forEach((day) => {
+    // Each day on its own, and its metres split across the shifts that ran.
+    line(day.dateKey ? { date: day.dateKey } : "Day", day.partialNight ? "night to midnight only" : "");
+    SHIFT_BANDS.forEach((band, index) => line(band.label, day.summary.shiftTotals[index]));
+    line("Metres run", day.summary.grand);
+  });
 
   gap();
   head("Steel bay");
