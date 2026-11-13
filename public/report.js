@@ -169,17 +169,23 @@ function workersSheet(jobs, workers) {
 const printerDays = (printer) => (printer?.days || []).filter((day) => day.summary?.grand > 0);
 
 function printerSheet(printer) {
-  const rows = [["Printer stats"]];
-  const bold = [0];
+  const rows = [];
+  const bold = [];
   const days = printerDays(printer);
 
   if (days.length === 0) {
-    rows.push([], ["No CSVs loaded on the Printer stats tab."]);
-    return { name: "Printer stats", rows, boldRows: bold, freezeHeader: false };
+    rows.push(["No CSVs loaded on the Printer stats tab."]);
+    return { name: "Printer stats", rows, boldRows: bold };
   }
 
+  // A blank line between tables, but not between a day's heading and the
+  // first table under it.
+  let underHeading = false;
   const block = (title, entries, totalsRow, totalsLabel = "All") => {
-    rows.push([]);
+    if (rows.length > 0 && !underHeading) {
+      rows.push([]);
+    }
+    underHeading = false;
     bold.push(rows.length);
     rows.push([title, ...SHIFT_BANDS.map((band) => band.label), "Total"]);
     entries.forEach((entry) => rows.push([entry.name, ...entry.values, entry.total]));
@@ -188,12 +194,15 @@ function printerSheet(printer) {
   };
 
   days.forEach((day) => {
-    rows.push([]);
+    if (rows.length > 0) {
+      rows.push([]);
+    }
     bold.push(rows.length);
     rows.push([
       day.dateKey ? { date: day.dateKey } : "Day",
       day.partialNight ? "night to midnight only" : ""
     ]);
+    underHeading = true;
 
     // Each roll former on its own, with the operators who ran it.
     (day.byLine || []).forEach(({ line, summary }) => {
@@ -211,11 +220,13 @@ function printerSheet(printer) {
   if (printer.files?.length) {
     rows.push([]);
     bold.push(rows.length);
-    rows.push(["Files read"]);
-    printer.files.forEach((file) => rows.push([file]));
+    // Second column: a long file name in the first would stretch it for every
+    // table on the sheet.
+    rows.push(["Files read", printer.files[0]]);
+    printer.files.slice(1).forEach((file) => rows.push(["", file]));
   }
 
-  return { name: "Printer stats", rows, boldRows: bold, freezeHeader: false };
+  return { name: "Printer stats", rows, boldRows: bold };
 }
 
 function steelBaySheet(sheets) {
@@ -324,10 +335,13 @@ function summarySheet({ generatedAt, range, filters, jobs, printer, steelBay }) 
   return { name: "Summary", freezeHeader: false, boldRows, rows };
 }
 
+// It all goes on one sheet: the summary at the top, then each section under
+// its own heading, so the whole report reads top to bottom without anyone
+// hunting through tabs.
 export function buildReport(data) {
   const namesById = new Map((data.workers || []).map((worker) => [worker.id, worker.name]));
   const jobs = data.jobs || [];
-  return [
+  const sections = [
     summarySheet(data),
     jobsSheet("Trusses", jobs.filter((job) => !isWalls(job)), namesById, false),
     jobsSheet("Walls", jobs.filter(isWalls), namesById, true),
@@ -335,6 +349,24 @@ export function buildReport(data) {
     printerSheet(data.printer),
     steelBaySheet(data.steelBay || [])
   ];
+
+  const rows = [];
+  const boldRows = [];
+
+  sections.forEach((section, index) => {
+    // The summary leads with the report's own title, so it needs no heading of
+    // its own; every section after it gets one, with a blank line above.
+    if (index > 0) {
+      rows.push([]);
+      boldRows.push(rows.length);
+      rows.push([section.name.toUpperCase()]);
+    }
+    const offset = rows.length;
+    (section.boldRows || []).forEach((row) => boldRows.push(offset + row));
+    section.rows.forEach((row) => rows.push(row));
+  });
+
+  return [{ name: "BBS Count", rows, boldRows, freezeHeader: false }];
 }
 
 export function reportFilename(generatedKey) {

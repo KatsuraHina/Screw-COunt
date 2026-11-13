@@ -184,7 +184,7 @@ function sheetXml(sheet) {
         .map(
           (width, index) =>
             `<col min="${index + 1}" max="${index + 1}" width="${Math.min(
-              46,
+              34,
               Math.max(9, width + 2)
             )}" customWidth="1"/>`
         )
