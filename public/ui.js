@@ -241,6 +241,7 @@ export function getElements() {
     poDropzone: document.getElementById("poDropzone"),
     poFileInput: document.getElementById("poFileInput"),
     poStatus: document.getElementById("poStatus"),
+    addManualItemButton: document.getElementById("addManualItemButton"),
     poSheet: document.getElementById("poSheet"),
     deliveryAddress: document.getElementById("deliveryAddress"),
     deliverySuburb: document.getElementById("deliverySuburb"),

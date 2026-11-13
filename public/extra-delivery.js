@@ -295,10 +295,58 @@ function setAllIncluded(poId, include) {
 
 // --- The items that end up on the checklist ---------------------------------
 
+// Not every extra delivery starts from a PO — sometimes it's one length off
+// the rack. Those items live in a group of their own, typed in rather than
+// parsed, and otherwise behave exactly like an item off a PO.
+function manualGroup(create = false) {
+  let group = delivery.pos.find((po) => po.manual);
+  if (!group && create) {
+    group = {
+      id: nextId("po"),
+      manual: true,
+      poNumber: "",
+      jobNumber: "",
+      orderDate: "",
+      client: "",
+      reference: "",
+      items: []
+    };
+    delivery.pos.push(group);
+  }
+  return group;
+}
+
+function addManualItem() {
+  const group = manualGroup(true);
+  const item = {
+    id: nextId("item"),
+    description: "",
+    details: "",
+    quantity: "",
+    unit: "",
+    // Typed in on purpose, so it is on the delivery from the start — unlike a
+    // PO's items, where ticking is how you pick the few that are going.
+    include: true
+  };
+  group.items.push(item);
+  persist();
+  renderExtraDelivery();
+
+  const field = elements.poSheet.querySelector(`[data-item-desc="${item.id}"]`);
+  if (field) {
+    field.focus();
+  }
+}
+
+// A typed row with nothing in it yet is not an item; it shouldn't reach the
+// checklist, the email or the tracking row.
+const hasContent = (item) =>
+  Boolean(String(item.description ?? "").trim() || String(item.details ?? "").trim());
+
 export function includedItems() {
   return delivery.pos.flatMap((po) =>
     po.items
-      .filter((item) => item.include)
+      .filter((item) => item.include && hasContent(item))
       .map((item) => ({ ...item, poNumber: po.poNumber }))
   );
 }
@@ -310,7 +358,7 @@ function renderPoSheet() {
   sheet.innerHTML = "";
 
   if (delivery.pos.length === 0) {
-    sheet.innerHTML = `<p class="entry-empty">No POs added yet. Upload one to start the checklist.</p>`;
+    sheet.innerHTML = `<p class="entry-empty">Upload a PO, or add the items by hand.</p>`;
     return;
   }
 
@@ -323,14 +371,16 @@ function renderPoSheet() {
     const picked = po.items.filter((item) => item.include).length;
     // A PO left over from an earlier job is called out, since its items are
     // still tickable and the header no longer matches it.
-    const otherJob = po.jobNumber && delivery.jobNumber && po.jobNumber !== delivery.jobNumber;
+    const otherJob = !po.manual && po.jobNumber && delivery.jobNumber && po.jobNumber !== delivery.jobNumber;
     head.innerHTML =
       `<div class="po-card-title">` +
-      `<strong>PO ${escapeHtml(po.poNumber)}</strong>` +
+      `<strong>${po.manual ? "Added by hand" : `PO ${escapeHtml(po.poNumber)}`}</strong>` +
       (otherJob ? `<span class="po-card-flag">Job ${escapeHtml(po.jobNumber)}</span>` : "") +
-      `<span class="po-card-meta">${escapeHtml(po.orderDate || "")}${
-        po.reference ? ` · ${escapeHtml(po.reference)}` : ""
-      } · ${picked} of ${po.items.length} on this delivery</span>` +
+      `<span class="po-card-meta">${
+        po.manual
+          ? `${picked} of ${po.items.length} on this delivery`
+          : `${escapeHtml(po.orderDate || "")}${po.reference ? ` · ${escapeHtml(po.reference)}` : ""} · ${picked} of ${po.items.length} on this delivery`
+      }</span>` +
       `</div>`;
 
     const actions = document.createElement("div");
@@ -346,6 +396,14 @@ function renderPoSheet() {
     remove.className = "entry-remove";
     remove.textContent = "Remove";
     remove.addEventListener("click", () => removePo(po.id));
+    if (po.manual) {
+      const add = document.createElement("button");
+      add.type = "button";
+      add.className = "entry-action";
+      add.textContent = "Add item";
+      add.addEventListener("click", addManualItem);
+      actions.append(add);
+    }
     actions.append(toggleAll, remove);
     head.appendChild(actions);
     card.appendChild(head);
@@ -374,10 +432,15 @@ function renderPoSheet() {
       name.type = "text";
       name.className = "po-item-desc";
       name.value = item.description;
+      name.dataset.itemDesc = item.id;
+      if (po.manual) {
+        name.placeholder = "What is going out";
+      }
       name.addEventListener("input", () => {
         item.description = name.value;
         persist();
         renderChecklist();
+        renderOutputs();
       });
 
       // A textarea, not a text box: an item's pieces each sit on their own line.
@@ -405,13 +468,49 @@ function renderPoSheet() {
         item.quantity = qty.value;
         persist();
         renderChecklist();
+        renderOutputs();
       });
 
-      const unit = document.createElement("span");
-      unit.className = "po-item-unit";
-      unit.textContent = item.unit || "";
+      let unit;
+      if (po.manual) {
+        unit = document.createElement("input");
+        unit.type = "text";
+        unit.className = "po-item-unit po-item-unit-input";
+        unit.value = item.unit || "";
+        unit.placeholder = "EA";
+        unit.setAttribute("aria-label", "Unit");
+        unit.addEventListener("input", () => {
+          item.unit = unit.value;
+          persist();
+          renderChecklist();
+          renderOutputs();
+        });
+      } else {
+        unit = document.createElement("span");
+        unit.className = "po-item-unit";
+        unit.textContent = item.unit || "";
+      }
 
       row.append(tick, desc, qty, unit);
+
+      if (po.manual) {
+        const drop = document.createElement("button");
+        drop.type = "button";
+        drop.className = "entry-remove po-item-remove";
+        drop.textContent = "×";
+        drop.setAttribute("aria-label", "Remove item");
+        drop.addEventListener("click", () => {
+          po.items = po.items.filter((entry) => entry.id !== item.id);
+          // An empty hand-entered group is just clutter.
+          if (po.items.length === 0) {
+            delivery.pos = delivery.pos.filter((entry) => entry.id !== po.id);
+          }
+          persist();
+          renderExtraDelivery();
+        });
+        row.appendChild(drop);
+      }
+
       list.appendChild(row);
     });
 
@@ -875,6 +974,11 @@ function bindField(el, apply) {
 
 export function initExtraDelivery(els) {
   elements = els;
+
+  elements.addManualItemButton.addEventListener("click", () => {
+    addManualItem();
+    setStatus("Type what's going out. It's on the delivery as soon as it has a name.");
+  });
 
   elements.poDropzone.addEventListener("click", () => elements.poFileInput.click());
   elements.poDropzone.addEventListener("keydown", (event) => {

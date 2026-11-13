@@ -1294,6 +1294,24 @@ button:focus-visible { outline: 3px solid var(--hivis); outline-offset: 2px; }
 
 .po-item-list { list-style: none; margin: 0; padding: 8px; display: flex; flex-direction: column; gap: 6px; }
 
+/* A hand-typed row carries a unit box and a remove button the PO rows don't. */
+.po-item:has(.po-item-remove) { grid-template-columns: auto minmax(0, 1fr) 84px 52px 32px; }
+
+.po-item-unit-input {
+  width: 100%;
+  padding: 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--steel-850);
+  color: var(--text);
+  font-family: var(--font-data);
+  font-size: 0.78rem;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.po-item-remove { width: 28px; padding: 4px 0; font-size: 0.95rem; line-height: 1; }
+
 .po-item {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) 84px 44px;
