@@ -52,6 +52,7 @@ import {
   normalizeJob,
   parseFlexibleTime,
   resolveJobShift,
+  stepShift,
   SUPER_ADMIN_EMAIL,
   to24hString,
   usernameToAuthEmail
@@ -146,9 +147,12 @@ const state = {
   workerHistory: {
     selectedWorkerId: "all",
     showHidden: false,
-    // "This shift": show only the shift running right now, whatever period and
-    // shift the pickers say. Off by default; both pickers are dimmed while on.
+    // "This shift": show one shift's work, whatever period and shift the
+    // pickers say. Off by default; both pickers are dimmed while on.
     thisShift: false,
+    // How many shifts back from the one running now — 0 is the current shift,
+    // -1 the one before it. Lets a morning report cover the night just gone.
+    shiftOffset: 0,
     // Job-number search box: narrows the logged-jobs list only, so the charts
     // and stats above it keep showing the whole selected period.
     jobNumberQuery: "",
@@ -1518,11 +1522,29 @@ function getHistoryWorkers() {
   return Array.from(byId.values()).sort((a, b) => a.name.localeCompare(b.name));
 }
 
+// The shift "This shift" is showing: the one running now, or however many
+// steps back the arrows have gone. Null when the toggle is off.
+function selectedShiftWindow() {
+  if (!state.workerHistory.thisShift) {
+    return null;
+  }
+  const now = currentShiftWindow();
+  return state.workerHistory.shiftOffset === 0
+    ? now
+    : stepShift(now, state.workerHistory.shiftOffset);
+}
+
 // The "This shift" toggle, and the two pickers it takes over while it is on.
 function renderThisShiftButton() {
   const on = state.workerHistory.thisShift;
+  const window_ = selectedShiftWindow();
   elements.thisShiftButton.setAttribute("aria-pressed", String(on));
-  elements.thisShiftButton.textContent = on ? thisShiftLabel() : "This shift";
+  elements.thisShiftButton.textContent = on ? shiftLabel(window_) : "This shift";
+  // The arrows only mean anything while the toggle is on, and there is no
+  // stepping forward past the shift that is running.
+  elements.prevShiftButton.classList.toggle("hidden", !on);
+  elements.nextShiftButton.classList.toggle("hidden", !on);
+  elements.nextShiftButton.disabled = state.workerHistory.shiftOffset >= 0;
   [elements.workerRangeSelect, elements.shiftFilterSelect].forEach((select) => {
     select.disabled = on;
     select.closest("label")?.classList.toggle("is-overridden", on);
@@ -1532,9 +1554,10 @@ function renderThisShiftButton() {
   }
 }
 
-// Names the shift being shown, so it is never a mystery which one "this" is.
-function thisShiftLabel(now = new Date()) {
-  const { shift, dayKey } = currentShiftWindow(now);
+// Names the shift being shown, so it is never a mystery which one is on
+// screen — "Night · Wed, 11 Nov" rather than just "This shift".
+function shiftLabel(window_ = currentShiftWindow()) {
+  const { shift, dayKey } = window_;
   const [year, month, day] = dayKey.split("-").map(Number);
   const date = new Date(year, month - 1, day).toLocaleDateString(undefined, {
     weekday: "short",
@@ -1615,10 +1638,10 @@ function getFilteredWorkerHistoryJobs() {
   const isAllBenches = benchFilter === "all";
   const shiftFilter = elements.shiftFilterSelect.value;
   const isAllShifts = shiftFilter === "all";
-  // "This shift" replaces the period and shift pickers: it is the shift running
-  // right now, matched by the day it belongs to rather than by a clock window,
-  // so a night job logged after midnight still counts for the night it started.
-  const shiftNow = state.workerHistory.thisShift ? currentShiftWindow() : null;
+  // "This shift" replaces the period and shift pickers: one shift's work,
+  // matched by the day it belongs to rather than by a clock window, so a night
+  // job logged after midnight still counts for the night it started.
+  const shiftNow = selectedShiftWindow();
 
   return state.savedJobs
     .filter((job) => {
@@ -1769,7 +1792,7 @@ async function handleExportReport() {
   try {
     // With "This shift" on, the workbook covers that one shift and its day —
     // including the steel bay rows for the day the shift belongs to.
-    const shiftNow = state.workerHistory.thisShift ? currentShiftWindow() : null;
+    const shiftNow = selectedShiftWindow();
     const { start, end } = resolveWorkerRange();
     const startKey = shiftNow ? shiftNow.dayKey : formatDateKey(start);
     const endKey = shiftNow ? formatDateKey(shiftNow.end) : formatDateKey(end);
@@ -1791,7 +1814,7 @@ async function handleExportReport() {
       range: {
         startKey,
         endKey,
-        label: shiftNow ? `This shift — ${thisShiftLabel()}` : formatRangeLabel(startKey, endKey)
+        label: shiftNow ? `One shift — ${shiftLabel(shiftNow)}` : formatRangeLabel(startKey, endKey)
       },
       filters: {
         // Blank while "This shift" is on: the period line already names it.
@@ -2743,11 +2766,26 @@ function bindEvents() {
   elements.workerJobsClearDay.addEventListener("click", () => selectHistoryDay(null));
   elements.thisShiftButton.addEventListener("click", () => {
     state.workerHistory.thisShift = !state.workerHistory.thisShift;
+    // Turning it on always starts at the shift running now; the arrows go back
+    // from there.
+    state.workerHistory.shiftOffset = 0;
     // A day drilled into from a chart belongs to the old period.
     state.workerHistory.selectedDayKey = null;
     state.workerHistory.selectedJobType = null;
     renderWorkerHistoryView();
   });
+  const stepToShift = (delta) => {
+    if (!state.workerHistory.thisShift) {
+      return;
+    }
+    // Never past the shift that is running — there is no work logged ahead.
+    state.workerHistory.shiftOffset = Math.min(0, state.workerHistory.shiftOffset + delta);
+    state.workerHistory.selectedDayKey = null;
+    state.workerHistory.selectedJobType = null;
+    renderWorkerHistoryView();
+  };
+  elements.prevShiftButton.addEventListener("click", () => stepToShift(-1));
+  elements.nextShiftButton.addEventListener("click", () => stepToShift(1));
   elements.exportReportButton.addEventListener("click", handleExportReport);
 
   // Truss PDF import: click/keyboard to browse, drag-and-drop, and clear.

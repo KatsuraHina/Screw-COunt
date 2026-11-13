@@ -416,7 +416,11 @@
           <input id="showHiddenJobs" type="checkbox">
           <span>Show hidden jobs</span>
         </label>
-        <button id="thisShiftButton" class="secondary-button shift-now-button" type="button" aria-pressed="false">This shift</button>
+        <div class="shift-picker">
+          <button id="prevShiftButton" class="secondary-button shift-step hidden" type="button" aria-label="The shift before">◀</button>
+          <button id="thisShiftButton" class="secondary-button shift-now-button" type="button" aria-pressed="false">This shift</button>
+          <button id="nextShiftButton" class="secondary-button shift-step hidden" type="button" aria-label="The shift after">▶</button>
+        </div>
         <button id="exportReportButton" class="secondary-button" type="button">Export spreadsheet</button>
       </div>
     </div>

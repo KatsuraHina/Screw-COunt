@@ -657,6 +657,20 @@ export function currentShiftWindow(now = new Date()) {
     shift = "afternoon";
   }
 
+  return shiftWindow(formatDateKey(day), shift);
+}
+
+// The order the shifts run in within a day; night is last because it is the
+// one that carries over into the next morning.
+export const SHIFT_ORDER = ["morning", "afternoon", "night"];
+
+// One named shift of one day: when it starts, when it ends, and the day it
+// belongs to. Night ends at 5:45am on the following day.
+export function shiftWindow(dayKey, shift) {
+  const [year, month, date] = String(dayKey).split("-").map(Number);
+  const day = new Date(year, (month || 1) - 1, date || 1);
+  day.setHours(0, 0, 0, 0);
+
   const at = (offset) => {
     const time = new Date(day);
     time.setMinutes(time.getMinutes() + offset);
@@ -669,9 +683,24 @@ export function currentShiftWindow(now = new Date()) {
     // Night runs past midnight into the next day's 5:45am.
     night: [NIGHT_START, 24 * 60 + MORNING_START]
   };
-  const [from, to] = spans[shift];
+  const [from, to] = spans[shift] || spans.morning;
 
   return { shift, dayKey: formatDateKey(day), start: at(from), end: at(to) };
+}
+
+// The shift `delta` steps away from this one — backwards through the day and
+// on into the one before, so stepping back from a morning lands on the night
+// that started the evening before.
+export function stepShift(window, delta) {
+  const start = SHIFT_ORDER.indexOf(window.shift);
+  const total = (start < 0 ? 0 : start) + delta;
+  // Floor division, so a negative step walks back into earlier days.
+  const dayShift = Math.floor(total / SHIFT_ORDER.length);
+  const index = ((total % SHIFT_ORDER.length) + SHIFT_ORDER.length) % SHIFT_ORDER.length;
+
+  const day = new Date(`${window.dayKey}T00:00:00`);
+  day.setDate(day.getDate() + dayShift);
+  return shiftWindow(formatDateKey(day), SHIFT_ORDER[index]);
 }
 
 // Which AM/PM a bare 12-hour time takes for a given shift, so the admin never

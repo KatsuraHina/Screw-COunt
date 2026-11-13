@@ -1524,6 +1524,13 @@ button:focus-visible { outline: 3px solid var(--hivis); outline-offset: 2px; }
   font-weight: 700;
 }
 
+/* The toggle with its step-back/step-forward arrows, as one control. */
+.shift-picker { display: flex; align-items: stretch; gap: 4px; }
+
+.shift-step { padding: 0 10px; font-size: 0.8rem; }
+
+.shift-step:disabled { opacity: 0.35; cursor: default; }
+
 /* "This shift" is a toggle, so it has to read as on or off at a glance. */
 .shift-now-button[aria-pressed="true"] {
   background: var(--accent);

@@ -224,6 +224,8 @@ export function getElements() {
     printerDays: document.getElementById("printerDays"),
     // Steel bay cut breakdown
     thisShiftButton: document.getElementById("thisShiftButton"),
+    prevShiftButton: document.getElementById("prevShiftButton"),
+    nextShiftButton: document.getElementById("nextShiftButton"),
     exportReportButton: document.getElementById("exportReportButton"),
     steelBayPanel: document.getElementById("steelBayPanel"),
     steelBayTabButton: document.getElementById("steelBayTabButton"),
