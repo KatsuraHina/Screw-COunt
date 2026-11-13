@@ -190,18 +190,29 @@ export function summarise(files) {
   };
 }
 
-// The two days the loaded files describe, each totalled on its own rather than
-// lumped together. The chosen day is complete; the day after it only has its
-// night up to midnight, because finishing that night would need the day after
-// THAT — so it is marked partial and the tab says so.
-export function summariseDays(files) {
-  const onlyDay = (slot) =>
-    Object.fromEntries(LINES.map((line) => [line, { day: files[line]?.[slot] ?? null, next: null }]));
+// A day's own figures, from its file and the following day's: its 6am–10pm,
+// plus the night it starts, which needs the next day's midnight–6am to finish.
+// `rowsFor(dateKey)` hands back { line: rows } for a day, or {} when that day
+// has nothing loaded.
+export function summariseDay(dateKey, rowsFor) {
+  const own = rowsFor(dateKey) || {};
+  const after = rowsFor(nextDay(dateKey)) || {};
+  const summary = summarise(
+    Object.fromEntries(LINES.map((line) => [line, { day: own[line] ?? null, next: after[line] ?? null }]))
+  );
+  return {
+    dateKey,
+    summary,
+    // Without the next day's file the night stops at midnight, and saying so
+    // is the difference between a short night and a wrong one.
+    partialNight: LINES.every((line) => !after[line]),
+    loaded: LINES.some((line) => Boolean(own[line]))
+  };
+}
 
-  return [
-    { slot: "day", partialNight: false, summary: summarise(files) },
-    { slot: "next", partialNight: true, summary: summarise(onlyDay("next")) }
-  ];
+// The chosen day and the one after it, each totalled on its own.
+export function summariseDays(dateKey, rowsFor) {
+  return [summariseDay(dateKey, rowsFor), summariseDay(nextDay(dateKey), rowsFor)];
 }
 
 // --- The tab ----------------------------------------------------------------
@@ -212,11 +223,16 @@ let elements = {};
 let userKey = "anon";
 let pendingSlot = null;
 
-const emptyState = () => ({
-  workDate: "",
-  // { E1: { day: {name, rows} | null, next: {name, rows} | null }, … }
-  files: Object.fromEntries(LINES.map((line) => [line, { day: null, next: null }]))
-});
+// A CSV is a day's file, so it is stored under that day — not under "the slot
+// I happened to drop it in". Changing the date then shows that date's own
+// files, every other day stays saved, and the file loaded as one day's "next
+// day" is already there when you go to that day.
+// { "2026-11-12": { E1: {name, rows}, … }, … }
+const emptyState = () => ({ workDate: "", days: {} });
+
+// Days are small (a few hundred hourly rows), but they are kept forever
+// otherwise; the oldest go first once there are more than this.
+const MAX_DAYS = 60;
 
 let state = emptyState();
 
@@ -245,15 +261,30 @@ function restore() {
       return;
     }
     state.workDate = typeof stored.workDate === "string" ? stored.workDate : "";
+
+    if (stored.days && typeof stored.days === "object") {
+      Object.entries(stored.days).forEach(([dateKey, lines]) => {
+        LINES.forEach((line) => {
+          const entry = lines?.[line];
+          if (entry && Array.isArray(entry.rows)) {
+            setFile(dateKey, line, { name: String(entry.name ?? ""), rows: entry.rows });
+          }
+        });
+      });
+      return;
+    }
+
+    // Anything saved before files were filed by date: the "day" slot was the
+    // chosen day's file and "next" the day after's, so put them there.
     LINES.forEach((line) => {
       const slot = stored.files?.[line];
       if (!slot) {
         return;
       }
-      ["day", "next"].forEach((key) => {
+      [["day", state.workDate], ["next", nextDay(state.workDate)]].forEach(([key, dateKey]) => {
         const entry = slot[key];
-        if (entry && Array.isArray(entry.rows)) {
-          state.files[line][key] = { name: String(entry.name ?? ""), rows: entry.rows };
+        if (dateKey && entry && Array.isArray(entry.rows)) {
+          setFile(dateKey, line, { name: String(entry.name ?? ""), rows: entry.rows });
         }
       });
     });
@@ -262,41 +293,58 @@ function restore() {
   }
 }
 
-// summarise() reads a line's rows per slot; the loaded files carry their name
-// alongside, so the rows are unwrapped here for both the tab and the report.
-function rowsByLine() {
-  return Object.fromEntries(
-    LINES.map((line) => [
-      line,
-      {
-        day: state.files[line].day?.rows ?? null,
-        next: state.files[line].next?.rows ?? null
-      }
-    ])
-  );
+const filesOn = (dateKey) => state.days[dateKey] || null;
+
+const fileOn = (dateKey, line) => filesOn(dateKey)?.[line] || null;
+
+function setFile(dateKey, line, entry) {
+  if (!dateKey) {
+    return;
+  }
+  if (!state.days[dateKey]) {
+    state.days[dateKey] = {};
+  }
+  if (entry) {
+    state.days[dateKey][line] = entry;
+  } else {
+    delete state.days[dateKey][line];
+    if (Object.keys(state.days[dateKey]).length === 0) {
+      delete state.days[dateKey];
+    }
+  }
+  // Keep the newest days; an old one nobody has opened in months isn't worth
+  // failing a save over.
+  const keys = Object.keys(state.days).sort();
+  while (keys.length > MAX_DAYS) {
+    delete state.days[keys.shift()];
+  }
+}
+
+// summarise() reads a line's rows; the stored files carry their name alongside,
+// so the rows are unwrapped here for both the tab and the report.
+const rowsFor = (dateKey) =>
+  Object.fromEntries(LINES.map((line) => [line, fileOn(dateKey, line)?.rows ?? null]));
+
+// Every day that has at least one file, newest first.
+export function loadedDays() {
+  return Object.keys(state.days)
+    .filter((dateKey) => Object.keys(state.days[dateKey]).length > 0)
+    .sort((a, b) => b.localeCompare(a));
 }
 
 // What the tab currently holds, for the shared report: the chosen day, the
 // totals it is showing, and which files they came from.
 export function getPrinterSnapshot() {
   const files = [];
-  LINES.forEach((line) => {
-    ["day", "next"].forEach((slot) => {
-      const loaded = state.files[line]?.[slot];
+  [state.workDate, nextDay(state.workDate)].forEach((dateKey) => {
+    LINES.forEach((line) => {
+      const loaded = fileOn(dateKey, line);
       if (loaded) {
-        files.push(`${line} · ${slot === "day" ? "chosen day" : "next day"} · ${loaded.name}`);
+        files.push(`${line} · ${dayLabel(dateKey)} · ${loaded.name}`);
       }
     });
   });
-  const rows = rowsByLine();
-  return {
-    workDate: state.workDate,
-    days: summariseDays(rows).map((entry) => ({
-      ...entry,
-      dateKey: entry.slot === "day" ? state.workDate : nextDay(state.workDate)
-    })),
-    files
-  };
+  return { workDate: state.workDate, days: summariseDays(state.workDate, rowsFor), files };
 }
 
 export function setPrinterStatsUser(uid) {
@@ -347,18 +395,20 @@ function setStatus(message, tone = "hint") {
     tone === "warning" || tone === "success" ? `hint ${tone}` : "hint";
 }
 
-async function loadFile(file, line, slot) {
-  if (!file) {
+async function loadFile(file, line, dateKey) {
+  if (!file || !dateKey) {
     return;
   }
   try {
     const rows = parseMetersCsv(await file.text());
-    state.files[line][slot] = { name: file.name, rows };
+    setFile(dateKey, line, { name: file.name, rows });
     persist();
     renderPrinterStats();
-    const kept = rows.filter((row) => shiftForHour(row.hour, slot === "next")).length;
+    // The file is this day's whole day; the hours that fall in its own shifts
+    // are everything from 6am, the rest finishing the previous day's night.
+    const own = rows.filter((row) => shiftForHour(row.hour, false)).length;
     setStatus(
-      `${line} · ${file.name}: ${rows.length} hourly rows, ${kept} counted toward this day.`,
+      `${line} · ${file.name}: ${rows.length} hourly rows, ${own} in ${dayLabel(dateKey)}'s own shifts.`,
       "success"
     );
   } catch (error) {
@@ -367,8 +417,8 @@ async function loadFile(file, line, slot) {
   }
 }
 
-function clearSlot(line, slot) {
-  state.files[line][slot] = null;
+function clearSlot(line, dateKey) {
+  setFile(dateKey, line, null);
   persist();
   renderPrinterStats();
 }
@@ -387,12 +437,12 @@ function renderSlots() {
     name.textContent = line;
     card.appendChild(name);
 
-    // Each line takes two days: the night shift starts on the one before.
+    // Each line takes two days: the night shift it starts carries into the next.
     [
       ["day", state.workDate],
       ["next", nextKey]
     ].forEach(([slot, dateKey]) => {
-      const loaded = state.files[line][slot];
+      const loaded = fileOn(dateKey, line);
       const box = document.createElement("div");
       box.className = loaded ? "line-slot is-loaded" : "line-slot";
 
@@ -411,7 +461,7 @@ function renderSlots() {
       button.className = "entry-action";
       button.textContent = loaded ? "Replace" : "Upload CSV";
       button.addEventListener("click", () => {
-        pendingSlot = { line, slot };
+        pendingSlot = { line, dateKey };
         elements.printerFileInput.click();
       });
 
@@ -422,7 +472,7 @@ function renderSlots() {
         clear.type = "button";
         clear.className = "entry-remove";
         clear.textContent = "Clear";
-        clear.addEventListener("click", () => clearSlot(line, slot));
+        clear.addEventListener("click", () => clearSlot(line, dateKey));
         box.appendChild(clear);
       }
 
@@ -462,27 +512,21 @@ function table(caption, rows, firstHeading, totals, grand) {
 }
 
 function renderResults() {
-  const loadedCount = LINES.reduce(
-    (sum, line) => sum + (state.files[line].day ? 1 : 0) + (state.files[line].next ? 1 : 0),
-    0
-  );
+  const days = state.workDate ? summariseDays(state.workDate, rowsFor) : [];
+  const showing = days.filter((day) => day.summary.grand > 0);
 
-  if (loadedCount === 0) {
-    elements.printerResults.innerHTML =
-      `<p class="entry-empty">Upload a line's CSV to see who ran what.</p>`;
+  if (showing.length === 0) {
+    elements.printerResults.innerHTML = `<p class="entry-empty">${
+      state.workDate
+        ? `Nothing loaded for ${escapeHtml(dayLabel(state.workDate))} yet.`
+        : "Pick a day, then upload a line's CSV."
+    }</p>`;
     return;
   }
 
-  const rows = rowsByLine();
-  const days = summariseDays(rows);
-
-  elements.printerResults.innerHTML = days
-    .map(({ slot, partialNight, summary }) => {
-      if (summary.grand === 0) {
-        return "";
-      }
-      const dateKey = slot === "day" ? state.workDate : nextDay(state.workDate);
-      const heading = dateKey ? dayLabel(dateKey) : slot === "day" ? "Chosen day" : "Next day";
+  elements.printerResults.innerHTML = showing
+    .map(({ dateKey, partialNight, summary }) => {
+      const heading = dayLabel(dateKey);
       return (
         `<section class="day-block">` +
         `<h3 class="day-block-title">${escapeHtml(heading)}` +
@@ -498,10 +542,46 @@ function renderResults() {
     .join("");
 }
 
+// The days that have files, so a day's work can be found again instead of
+// being guessed at in the date box.
+function renderLoadedDays() {
+  const list = elements.printerDays;
+  if (!list) {
+    return;
+  }
+  const days = loadedDays();
+  if (days.length === 0) {
+    list.innerHTML = `<p class="entry-empty">No days loaded yet.</p>`;
+    return;
+  }
+
+  list.innerHTML = days
+    .map((dateKey) => {
+      const count = Object.keys(state.days[dateKey] || {}).length;
+      return (
+        `<button type="button" class="sb-day${dateKey === state.workDate ? " is-active" : ""}" ` +
+        `data-printer-day="${escapeHtml(dateKey)}">` +
+        `<strong>${escapeHtml(dayLabel(dateKey))}</strong>` +
+        `<span>${count} line${count === 1 ? "" : "s"}</span>` +
+        `</button>`
+      );
+    })
+    .join("");
+
+  list.querySelectorAll("[data-printer-day]").forEach((button) => {
+    button.addEventListener("click", () => {
+      state.workDate = button.dataset.printerDay;
+      persist();
+      renderPrinterStats();
+    });
+  });
+}
+
 export function renderPrinterStats() {
   elements.printerDate.value = state.workDate;
   renderSlots();
   renderResults();
+  renderLoadedDays();
 }
 
 export function initPrinterStats(els) {
@@ -519,17 +599,22 @@ export function initPrinterStats(els) {
     elements.printerFileInput.value = "";
     pendingSlot = null;
     if (file && target) {
-      loadFile(file, target.line, target.slot);
+      loadFile(file, target.line, target.dateKey);
     }
   });
 
+  // Clears the day on screen, not the lot: every other day stays where it is.
   elements.printerClearButton.addEventListener("click", () => {
-    const keepDate = state.workDate;
-    state = emptyState();
-    state.workDate = keepDate;
+    if (!state.workDate || !state.days[state.workDate]) {
+      return;
+    }
+    if (!window.confirm(`Clear the files loaded for ${dayLabel(state.workDate)}?`)) {
+      return;
+    }
+    delete state.days[state.workDate];
     persist();
     renderPrinterStats();
-    setStatus("Cleared. Upload the next day's files.");
+    setStatus(`Cleared ${dayLabel(state.workDate)}.`);
   });
 
   restore();
