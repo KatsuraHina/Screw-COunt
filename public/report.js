@@ -132,11 +132,12 @@ export function workerTotals(jobs, workers) {
 
 function workersSheet(jobs, workers) {
   const rows = workerTotals(jobs, workers);
-  const header = ["Worker", "Jobs", "Hours", "Metres", "Screws", "Metres/hr", "Screws/hr"];
+  // Hours are still what the rates are worked out from; they just aren't a
+  // column any more.
+  const header = ["Worker", "Jobs", "Metres", "Screws", "Metres/hr", "Screws/hr"];
   const body = rows.map((row) => [
     row.name,
     row.jobs,
-    row.hours,
     row.metres,
     row.screws,
     row.trussHours > 0 ? row.metres / row.trussHours : "",
@@ -145,7 +146,6 @@ function workersSheet(jobs, workers) {
   const totals = [
     "All",
     rows.reduce((sum, row) => sum + row.jobs, 0),
-    rows.reduce((sum, row) => sum + row.hours, 0),
     rows.reduce((sum, row) => sum + row.metres, 0),
     rows.reduce((sum, row) => sum + row.screws, 0),
     "",
