@@ -197,12 +197,24 @@ export function summarise(files) {
 export function summariseDay(dateKey, rowsFor) {
   const own = rowsFor(dateKey) || {};
   const after = rowsFor(nextDay(dateKey)) || {};
-  const summary = summarise(
-    Object.fromEntries(LINES.map((line) => [line, { day: own[line] ?? null, next: after[line] ?? null }]))
-  );
+  // Narrowed to one line, or to all of them: the same maths either way, so a
+  // line's own figures can never drift from the day's.
+  const slots = (keep) =>
+    Object.fromEntries(
+      LINES.map((line) => [
+        line,
+        keep.includes(line) ? { day: own[line] ?? null, next: after[line] ?? null } : { day: null, next: null }
+      ])
+    );
+  const summary = summarise(slots(LINES));
   return {
     dateKey,
     summary,
+    // Each roll former on its own, for the shared report. Lines that ran
+    // nothing are left out rather than printed as a row of dashes.
+    byLine: LINES.map((line) => ({ line, summary: summarise(slots([line])) })).filter(
+      (entry) => entry.summary.grand > 0
+    ),
     // Without the next day's file the night stops at midnight, and saying so
     // is the difference between a short night and a wrong one.
     partialNight: LINES.every((line) => !after[line]),

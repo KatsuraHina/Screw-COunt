@@ -29,21 +29,22 @@ const perWorker = (job) => (Number(job.totalUnits) || 0) / Math.max(1, job.worke
 
 const isWalls = (job) => job.jobType === "walls";
 
-function jobsSheet(jobs, namesById) {
+// Trusses and walls are counted in different units and read as different work,
+// so each gets its own sheet rather than a Type column to filter on. The job
+// number sits second, right after the date, because that is what gets looked up.
+function jobsSheet(name, jobs, namesById, walls) {
   const header = [
     "Date",
-    "Shift",
-    "Type",
     "Job number",
+    "Shift",
     "Bench",
     "Crew",
     "Workers",
     "Worked (h)",
     "Break (min)",
     "Strap (min)",
-    "Metres",
-    "Screws",
-    "Per worker/hr",
+    ...(walls ? ["Screws", "Metres"] : ["Metres"]),
+    walls ? "Screws per worker/hr" : "Metres per worker/hr",
     "Hidden"
   ];
 
@@ -51,23 +52,33 @@ function jobsSheet(jobs, namesById) {
     const crew = crewNames(job, namesById);
     return [
       { date: job.dayKey },
-      SHIFT_LABELS[job.shift] || job.shift || "",
-      isWalls(job) ? "Walls" : "Trusses",
       job.jobNumber || "",
+      SHIFT_LABELS[job.shift] || job.shift || "",
       job.benchNumber || "",
       crew.join(", "),
       crew.length || job.workerCount || "",
       hours(job.netWorkedMinutes),
       Number(job.breakMinutes) || 0,
       Number(job.strapMinutes) || 0,
-      isWalls(job) ? Number(job.metres) || 0 : Number(job.totalUnits) || 0,
-      isWalls(job) ? Number(job.totalUnits) || 0 : "",
+      ...(walls
+        ? [Number(job.totalUnits) || 0, Number(job.metres) || 0]
+        : [Number(job.totalUnits) || 0]),
       Number(job.rate) || 0,
       job.hidden ? "Hidden" : ""
     ];
   });
 
+  if (rows.length === 0) {
+    return {
+      name,
+      rows: [header, [`No ${walls ? "wall" : "truss"} jobs in this period.`]],
+      boldRows: [0]
+    };
+  }
+
+  // Hidden jobs are listed but left out of the totals, the same as the charts.
   const visible = jobs.filter((job) => !job.hidden);
+  const sum = (pick) => visible.reduce((total, job) => total + (Number(pick(job)) || 0), 0);
   const totals = [
     "Total",
     "",
@@ -75,21 +86,15 @@ function jobsSheet(jobs, namesById) {
     "",
     "",
     "",
-    "",
-    visible.reduce((sum, job) => sum + hours(job.netWorkedMinutes), 0),
-    visible.reduce((sum, job) => sum + (Number(job.breakMinutes) || 0), 0),
-    visible.reduce((sum, job) => sum + (Number(job.strapMinutes) || 0), 0),
-    visible.reduce((sum, job) => sum + (isWalls(job) ? Number(job.metres) || 0 : Number(job.totalUnits) || 0), 0),
-    visible.reduce((sum, job) => sum + (isWalls(job) ? Number(job.totalUnits) || 0 : 0), 0),
+    sum((job) => hours(job.netWorkedMinutes)),
+    sum((job) => job.breakMinutes),
+    sum((job) => job.strapMinutes),
+    ...(walls ? [sum((job) => job.totalUnits), sum((job) => job.metres)] : [sum((job) => job.totalUnits)]),
     "",
     ""
   ];
 
-  return {
-    name: "Jobs",
-    rows: [header, ...rows, totals],
-    boldRows: [0, rows.length + 1]
-  };
+  return { name, rows: [header, ...rows, totals], boldRows: [0, rows.length + 1] };
 }
 
 // Per worker, over the same jobs. Hidden jobs are left out, as they are in the
@@ -173,9 +178,16 @@ function printerSheet(printer) {
     return { name: "Printer stats", rows, boldRows: bold, freezeHeader: false };
   }
 
-  days.forEach((day) => {
-    const { operators, lines, shiftTotals, grand } = day.summary;
+  const block = (title, entries, totalsRow, totalsLabel = "All") => {
+    rows.push([]);
+    bold.push(rows.length);
+    rows.push([title, ...SHIFT_BANDS.map((band) => band.label), "Total"]);
+    entries.forEach((entry) => rows.push([entry.name, ...entry.values, entry.total]));
+    bold.push(rows.length);
+    rows.push([totalsLabel, ...totalsRow.shiftTotals, totalsRow.grand]);
+  };
 
+  days.forEach((day) => {
     rows.push([]);
     bold.push(rows.length);
     rows.push([
@@ -183,17 +195,17 @@ function printerSheet(printer) {
       day.partialNight ? "night to midnight only" : ""
     ]);
 
-    const block = (title, entries) => {
-      rows.push([]);
-      bold.push(rows.length);
-      rows.push([title, ...SHIFT_BANDS.map((band) => band.label), "Total"]);
-      entries.forEach((entry) => rows.push([entry.name, ...entry.values, entry.total]));
-      bold.push(rows.length);
-      rows.push(["All", ...shiftTotals, grand]);
-    };
+    // Each roll former on its own, with the operators who ran it.
+    (day.byLine || []).forEach(({ line, summary }) => {
+      block(line, summary.operators, summary, `${line} total`);
+    });
 
-    block("Operator", operators);
-    block("Line", lines);
+    // Then the day across all five, operator by operator and line by line —
+    // skipped when only one line ran, where it would repeat that line's block.
+    if ((day.byLine || []).length > 1) {
+      block("Every line · operator", day.summary.operators, day.summary);
+      block("Every line · line", day.summary.lines, day.summary);
+    }
   });
 
   if (printer.files?.length) {
@@ -284,8 +296,10 @@ function summarySheet({ generatedAt, range, filters, jobs, printer, steelBay }) 
 
   gap();
   head("Jobs");
-  line("Logged", visible.length);
+  // Counted the way they are now sheeted: trusses and walls apart.
+  line("Trusses", visible.filter((job) => !isWalls(job)).length);
   line("Metres", metres);
+  line("Walls", visible.filter(isWalls).length);
   line("Screws", screws);
 
   gap();
@@ -312,9 +326,11 @@ function summarySheet({ generatedAt, range, filters, jobs, printer, steelBay }) 
 
 export function buildReport(data) {
   const namesById = new Map((data.workers || []).map((worker) => [worker.id, worker.name]));
+  const jobs = data.jobs || [];
   return [
     summarySheet(data),
-    jobsSheet(data.jobs, namesById),
+    jobsSheet("Trusses", jobs.filter((job) => !isWalls(job)), namesById, false),
+    jobsSheet("Walls", jobs.filter(isWalls), namesById, true),
     workersSheet(data.jobs, data.workers || []),
     printerSheet(data.printer),
     steelBaySheet(data.steelBay || [])
