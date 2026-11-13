@@ -1544,6 +1544,72 @@ button:focus-visible { outline: 3px solid var(--hivis); outline-offset: 2px; }
 }
 
 /* --------------------------------------------------------------------------
+   Workers — the roster
+   -------------------------------------------------------------------------- */
+
+.roster-panel { width: min(900px, 100%); }
+
+.roster-panel .card { display: flex; flex-direction: column; gap: 14px; }
+
+.roster-tools { display: grid; grid-template-columns: 1fr; gap: 10px; }
+
+@media (min-width: 640px) {
+  .roster-tools { grid-template-columns: 1fr 1fr; }
+}
+
+.roster-list { display: flex; flex-direction: column; gap: 8px; }
+
+.roster-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 10px 12px;
+  background: var(--steel-850);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+@media (min-width: 640px) {
+  .roster-row { grid-template-columns: minmax(0, 220px) minmax(0, 1fr) auto; }
+}
+
+/* The name is the field: tap it and type to fix a spelling. */
+.roster-name {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text);
+  font-family: var(--font-ui);
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.roster-name:hover { border-color: var(--border); }
+
+.roster-name:focus {
+  outline: none;
+  border-color: var(--accent);
+  background: var(--steel-800);
+}
+
+.roster-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  font-family: var(--font-data);
+  font-size: 0.78rem;
+  color: var(--muted);
+  grid-column: 1 / -1;
+}
+
+@media (min-width: 640px) {
+  .roster-stats { grid-column: auto; }
+}
+
+/* --------------------------------------------------------------------------
    Steel bay — the cut breakdown sheet
    -------------------------------------------------------------------------- */
 

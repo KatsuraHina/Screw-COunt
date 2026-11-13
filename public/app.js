@@ -9,6 +9,7 @@ import {
   loadAdminRecords,
   loadJobRecords,
   loadSteelBaySheets,
+  renameWorkerRecord,
   loadWorkerRecords,
   logoutCurrentUser,
   markImportRowsLogged,
@@ -85,7 +86,7 @@ import {
   renderWorkerHistory,
   renderWorkerJobsList,
   renderWorkerHistorySelect,
-  renderWorkerManagement,
+  renderWorkerRoster,
   renderWorkerPicker,
   renderJobTypeToggle,
   renderShiftToggle,
@@ -144,6 +145,8 @@ const state = {
     total: null,
     rate: null
   },
+  // The Workers tab's search box.
+  rosterQuery: "",
   workerHistory: {
     selectedWorkerId: "all",
     showHidden: false,
@@ -586,6 +589,16 @@ function renderApp() {
     elements.tabDescription.textContent =
       "Metres run per operator, by shift.";
     renderPrinterStats();
+    return;
+  }
+
+  if (state.activeTab === "roster") {
+    showPanel(elements, "roster");
+    setActiveTabButtons(elements, state.activeTab);
+    elements.activeTabLabel.textContent = "Workers";
+    elements.tabTitle.textContent = "The roster";
+    elements.tabDescription.textContent = "Who's on the books, and what they've logged.";
+    renderRosterSection();
     return;
   }
 
@@ -1507,6 +1520,57 @@ function clearImport() {
 // appears on a saved job but has since been removed. Deleting a worker only
 // takes them off the roster and the new-job picker — their logged history stays
 // fully visible in the charts, so the chart area is unaffected by a deletion.
+// Each worker with what they have to show: jobs, when they last worked, and
+// their share of the metres and screws. Jobs are split across the crew the same
+// way the charts and the workbook split them.
+function getRosterRows() {
+  const query = state.rosterQuery.trim().toLowerCase();
+  const stats = new Map(
+    state.workers.map((worker) => [worker.id, { jobs: 0, lastWorked: "", metres: 0, screws: 0 }])
+  );
+
+  state.savedJobs
+    .filter((job) => !job.hidden)
+    .forEach((job) => {
+      const share = (Number(job.totalUnits) || 0) / Math.max(1, job.workerCount || 1);
+      (job.assignedWorkerIds || []).forEach((id) => {
+        const row = stats.get(id);
+        if (!row) {
+          return;
+        }
+        row.jobs += 1;
+        const day = getShiftDayKey(job);
+        if (!row.lastWorked || day > row.lastWorked) {
+          row.lastWorked = day;
+        }
+        if (job.jobType === "walls") {
+          row.screws += share;
+        } else {
+          row.metres += share;
+        }
+      });
+    });
+
+  return state.workers
+    .filter((worker) => !query || worker.name.toLowerCase().includes(query))
+    .map((worker) => ({ id: worker.id, name: worker.name, ...stats.get(worker.id) }));
+}
+
+function setRosterStatus(message, tone = "hint") {
+  elements.rosterStatus.textContent = message;
+  elements.rosterStatus.className = tone === "hint" ? "hint" : `hint ${tone}`;
+}
+
+function renderRosterSection() {
+  if (!state.isAdmin) {
+    return;
+  }
+  renderWorkerRoster(elements, getRosterRows(), state.rosterQuery.trim(), {
+    onRenameWorker: renameWorker,
+    onRemoveWorker: removeWorker
+  });
+}
+
 function getHistoryWorkers() {
   const byId = new Map();
   state.workers.forEach((worker) => {
@@ -2373,6 +2437,8 @@ function applyAdminState() {
   // The Extra Delivery Maker is an office job, so it rides with the admin tabs.
   elements.deliveryTabButton.classList.toggle("hidden", !state.isAdmin);
   elements.printerTabButton.classList.toggle("hidden", !state.isAdmin);
+  // The roster is the admin's to keep; benches only ever pick from it.
+  elements.rosterTabButton.classList.toggle("hidden", !state.isAdmin);
   // The steel bay's own tab: the bay account has it, and admins see it too so
   // the office can read the day's cut breakdown.
   elements.steelBayTabButton.classList.toggle("hidden", !state.isAdmin && !isSteelBayUser());
@@ -2391,6 +2457,7 @@ function applyAdminState() {
     (state.activeTab === "workers" ||
       state.activeTab === "delivery" ||
       state.activeTab === "printer" ||
+      state.activeTab === "roster" ||
       state.activeTab === "steelbay")
   ) {
     state.activeTab = "trusses";
@@ -2420,9 +2487,7 @@ function renderWorkersSection() {
     return;
   }
 
-  renderWorkerManagement(elements, state.workers, {
-    onRemoveWorker: removeWorker
-  });
+  renderRosterSection();
   renderWorkerPickerSection();
 
   if (state.activeTab === "workers") {
@@ -2552,16 +2617,18 @@ async function removeAdmin(email) {
   }
 }
 
-async function addWorker() {
-  const name = elements.workerNameInput.value.trim();
+// A name can be added from either box — the quick one by the crew picker, or
+// the Workers tab — so each says how it went where it was typed.
+async function addWorker(input, status) {
+  const name = input.value.trim();
 
   if (!name) {
-    setWorkerStatus(elements, "Enter a worker name before adding.", "warning");
+    status("Enter a worker name before adding.", "warning");
     return;
   }
 
   if (state.workers.some((worker) => worker.name.toLowerCase() === name.toLowerCase())) {
-    setWorkerStatus(elements, `${name} is already on the list.`, "warning");
+    status(`${name} is already on the roster.`, "warning");
     return;
   }
 
@@ -2569,17 +2636,59 @@ async function addWorker() {
     const worker = await addWorkerRecord(name, state.currentUser);
     state.workers.push(worker);
     state.workers.sort((a, b) => a.name.localeCompare(b.name));
-    elements.workerNameInput.value = "";
+    input.value = "";
     renderWorkersSection();
-    setWorkerStatus(elements, `Added ${name}.`, "success");
+    status(`Added ${name}.`, "success");
   } catch (error) {
     console.error(error);
-    setWorkerStatus(elements, formatFirestoreError(error), "warning");
+    status(formatFirestoreError(error), "warning");
+  }
+}
+
+async function renameWorker(workerId, name) {
+  const worker = state.workers.find((item) => item.id === workerId);
+  if (!worker || worker.name === name) {
+    return;
+  }
+  if (state.workers.some((item) => item.id !== workerId && item.name.toLowerCase() === name.toLowerCase())) {
+    setRosterStatus(`${name} is already on the roster.`, "warning");
+    renderRosterSection();
+    return;
+  }
+
+  const previous = worker.name;
+  try {
+    await renameWorkerRecord(workerId, name);
+    // The jobs keep pointing at the same id, so their crew reads the new name
+    // the moment the roster does.
+    worker.name = name;
+    state.workers.sort((a, b) => a.name.localeCompare(b.name));
+    renderWorkersSection();
+    renderHistorySection();
+    setRosterStatus(`${previous} is now ${name}.`, "success");
+  } catch (error) {
+    console.error(error);
+    setRosterStatus(formatFirestoreError(error), "warning");
+    renderRosterSection();
   }
 }
 
 async function removeWorker(workerId) {
   const worker = state.workers.find((item) => item.id === workerId);
+
+  // Say what goes with them: their logged jobs stay, but they drop off the
+  // roster and out of every crew picker.
+  if (worker) {
+    const logged = state.savedJobs.filter(
+      (job) => !job.hidden && (job.assignedWorkerIds || []).includes(workerId)
+    ).length;
+    const message = logged
+      ? `Remove ${worker.name} from the roster? Their ${logged} logged job${logged === 1 ? "" : "s"} stay in the charts.`
+      : `Remove ${worker.name} from the roster?`;
+    if (!window.confirm(message)) {
+      return;
+    }
+  }
 
   try {
     await deleteWorkerRecord(workerId);
@@ -2589,10 +2698,10 @@ async function removeWorker(workerId) {
       draft.assignedWorkerIds = draft.assignedWorkerIds.filter((id) => id !== workerId);
     });
     renderWorkersSection();
-    setWorkerStatus(elements, worker ? `Removed ${worker.name}.` : "Worker removed.", "success");
+    setRosterStatus(worker ? `Removed ${worker.name}.` : "Worker removed.", "success");
   } catch (error) {
     console.error(error);
-    setWorkerStatus(elements, formatFirestoreError(error), "warning");
+    setRosterStatus(formatFirestoreError(error), "warning");
   }
 }
 
@@ -2615,7 +2724,12 @@ function switchTab(nextTab) {
     if (!state.isAdmin && !isSteelBayUser()) {
       return;
     }
-  } else if (nextTab === "workers" || nextTab === "delivery" || nextTab === "printer") {
+  } else if (
+    nextTab === "workers" ||
+    nextTab === "delivery" ||
+    nextTab === "printer" ||
+    nextTab === "roster"
+  ) {
     if (!state.isAdmin) {
       return;
     }
@@ -2695,12 +2809,28 @@ function bindEvents() {
 
   elements.amountInput.addEventListener("input", syncDraftFromInputs);
   elements.jobNumberInput.addEventListener("input", syncDraftFromInputs);
-  elements.addWorkerButton.addEventListener("click", addWorker);
-  elements.workerNameInput.addEventListener("keydown", (event) => {
-    if (event.key === "Enter") {
-      event.preventDefault();
-      addWorker();
-    }
+  const quickStatus = (message, tone) => setWorkerStatus(elements, message, tone);
+  const bindAdd = (button, input, status) => {
+    button.addEventListener("click", () => addWorker(input, status));
+    input.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        addWorker(input, status);
+      }
+    });
+  };
+  bindAdd(elements.addWorkerButton, elements.workerNameInput, quickStatus);
+  bindAdd(elements.rosterAddButton, elements.rosterNameInput, setRosterStatus);
+
+  elements.rosterSearch.addEventListener("input", () => {
+    state.rosterQuery = elements.rosterSearch.value;
+    renderRosterSection();
+  });
+  elements.rosterSearchClear.addEventListener("click", () => {
+    state.rosterQuery = "";
+    elements.rosterSearch.value = "";
+    elements.rosterSearch.focus();
+    renderRosterSection();
   });
   elements.addAdminButton.addEventListener("click", addAdmin);
   elements.adminEmailInput.addEventListener("keydown", (event) => {

@@ -53,6 +53,10 @@
           <span class="tab-icon" aria-hidden="true">📊</span>
           <span>Charts</span>
         </button>
+        <button class="tab-button hidden" id="rosterTabButton" type="button" data-job-tab="roster" role="tab" aria-selected="false">
+          <span class="tab-icon" aria-hidden="true">👷</span>
+          <span>Workers</span>
+        </button>
         <button class="tab-button hidden" id="deliveryTabButton" type="button" data-job-tab="delivery" role="tab" aria-selected="false">
           <span class="tab-icon" aria-hidden="true">🚚</span>
           <span>Extra delivery</span>
@@ -81,15 +85,11 @@
 
           <div class="manage-actions">
             <details class="worker-manage hidden" id="workerManage">
-              <summary>Manage workers</summary>
+              <summary>Add a worker</summary>
               <div class="worker-manage-body">
                 <div class="worker-add-row">
-                  <input id="workerNameInput" type="text" placeholder="Add a worker" autocomplete="off">
+                  <input id="workerNameInput" type="text" placeholder="Name" autocomplete="off">
                   <button id="addWorkerButton" type="button">Add</button>
-                </div>
-                <div class="worker-list-scroll">
-                  <ul id="workerList" class="worker-list"></ul>
-                  <p id="workerEmpty" class="entry-empty">No workers yet.</p>
                 </div>
                 <p id="workerStatus" class="hint"></p>
               </div>
@@ -673,6 +673,26 @@
     <div class="card">
       <h2 class="section-title">Loaded days</h2>
       <div id="printerDays" class="sb-days"></div>
+    </div>
+  </section>
+
+  <section class="roster-panel hidden" id="rosterPanel" hidden>
+    <div class="card">
+      <h2 class="section-title">The roster</h2>
+
+      <div class="roster-tools">
+        <div class="worker-add-row">
+          <input id="rosterNameInput" type="text" placeholder="Add a worker" autocomplete="off">
+          <button id="rosterAddButton" type="button">Add</button>
+        </div>
+        <div class="job-search">
+          <input id="rosterSearch" type="search" placeholder="Search names" autocomplete="off">
+          <button id="rosterSearchClear" type="button" class="job-search-clear hidden" aria-label="Clear search">×</button>
+        </div>
+      </div>
+
+      <p id="rosterStatus" class="hint"></p>
+      <div id="rosterList" class="roster-list"></div>
     </div>
   </section>
 

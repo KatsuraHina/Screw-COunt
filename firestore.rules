@@ -47,7 +47,14 @@ service cloud.firestore {
         && request.resource.data.name is string;
       allow delete: if request.auth != null
         && (resource.data.userId == request.auth.uid || isAdmin());
-      allow update: if false;
+      // Renaming only: a misspelled name is fixed in place so the worker keeps
+      // the id their logged jobs point at. Ownership can never be reassigned.
+      allow update: if request.auth != null
+        && (resource.data.userId == request.auth.uid || isAdmin())
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 0
+        && request.resource.data.userId == resource.data.userId
+        && request.resource.data.userEmail == resource.data.userEmail;
     }
 
     // One document per ticked row of a shared imported cut list, keyed

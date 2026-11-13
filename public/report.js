@@ -11,14 +11,16 @@ const SHIFT_LABELS = { morning: "Morning", afternoon: "Afternoon", night: "Night
 
 const hours = (minutes) => (Number(minutes) || 0) / 60;
 
+// The roster's name wins over the one stored on the job, so fixing a spelling
+// fixes it everywhere the worker appears, past jobs included.
 function crewNames(job, namesById) {
-  const named = (job.assignedWorkers || []).map((worker) => worker?.name).filter(Boolean);
-  if (named.length > 0) {
-    return named;
-  }
   const resolved = (job.assignedWorkerIds || []).map((id) => namesById.get(id)).filter(Boolean);
   if (resolved.length > 0) {
     return resolved;
+  }
+  const named = (job.assignedWorkers || []).map((worker) => worker?.name).filter(Boolean);
+  if (named.length > 0) {
+    return named;
   }
   return job.assignedToLabel ? [job.assignedToLabel] : [];
 }

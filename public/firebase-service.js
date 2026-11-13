@@ -147,6 +147,10 @@ export async function loadWorkerRecords(user, { all = false } = {}) {
   }));
 }
 
+export async function renameWorkerRecord(workerId, name) {
+  await updateDoc(doc(db, "workers", workerId), { name });
+}
+
 export async function deleteWorkerRecord(workerId) {
   await deleteDoc(doc(db, "workers", workerId));
 }

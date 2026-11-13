@@ -227,6 +227,14 @@ export function getElements() {
     prevShiftButton: document.getElementById("prevShiftButton"),
     nextShiftButton: document.getElementById("nextShiftButton"),
     exportReportButton: document.getElementById("exportReportButton"),
+    rosterPanel: document.getElementById("rosterPanel"),
+    rosterTabButton: document.getElementById("rosterTabButton"),
+    rosterNameInput: document.getElementById("rosterNameInput"),
+    rosterAddButton: document.getElementById("rosterAddButton"),
+    rosterSearch: document.getElementById("rosterSearch"),
+    rosterSearchClear: document.getElementById("rosterSearchClear"),
+    rosterStatus: document.getElementById("rosterStatus"),
+    rosterList: document.getElementById("rosterList"),
     steelBayPanel: document.getElementById("steelBayPanel"),
     steelBayTabButton: document.getElementById("steelBayTabButton"),
     steelBayDate: document.getElementById("steelBayDate"),
@@ -286,8 +294,6 @@ export function getElements() {
     workerManage: document.getElementById("workerManage"),
     workerNameInput: document.getElementById("workerNameInput"),
     addWorkerButton: document.getElementById("addWorkerButton"),
-    workerList: document.getElementById("workerList"),
-    workerEmpty: document.getElementById("workerEmpty"),
     workerStatus: document.getElementById("workerStatus"),
     adminManage: document.getElementById("adminManage"),
     adminEmailInput: document.getElementById("adminEmailInput"),
@@ -668,9 +674,9 @@ export function renderWorkerAdminVisibility(elements, isAdmin, showWorkerPicker 
   }
 }
 
-// Admin roster management (admin-only). Mirrors renderWorkerManagement, but the
-// permanent super-admin (`superEmail`) shows an "Owner" tag and no Remove button
-// so it can never be removed.
+// Admin roster management (admin-only). The permanent super-admin
+// (`superEmail`) shows an "Owner" tag and no Remove button so it can never be
+// removed.
 export function renderAdminManagement(elements, admins, superEmail, handlers) {
   elements.adminList.innerHTML = "";
   const superKey = String(superEmail).toLowerCase();
@@ -716,6 +722,7 @@ export function renderAdminManagement(elements, admins, superEmail, handlers) {
 const PANELS = {
   form: "contentSection",
   workers: "workerHistoryPanel",
+  roster: "rosterPanel",
   delivery: "deliveryPanel",
   printer: "printerPanel",
   steelbay: "steelBayPanel"
@@ -808,26 +815,72 @@ export function renderWorkerHistorySelect(elements, workers, selectedId) {
 }
 
 // Compact "Manage workers" dropdown: the list of workers with a remove button each.
-export function renderWorkerManagement(elements, workers, handlers) {
-  elements.workerList.innerHTML = "";
-  elements.workerEmpty.hidden = workers.length > 0;
+// The Workers tab: the whole roster, with what each person has to show for
+// themselves. `rows` are { id, name, jobs, lastWorked, metres, screws } and a
+// name can be fixed in place — removing and re-adding would cut a worker off
+// from the jobs already logged against their id.
+export function renderWorkerRoster(elements, rows, query, handlers) {
+  const list = elements.rosterList;
+  list.innerHTML = "";
+  elements.rosterSearchClear.classList.toggle("hidden", !query);
 
-  workers.forEach((worker) => {
-    const item = document.createElement("li");
-    item.className = "worker-row";
+  if (rows.length === 0) {
+    const empty = document.createElement("p");
+    empty.className = "entry-empty";
+    empty.textContent = query
+      ? `Nobody on the roster matches "${query}".`
+      : "Nobody on the roster yet. Add the first name above.";
+    list.appendChild(empty);
+    return;
+  }
 
-    const name = document.createElement("span");
-    name.className = "worker-name";
-    name.textContent = worker.name;
+  rows.forEach((row) => {
+    const card = document.createElement("div");
+    card.className = "roster-row";
 
-    const removeButton = document.createElement("button");
-    removeButton.type = "button";
-    removeButton.className = "entry-remove";
-    removeButton.textContent = "Remove";
-    removeButton.addEventListener("click", () => handlers.onRemoveWorker(worker.id));
+    const name = document.createElement("input");
+    name.type = "text";
+    name.className = "roster-name";
+    name.value = row.name;
+    name.setAttribute("aria-label", `Name of ${row.name}`);
+    // Committed on blur or Enter, not on every keystroke: a half-typed name
+    // would otherwise be written to every job's crew list as it is typed.
+    const commit = () => {
+      const next = name.value.trim();
+      if (!next || next === row.name) {
+        name.value = row.name;
+        return;
+      }
+      handlers.onRenameWorker(row.id, next);
+    };
+    name.addEventListener("blur", commit);
+    name.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        name.blur();
+      } else if (event.key === "Escape") {
+        name.value = row.name;
+        name.blur();
+      }
+    });
 
-    item.append(name, removeButton);
-    elements.workerList.appendChild(item);
+    const stats = document.createElement("div");
+    stats.className = "roster-stats";
+    const jobsText = `${row.jobs} job${row.jobs === 1 ? "" : "s"}`;
+    const lastText = row.lastWorked ? `last worked ${formatDateLabel(row.lastWorked)}` : "no jobs yet";
+    stats.innerHTML =
+      `<span>${escapeHtml(jobsText)}</span><span>${escapeHtml(lastText)}</span>` +
+      (row.metres > 0 ? `<span>${Math.round(row.metres).toLocaleString()} m</span>` : "") +
+      (row.screws > 0 ? `<span>${Math.round(row.screws).toLocaleString()} screws</span>` : "");
+
+    const remove = document.createElement("button");
+    remove.type = "button";
+    remove.className = "entry-remove";
+    remove.textContent = "Remove";
+    remove.addEventListener("click", () => handlers.onRemoveWorker(row.id));
+
+    card.append(name, stats, remove);
+    list.appendChild(card);
   });
 }
 
