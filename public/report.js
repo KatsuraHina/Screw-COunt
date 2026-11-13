@@ -40,9 +40,6 @@ function jobsSheet(name, jobs, namesById, walls) {
     "Bench",
     "Crew",
     "Workers",
-    "Worked (h)",
-    "Break (min)",
-    "Strap (min)",
     ...(walls ? ["Screws", "Metres"] : ["Metres"]),
     walls ? "Screws per worker/hr" : "Metres per worker/hr",
     "Hidden"
@@ -57,9 +54,6 @@ function jobsSheet(name, jobs, namesById, walls) {
       job.benchNumber || "",
       crew.join(", "),
       crew.length || job.workerCount || "",
-      hours(job.netWorkedMinutes),
-      Number(job.breakMinutes) || 0,
-      Number(job.strapMinutes) || 0,
       ...(walls
         ? [Number(job.totalUnits) || 0, Number(job.metres) || 0]
         : [Number(job.totalUnits) || 0]),
@@ -86,9 +80,6 @@ function jobsSheet(name, jobs, namesById, walls) {
     "",
     "",
     "",
-    sum((job) => hours(job.netWorkedMinutes)),
-    sum((job) => job.breakMinutes),
-    sum((job) => job.strapMinutes),
     ...(walls ? [sum((job) => job.totalUnits), sum((job) => job.metres)] : [sum((job) => job.totalUnits)]),
     "",
     ""
