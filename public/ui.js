@@ -291,10 +291,6 @@ export function getElements() {
     strapStartInput: document.getElementById("strapStart"),
     strapEndInput: document.getElementById("strapEnd"),
     workerField: document.getElementById("workerField"),
-    workerManage: document.getElementById("workerManage"),
-    workerNameInput: document.getElementById("workerNameInput"),
-    addWorkerButton: document.getElementById("addWorkerButton"),
-    workerStatus: document.getElementById("workerStatus"),
     adminManage: document.getElementById("adminManage"),
     adminEmailInput: document.getElementById("adminEmailInput"),
     addAdminButton: document.getElementById("addAdminButton"),
@@ -653,20 +649,10 @@ export function clearHistoryOutputs() {
   return null;
 }
 
-export function setWorkerStatus(elements, message, tone = "hint") {
-  if (!elements.workerStatus) {
-    return;
-  }
-
-  elements.workerStatus.textContent = message;
-  elements.workerStatus.className = tone === "warning" || tone === "success" ? `hint ${tone}` : "hint";
-}
-
 // `showWorkerPicker` controls the "Workers on this job" field independently of
 // the admin-only panels, so bench workers can pick their name without seeing the
 // admin management/charts panels.
 export function renderWorkerAdminVisibility(elements, isAdmin, showWorkerPicker = isAdmin) {
-  elements.workerManage.classList.toggle("hidden", !isAdmin);
   elements.workerField.classList.toggle("hidden", !showWorkerPicker);
   elements.workersTabButton.classList.toggle("hidden", !isAdmin);
   if (elements.adminManage) {

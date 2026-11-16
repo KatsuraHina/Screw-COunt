@@ -556,7 +556,7 @@ button {
 /* Primary action — one of only two amber elements on the page. */
 #addAmountButton,
 #loginButton,
-#addWorkerButton {
+#rosterAddButton {
   min-height: var(--tap-lg);
   padding: 0 22px;
   color: #0b0f14;
@@ -567,9 +567,9 @@ button {
 
 #addAmountButton:hover,
 #loginButton:hover,
-#addWorkerButton:hover { background: #ffc04a; border-color: #ffc04a; }
+#rosterAddButton:hover { background: #ffc04a; border-color: #ffc04a; }
 
-#addWorkerButton { min-height: var(--tap); }
+#rosterAddButton { min-height: var(--tap); }
 
 .secondary-button,
 .secondary-outline-button,

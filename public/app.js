@@ -103,7 +103,6 @@ import {
   setImportStatus,
   setImportVisible,
   setStatus,
-  setWorkerStatus,
   showPanel
 } from "./ui.js";
 
@@ -2517,7 +2516,7 @@ async function loadWorkers() {
     }
   } catch (error) {
     console.error(error);
-    setWorkerStatus(elements, formatFirestoreError(error), "warning");
+    setRosterStatus(formatFirestoreError(error), "warning");
   }
 }
 
@@ -2617,18 +2616,18 @@ async function removeAdmin(email) {
   }
 }
 
-// A name can be added from either box — the quick one by the crew picker, or
-// the Workers tab — so each says how it went where it was typed.
-async function addWorker(input, status) {
-  const name = input.value.trim();
+// The roster is kept in one place: the Workers tab. The logging form picks
+// from it and nothing more, so a name can't be added or dropped mid-job.
+async function addWorker() {
+  const name = elements.rosterNameInput.value.trim();
 
   if (!name) {
-    status("Enter a worker name before adding.", "warning");
+    setRosterStatus("Enter a worker name before adding.", "warning");
     return;
   }
 
   if (state.workers.some((worker) => worker.name.toLowerCase() === name.toLowerCase())) {
-    status(`${name} is already on the roster.`, "warning");
+    setRosterStatus(`${name} is already on the roster.`, "warning");
     return;
   }
 
@@ -2636,12 +2635,12 @@ async function addWorker(input, status) {
     const worker = await addWorkerRecord(name, state.currentUser);
     state.workers.push(worker);
     state.workers.sort((a, b) => a.name.localeCompare(b.name));
-    input.value = "";
+    elements.rosterNameInput.value = "";
     renderWorkersSection();
-    status(`Added ${name}.`, "success");
+    setRosterStatus(`Added ${name}.`, "success");
   } catch (error) {
     console.error(error);
-    status(formatFirestoreError(error), "warning");
+    setRosterStatus(formatFirestoreError(error), "warning");
   }
 }
 
@@ -2809,18 +2808,13 @@ function bindEvents() {
 
   elements.amountInput.addEventListener("input", syncDraftFromInputs);
   elements.jobNumberInput.addEventListener("input", syncDraftFromInputs);
-  const quickStatus = (message, tone) => setWorkerStatus(elements, message, tone);
-  const bindAdd = (button, input, status) => {
-    button.addEventListener("click", () => addWorker(input, status));
-    input.addEventListener("keydown", (event) => {
-      if (event.key === "Enter") {
-        event.preventDefault();
-        addWorker(input, status);
-      }
-    });
-  };
-  bindAdd(elements.addWorkerButton, elements.workerNameInput, quickStatus);
-  bindAdd(elements.rosterAddButton, elements.rosterNameInput, setRosterStatus);
+  elements.rosterAddButton.addEventListener("click", addWorker);
+  elements.rosterNameInput.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      addWorker();
+    }
+  });
 
   elements.rosterSearch.addEventListener("input", () => {
     state.rosterQuery = elements.rosterSearch.value;

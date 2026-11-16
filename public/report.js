@@ -34,7 +34,7 @@ const isWalls = (job) => job.jobType === "walls";
 // Trusses and walls are counted in different units and read as different work,
 // so each gets its own sheet rather than a Type column to filter on. The job
 // number sits second, right after the date, because that is what gets looked up.
-function jobsSheet(name, jobs, namesById, walls) {
+function jobsSheet(name, key, jobs, namesById, walls) {
   const header = [
     "Date",
     "Job number",
@@ -67,8 +67,10 @@ function jobsSheet(name, jobs, namesById, walls) {
   if (rows.length === 0) {
     return {
       name,
+      key,
       rows: [header, [`No ${walls ? "wall" : "truss"} jobs in this period.`]],
-      boldRows: [0]
+      boldRows: [0],
+      headRows: [0]
     };
   }
 
@@ -87,7 +89,7 @@ function jobsSheet(name, jobs, namesById, walls) {
     ""
   ];
 
-  return { name, rows: [header, ...rows, totals], boldRows: [0, rows.length + 1] };
+  return { name, key, rows: [header, ...rows, totals], boldRows: [0, rows.length + 1], headRows: [0] };
 }
 
 // Per worker, over the same jobs. Hidden jobs are left out, as they are in the
@@ -153,7 +155,13 @@ function workersSheet(jobs, workers) {
     "",
     ""
   ];
-  return { name: "Workers", rows: [header, ...body, totals], boldRows: [0, body.length + 1] };
+  return {
+    name: "Workers",
+    key: "workers",
+    rows: [header, ...body, totals],
+    boldRows: [0, body.length + 1],
+    headRows: [0]
+  };
 }
 
 // Days with something in them, each kept apart. The one after the chosen day
@@ -164,11 +172,13 @@ const printerDays = (printer) => (printer?.days || []).filter((day) => day.summa
 function printerSheet(printer) {
   const rows = [];
   const bold = [];
+  const heads = [];
+  const bands = [];
   const days = printerDays(printer);
 
   if (days.length === 0) {
     rows.push(["No CSVs loaded on the Printer stats tab."]);
-    return { name: "Printer stats", rows, boldRows: bold };
+    return { name: "Printer stats", key: "printer", rows, boldRows: bold };
   }
 
   // A blank line between tables, but not between a day's heading and the
@@ -180,6 +190,7 @@ function printerSheet(printer) {
     }
     underHeading = false;
     bold.push(rows.length);
+    heads.push(rows.length);
     rows.push([title, ...SHIFT_BANDS.map((band) => band.label), "Total"]);
     entries.forEach((entry) => rows.push([entry.name, ...entry.values, entry.total]));
     bold.push(rows.length);
@@ -191,6 +202,7 @@ function printerSheet(printer) {
       rows.push([]);
     }
     bold.push(rows.length);
+    bands.push(rows.length);
     rows.push([
       day.dateKey ? { date: day.dateKey } : "Day",
       day.partialNight ? "night to midnight only" : ""
@@ -213,13 +225,14 @@ function printerSheet(printer) {
   if (printer.files?.length) {
     rows.push([]);
     bold.push(rows.length);
+    heads.push(rows.length);
     // Second column: a long file name in the first would stretch it for every
     // table on the sheet.
     rows.push(["Files read", printer.files[0]]);
     printer.files.slice(1).forEach((file) => rows.push(["", file]));
   }
 
-  return { name: "Printer stats", rows, boldRows: bold };
+  return { name: "Printer stats", key: "printer", rows, boldRows: bold, headRows: heads, bandRows: bands };
 }
 
 function steelBaySheet(sheets) {
@@ -244,8 +257,10 @@ function steelBaySheet(sheets) {
   if (body.length === 0) {
     return {
       name: "Steel bay",
+      key: "steelbay",
       rows: [header, ["No cut breakdown saved for these days."]],
-      boldRows: [0]
+      boldRows: [0],
+      headRows: [0]
     };
   }
 
@@ -260,7 +275,13 @@ function steelBaySheet(sheets) {
     body.reduce((sum, row) => sum + row[7], 0)
   ];
 
-  return { name: "Steel bay", rows: [header, ...body, totals], boldRows: [0, body.length + 1] };
+  return {
+    name: "Steel bay",
+    key: "steelbay",
+    rows: [header, ...body, totals],
+    boldRows: [0, body.length + 1],
+    headRows: [0]
+  };
 }
 
 function summarySheet({ generatedAt, range, filters, jobs, printer, steelBay }) {
@@ -283,8 +304,10 @@ function summarySheet({ generatedAt, range, filters, jobs, printer, steelBay }) 
   // can be left out without the bold headings sliding off their lines.
   const rows = [];
   const boldRows = [];
+  const headRows = [];
   const head = (text) => {
     boldRows.push(rows.length);
+    headRows.push(rows.length);
     rows.push([text]);
   };
   const line = (label, value) => rows.push([label, value]);
@@ -325,7 +348,17 @@ function summarySheet({ generatedAt, range, filters, jobs, printer, steelBay }) 
   line("Cut (mm)", cut);
   line("Waste (mm)", waste);
 
-  return { name: "Summary", freezeHeader: false, boldRows, rows };
+  // Row 0 is the report's own title, so it takes the band; the rest of the
+  // headings in here are sub-headings of it.
+  return {
+    name: "Summary",
+    key: "summary",
+    freezeHeader: false,
+    boldRows,
+    rows,
+    headRows: headRows.filter((row) => row > 0),
+    bandRows: [0]
+  };
 }
 
 // It all goes on one sheet: the summary at the top, then each section under
@@ -336,8 +369,8 @@ export function buildReport(data) {
   const jobs = data.jobs || [];
   const sections = [
     summarySheet(data),
-    jobsSheet("Trusses", jobs.filter((job) => !isWalls(job)), namesById, false),
-    jobsSheet("Walls", jobs.filter(isWalls), namesById, true),
+    jobsSheet("Trusses", "trusses", jobs.filter((job) => !isWalls(job)), namesById, false),
+    jobsSheet("Walls", "walls", jobs.filter(isWalls), namesById, true),
     workersSheet(data.jobs, data.workers || []),
     printerSheet(data.printer),
     steelBaySheet(data.steelBay || [])
@@ -345,6 +378,9 @@ export function buildReport(data) {
 
   const rows = [];
   const boldRows = [];
+  // Which rows are coloured, and how: a section heading sits on its strong
+  // colour, its table headers on the pale one.
+  const rowStyles = {};
 
   sections.forEach((section, index) => {
     // The summary leads with the report's own title, so it needs no heading of
@@ -352,14 +388,21 @@ export function buildReport(data) {
     if (index > 0) {
       rows.push([]);
       boldRows.push(rows.length);
+      rowStyles[rows.length] = `band:${section.key}`;
       rows.push([section.name.toUpperCase()]);
     }
     const offset = rows.length;
     (section.boldRows || []).forEach((row) => boldRows.push(offset + row));
+    (section.bandRows || []).forEach((row) => {
+      rowStyles[offset + row] = `band:${section.key}`;
+    });
+    (section.headRows || []).forEach((row) => {
+      rowStyles[offset + row] = `head:${section.key}`;
+    });
     section.rows.forEach((row) => rows.push(row));
   });
 
-  return [{ name: "BBS Count", rows, boldRows, freezeHeader: false }];
+  return [{ name: "BBS Count", rows, boldRows, rowStyles, freezeHeader: false }];
 }
 
 export function reportFilename(generatedKey) {

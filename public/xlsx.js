@@ -133,24 +133,82 @@ export function dateSerial(dateKey) {
   return Math.round((Date.UTC(year, month - 1, day) - Date.UTC(1899, 11, 30)) / 86400000);
 }
 
+// A colour per section, so one glance tells you which part of the report you
+// are in: the heading sits on the strong shade in white, its table header on
+// the pale one.
+export const PALETTE = {
+  summary: { strong: "FF263238", pale: "FFDDE3E6" },
+  trusses: { strong: "FF1D4E89", pale: "FFDCE7F5" },
+  walls: { strong: "FF1E6B52", pale: "FFD9EDE4" },
+  workers: { strong: "FF5B3B8C", pale: "FFE4DCF2" },
+  printer: { strong: "FFA85B00", pale: "FFFBE7CC" },
+  steelbay: { strong: "FF8A2B2B", pale: "FFF4DCDC" }
+};
+
+const PALETTE_KEYS = Object.keys(PALETTE);
+
+// Fills: 0 and 1 are the two Excel expects, then every strong shade, then
+// every pale one.
+const FILL_OFFSET = 2;
+const paleFill = (index) => FILL_OFFSET + PALETTE_KEYS.length + index;
+
+// Cell formats, in the order they are written into styles.xml. The first four
+// are the plain ones; after that each section gets a banded and a header
+// format, each with a date variant so a dated heading keeps its colour.
+const CELL_FORMATS = [
+  { font: 0, fill: 0, date: false },
+  { font: 1, fill: 0, date: false },
+  { font: 0, fill: 0, date: true },
+  { font: 1, fill: 0, date: true }
+];
+const STYLE_INDEX = {};
+PALETTE_KEYS.forEach((key, index) => {
+  STYLE_INDEX[`band:${key}`] = CELL_FORMATS.length;
+  CELL_FORMATS.push({ font: 2, fill: FILL_OFFSET + index, date: false });
+  CELL_FORMATS.push({ font: 2, fill: FILL_OFFSET + index, date: true });
+  STYLE_INDEX[`head:${key}`] = CELL_FORMATS.length;
+  CELL_FORMATS.push({ font: 1, fill: paleFill(index), date: false });
+  CELL_FORMATS.push({ font: 1, fill: paleFill(index), date: true });
+});
+
 const STYLE_PLAIN = 0;
 const STYLE_BOLD = 1;
 const STYLE_DATE = 2;
 const STYLE_BOLD_DATE = 3;
 
-function cellXml(ref, value, bold) {
-  if (value === null || value === undefined || value === "") {
-    return "";
+// The format for a row's style, picking the date variant where needed. The
+// two variants of a coloured style sit next to each other, hence the +1.
+function styleFor(rowStyle, bold, isDate) {
+  const base = rowStyle ? STYLE_INDEX[rowStyle] : undefined;
+  if (base !== undefined) {
+    return isDate ? base + 1 : base;
   }
-  const style = bold ? STYLE_BOLD : STYLE_PLAIN;
+  if (isDate) {
+    return bold ? STYLE_BOLD_DATE : STYLE_DATE;
+  }
+  return bold ? STYLE_BOLD : STYLE_PLAIN;
+}
+
+function cellXml(ref, value, bold, rowStyle) {
+  const blank = value === null || value === undefined || value === "";
+  if (blank) {
+    // A coloured row still needs its empty cells, or the band stops at the
+    // last word instead of running across the table.
+    return rowStyle ? `<c r="${ref}" s="${styleFor(rowStyle, bold, false)}"/>` : "";
+  }
 
   if (typeof value === "object" && value.date) {
     const serial = dateSerial(value.date);
     if (serial === null) {
-      return `<c r="${ref}" s="${style}" t="inlineStr"><is><t>${escapeXml(value.date)}</t></is></c>`;
+      return (
+        `<c r="${ref}" s="${styleFor(rowStyle, bold, false)}" t="inlineStr">` +
+        `<is><t>${escapeXml(value.date)}</t></is></c>`
+      );
     }
-    return `<c r="${ref}" s="${bold ? STYLE_BOLD_DATE : STYLE_DATE}"><v>${serial}</v></c>`;
+    return `<c r="${ref}" s="${styleFor(rowStyle, bold, true)}"><v>${serial}</v></c>`;
   }
+
+  const style = styleFor(rowStyle, bold, false);
 
   if (typeof value === "number" && Number.isFinite(value)) {
     // Long decimal tails are noise in a report; two places is plenty.
@@ -165,6 +223,7 @@ function cellXml(ref, value, bold) {
 
 function sheetXml(sheet) {
   const boldRows = new Set(sheet.boldRows || []);
+  const rowStyles = sheet.rowStyles || {};
   const widths = [];
 
   sheet.rows.forEach((row) => {
@@ -191,12 +250,18 @@ function sheetXml(sheet) {
         .join("")}</cols>`
     : "";
 
+  const width = widths.length;
   const rows = sheet.rows
     .map((row, rowIndex) => {
       const bold = boldRows.has(rowIndex);
-      const cells = row
-        .map((value, column) => cellXml(`${columnName(column)}${rowIndex + 1}`, value, bold))
-        .join("");
+      const rowStyle = rowStyles[rowIndex];
+      // A banded row runs the full width of the sheet; everything else stops
+      // at its own last cell.
+      const cellCount = rowStyle ? Math.max(width, row.length) : row.length;
+      let cells = "";
+      for (let column = 0; column < cellCount; column += 1) {
+        cells += cellXml(`${columnName(column)}${rowIndex + 1}`, row[column], bold, rowStyle);
+      }
       return cells ? `<row r="${rowIndex + 1}">${cells}</row>` : "";
     })
     .join("");
@@ -214,23 +279,41 @@ function sheetXml(sheet) {
   );
 }
 
+// Built from the palette rather than written out by hand, so a colour added
+// above can't fall out of step with the formats that use it.
 const STYLES_XML =
   `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
   `<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">` +
   `<numFmts count="1"><numFmt numFmtId="164" formatCode="dd/mm/yyyy"/></numFmts>` +
-  `<fonts count="2">` +
+  `<fonts count="3">` +
   `<font><sz val="11"/><name val="Calibri"/></font>` +
   `<font><b/><sz val="11"/><name val="Calibri"/></font>` +
+  // White, for a section heading sitting on its strong colour.
+  `<font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Calibri"/></font>` +
   `</fonts>` +
-  `<fills count="2"><fill><patternFill patternType="none"/></fill>` +
-  `<fill><patternFill patternType="gray125"/></fill></fills>` +
+  `<fills count="${FILL_OFFSET + PALETTE_KEYS.length * 2}">` +
+  `<fill><patternFill patternType="none"/></fill>` +
+  `<fill><patternFill patternType="gray125"/></fill>` +
+  PALETTE_KEYS.map(
+    (key) =>
+      `<fill><patternFill patternType="solid"><fgColor rgb="${PALETTE[key].strong}"/>` +
+      `<bgColor indexed="64"/></patternFill></fill>`
+  ).join("") +
+  PALETTE_KEYS.map(
+    (key) =>
+      `<fill><patternFill patternType="solid"><fgColor rgb="${PALETTE[key].pale}"/>` +
+      `<bgColor indexed="64"/></patternFill></fill>`
+  ).join("") +
+  `</fills>` +
   `<borders count="1"><border/></borders>` +
   `<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>` +
-  `<cellXfs count="4">` +
-  `<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>` +
-  `<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/>` +
-  `<xf numFmtId="164" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>` +
-  `<xf numFmtId="164" fontId="1" fillId="0" borderId="0" xfId="0" applyNumberFormat="1" applyFont="1"/>` +
+  `<cellXfs count="${CELL_FORMATS.length}">` +
+  CELL_FORMATS.map(
+    (format) =>
+      `<xf numFmtId="${format.date ? 164 : 0}" fontId="${format.font}" fillId="${format.fill}" ` +
+      `borderId="0" xfId="0"${format.date ? ' applyNumberFormat="1"' : ""}` +
+      `${format.font ? ' applyFont="1"' : ""}${format.fill ? ' applyFill="1"' : ""}/>`
+  ).join("") +
   `</cellXfs>` +
   `<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>` +
   `</styleSheet>`;
