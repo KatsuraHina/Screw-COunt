@@ -566,7 +566,14 @@ function renderOutputs() {
     `<table class="row-table"><tr>` +
     ROW_COLUMNS.map((name) => `<th>${escapeHtml(name)}</th>`).join("") +
     `</tr><tr>` +
-    cells.map((cell) => `<td>${escapeHtml(cell) || "&nbsp;"}</td>`).join("") +
+    cells
+      .map(
+        (cell, index) =>
+          `<td${index === DOCKET_COLUMN ? ` class="row-cell-docket"` : ""}>${
+            escapeHtml(cell) || "&nbsp;"
+          }</td>`
+      )
+      .join("") +
     `</tr></table>`;
   elements.emailPreview.textContent = shortageEmailText();
 }
@@ -840,6 +847,12 @@ function itemLines(item) {
 // The row to paste into the tracking sheet, in its column order:
 // DATE · region · MANIFEST MADE · ADDRESS · SUBURB · JOB NUMBER · supervisor ·
 // items · TO BE ACTIONED BY · Traffic light.
+// The tracking sheet's own wording, and the fill it carries there — Excel's
+// Aqua, Accent 5, Lighter 60%.
+export const DOCKET_MADE = "Docket made";
+export const DOCKET_MADE_FILL = "#DAEEF3";
+const DOCKET_COLUMN = 2;
+
 export function spreadsheetRow() {
   const initials = initialsOf(delivery.yourName);
   const date = [initials, shortDate(delivery.deliveryDate)].filter(Boolean).join(" ");
@@ -848,13 +861,14 @@ export function spreadsheetRow() {
   return [
     date,
     delivery.region,
-    initials ? `DOCKET MAKE ${initials}` : "DOCKET MAKE",
+    initials ? `${DOCKET_MADE} ${initials}` : DOCKET_MADE,
     delivery.address,
     delivery.suburb,
     delivery.jobNumber,
     delivery.supervisorContact,
     items,
-    delivery.toBeActionedBy.join(" "),
+    // Several areas read as a list, not a run-on: "Weld bay & TL".
+    delivery.toBeActionedBy.join(" & "),
     delivery.trafficLight
   ];
 }
@@ -869,6 +883,39 @@ export function rowAsTsv(cells) {
       return /[\t\n"]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
     })
     .join("\t");
+}
+
+// Excel takes formatting from pasted HTML, which tab-separated text cannot
+// carry, so the row goes on the clipboard twice: as HTML for the colour and as
+// plain TSV for anything that only reads text.
+export function rowAsHtml(cells) {
+  const cell = (text, index) => {
+    const body = escapeHtml(String(text ?? "")).replace(/\n/g, "<br>");
+    // Without same-cell, Excel spreads a multi-line cell down the column.
+    const style =
+      `mso-data-placement:same-cell;` +
+      (index === DOCKET_COLUMN ? `background-color:${DOCKET_MADE_FILL};` : "");
+    return `<td style="${style}">${body}</td>`;
+  };
+  return `<table><tr>${cells.map(cell).join("")}</tr></table>`;
+}
+
+async function copyRow(cells) {
+  const text = rowAsTsv(cells);
+  try {
+    if (navigator.clipboard?.write && typeof ClipboardItem === "function") {
+      await navigator.clipboard.write([
+        new ClipboardItem({
+          "text/html": new Blob([rowAsHtml(cells)], { type: "text/html" }),
+          "text/plain": new Blob([text], { type: "text/plain" })
+        })
+      ]);
+      return true;
+    }
+  } catch {
+    // Fall back to plain text: the row still pastes, just without the fill.
+  }
+  return copyText(text);
 }
 
 const yn = (value) => (value ? "Y" : "N");
@@ -1037,7 +1084,7 @@ export function initExtraDelivery(els) {
   });
 
   elements.copyRowButton.addEventListener("click", async () => {
-    const ok = await copyText(rowAsTsv(spreadsheetRow()));
+    const ok = await copyRow(spreadsheetRow());
     flash(elements.copyRowButton, ok ? "Copied ✓" : "Couldn't copy");
   });
   elements.copyEmailButton.addEventListener("click", async () => {

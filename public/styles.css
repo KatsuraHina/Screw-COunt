@@ -1798,6 +1798,9 @@ button:focus-visible { outline: 3px solid var(--hivis); outline-offset: 2px; }
 
 .row-table td { background: var(--steel-850); color: var(--text); }
 
+/* Shown in the colour it pastes as, so the preview is the paste. */
+.row-table td.row-cell-docket { background: #daeef3; color: #0b0f14; }
+
 .row-table th:last-child,
 .row-table td:last-child { border-right: none; }
 
