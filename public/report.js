@@ -291,7 +291,7 @@ function steelBaySheet(sheets) {
 function stockSheet(stock) {
   const header = [
     "Date", "Shift", "Group", "Item", "Unit", "Location",
-    "Count", "Re-order point", "Below", "To order", "Note"
+    "Count", "Re-order point", "Below", "Note"
   ];
   const byId = new Map((stock.catalogue || []).map((item) => [item.id, item]));
   const body = [];
@@ -320,7 +320,6 @@ function stockSheet(stock) {
         hasQty ? qty : String(entry.qty ?? ""),
         hasPoint ? point : "",
         hasQty && hasPoint && qty <= point ? "ORDER" : "",
-        numeric(entry.order),
         String(entry.note ?? "")
       ]);
     });
@@ -339,7 +338,6 @@ function stockSheet(stock) {
         "", "",
         numeric(entry?.qty),
         "", "",
-        numeric(entry?.order),
         String(entry?.note ?? "")
       ]);
     });

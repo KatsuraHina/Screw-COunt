@@ -39,7 +39,6 @@ const COLUMNS = [
   "Location",
   "Re-order point",
   "Count",
-  "To order",
   "Note"
 ];
 
@@ -99,7 +98,6 @@ function entryFor(id) {
   const entry = counts[id];
   return {
     qty: String(entry?.qty ?? ""),
-    order: String(entry?.order ?? ""),
     note: String(entry?.note ?? "")
   };
 }
@@ -110,7 +108,7 @@ function isCounted(id) {
 
 function hasAnything(id) {
   const entry = entryFor(id);
-  return Boolean(entry.qty.trim() || entry.order.trim() || entry.note.trim());
+  return Boolean(entry.qty.trim() || entry.note.trim());
 }
 
 // Everything typed this shift, in catalogue order — what the TSV and the
@@ -128,7 +126,6 @@ export function stockRows() {
         location: item.location ?? "",
         reorderPoint: item.reorderPoint ?? null,
         qty: entry.qty,
-        order: entry.order,
         note: entry.note,
         below: belowReorder(item, entry.qty)
       };
@@ -151,7 +148,6 @@ export function stockAsTsv() {
         tsvCell(row.location),
         row.reorderPoint === null ? "" : String(row.reorderPoint),
         tsvCell(row.qty),
-        tsvCell(row.order),
         tsvCell(row.note)
       ].join("\t")
     );
@@ -198,7 +194,7 @@ async function saveCount() {
       return;
     }
     const entry = entryFor(item.id);
-    payload[item.id] = { qty: entry.qty, order: entry.order, note: entry.note };
+    payload[item.id] = { qty: entry.qty, note: entry.note };
   });
 
   savesInFlight += 1;
@@ -470,7 +466,7 @@ function renderCountRows(items) {
       const heading =
         item.group === lastGroup
           ? ""
-          : `<tr class="stock-group"><th colspan="6">${escapeHtml(item.group || "Ungrouped")}</th></tr>`;
+          : `<tr class="stock-group"><th colspan="5">${escapeHtml(item.group || "Ungrouped")}</th></tr>`;
       lastGroup = item.group;
 
       const meta = [item.location && `Rack ${item.location}`, item.unit]
@@ -495,11 +491,6 @@ function renderCountRows(items) {
         `<input type="text" class="sb-input sb-input-num" inputmode="numeric"` +
         ` value="${escapeHtml(entry.qty)}" data-stock-row="${escapeHtml(item.id)}" data-stock-field="qty"` +
         ` aria-label="Count for ${escapeHtml(item.name)}"${canEdit ? "" : " readonly"}>` +
-        `</td>` +
-        `<td class="sb-cell">` +
-        `<input type="text" class="sb-input sb-input-num" inputmode="numeric"` +
-        ` value="${escapeHtml(entry.order)}" data-stock-row="${escapeHtml(item.id)}" data-stock-field="order"` +
-        ` aria-label="To order for ${escapeHtml(item.name)}"${canEdit ? "" : " readonly"}>` +
         `</td>` +
         `<td class="sb-cell">` +
         `<input type="text" class="sb-input" value="${escapeHtml(entry.note)}"` +
@@ -635,7 +626,6 @@ export function renderStockTake() {
         `<th class="sb-h stock-h-num">Re-order at</th>` +
         `<th class="sb-h stock-h-num">Last count</th>` +
         `<th class="sb-h stock-h-num">Count</th>` +
-        `<th class="sb-h stock-h-num">To order</th>` +
         `<th class="sb-h">Note</th>`
       : EDIT_FIELDS.map((field) => `<th class="sb-h">${field.label}</th>`).join("") +
         `<th class="sb-h sb-h-actions" aria-label="Remove item"></th>`) +

@@ -3014,7 +3014,7 @@ button:focus-visible { outline: 3px solid var(--hivis); outline-offset: 2px; }
   color: var(--muted);
 }
 
-.stock-table { min-width: 860px; }
+.stock-table { min-width: 760px; }
 
 .stock-h-item { width: 34%; }
 .stock-h-num { width: 104px; text-align: right; }
