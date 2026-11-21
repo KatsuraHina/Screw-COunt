@@ -314,6 +314,91 @@ export async function loadSteelBaySheets() {
     .sort((a, b) => a.date.localeCompare(b.date));
 }
 
+// --- Steel bay stock take ---
+//
+// Two collections. `steelStockCatalogue/current` is the item list: one document
+// holding every item the bay counts, so a name can be fixed in one place and
+// every past count still points at the right item (the `id` never changes).
+// `steelStockCounts/{countId}` is one document per shift counted, keyed
+// `YYYY-MM-DD_<shift index>_<shift>` so the ids sort in the order the shifts ran.
+// Both are overwritten whole and read live, like the cut breakdown above.
+
+export async function loadStockCatalogue() {
+  const snapshot = await getDoc(doc(db, "steelStockCatalogue", "current"));
+  if (!snapshot.exists()) {
+    return null;
+  }
+  const data = snapshot.data();
+  return Array.isArray(data?.items) ? data.items : [];
+}
+
+export function subscribeToStockCatalogue(onChange, onError) {
+  return onSnapshot(
+    doc(db, "steelStockCatalogue", "current"),
+    (snapshot) => {
+      const data = snapshot.exists() ? snapshot.data() : null;
+      onChange(data && Array.isArray(data.items) ? data.items : null);
+    },
+    (error) => {
+      console.error(error);
+      if (onError) {
+        onError(error);
+      }
+    }
+  );
+}
+
+export async function saveStockCatalogue(items, user) {
+  await setDoc(doc(db, "steelStockCatalogue", "current"), {
+    items,
+    updatedAt: Date.now(),
+    updatedBy: user?.uid ?? "",
+    updatedByEmail: user?.email ?? ""
+  });
+}
+
+export async function loadStockCount(countId) {
+  const snapshot = await getDoc(doc(db, "steelStockCounts", countId));
+  return snapshot.exists() ? snapshot.data() : null;
+}
+
+export function subscribeToStockCount(countId, onChange, onError) {
+  return onSnapshot(
+    doc(db, "steelStockCounts", countId),
+    (snapshot) => onChange(snapshot.exists() ? snapshot.data() : null),
+    (error) => {
+      console.error(error);
+      if (onError) {
+        onError(error);
+      }
+    }
+  );
+}
+
+export async function saveStockCount(countId, data, user) {
+  await setDoc(doc(db, "steelStockCounts", countId), {
+    ...data,
+    updatedAt: Date.now(),
+    updatedBy: user?.uid ?? "",
+    updatedByEmail: user?.email ?? ""
+  });
+}
+
+// Every shift counted, newest first — the shared report takes the ones inside
+// the period it covers.
+export async function loadStockCounts() {
+  const snapshot = await getDocs(collection(db, "steelStockCounts"));
+  return snapshot.docs
+    .map((docSnapshot) => ({
+      id: docSnapshot.id,
+      dayKey: docSnapshot.data()?.dayKey ?? "",
+      shift: docSnapshot.data()?.shift ?? "",
+      countedBy: docSnapshot.data()?.countedBy ?? "",
+      counts: docSnapshot.data()?.counts ?? {}
+    }))
+    .sort((a, b) => b.id.localeCompare(a.id));
+}
+
 // --- Admin roster (the `admins` collection, keyed by lowercased email) ---
 
 function adminEmailKey(email) {

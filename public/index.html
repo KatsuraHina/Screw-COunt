@@ -713,6 +713,45 @@
       <h2 class="section-title">Saved days</h2>
       <div id="steelBayDays" class="sb-days"></div>
     </div>
+
+    <div class="card stock-card">
+      <h2 class="section-title" id="stockTakeTitle">Stock take</h2>
+
+      <div class="stock-head">
+        <div class="stock-shift">
+          <button id="stockPrevShift" class="secondary-button shift-step" type="button" aria-label="The shift before">&#9664;</button>
+          <span id="stockShiftLabel" class="stock-shift-label"></span>
+          <button id="stockNextShift" class="secondary-button shift-step" type="button" aria-label="The shift after">&#9654;</button>
+        </div>
+        <div class="field">
+          <label for="stockCountedBy">Counted by</label>
+          <input id="stockCountedBy" type="text" placeholder="Who walked the racks" autocomplete="off">
+        </div>
+        <button id="stockModeButton" class="secondary-button" type="button" aria-pressed="false">Edit items</button>
+      </div>
+
+      <div class="stock-tools">
+        <div class="field stock-search-field">
+          <label for="stockSearch">Find</label>
+          <input id="stockSearch" type="search" placeholder="Item, rack or group" autocomplete="off">
+        </div>
+        <div id="stockFilters" class="stock-filters">
+          <button class="stock-chip" type="button" data-stock-filter="all" aria-pressed="true">All</button>
+          <button class="stock-chip" type="button" data-stock-filter="low" aria-pressed="false">Below re-order</button>
+          <button class="stock-chip" type="button" data-stock-filter="todo" aria-pressed="false">Not counted</button>
+        </div>
+      </div>
+
+      <p id="stockProgress" class="stock-progress"></p>
+      <div id="stockTable" class="sb-table-wrap stock-wrap"></div>
+      <p id="stockStatus" class="hint"></p>
+
+      <div class="button-row">
+        <button id="stockCopyButton" type="button">Copy for Excel</button>
+        <button id="stockAddButton" class="secondary-button hidden" type="button">Add item</button>
+        <button id="stockSeedButton" class="secondary-button hidden" type="button">Load the standard list</button>
+      </div>
+    </div>
   </section>
 
   <script type="module" src="./app.js"></script>

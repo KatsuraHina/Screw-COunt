@@ -142,7 +142,8 @@ export const PALETTE = {
   walls: { strong: "FF1E6B52", pale: "FFD9EDE4" },
   workers: { strong: "FF5B3B8C", pale: "FFE4DCF2" },
   printer: { strong: "FFA85B00", pale: "FFFBE7CC" },
-  steelbay: { strong: "FF8A2B2B", pale: "FFF4DCDC" }
+  steelbay: { strong: "FF8A2B2B", pale: "FFF4DCDC" },
+  stock: { strong: "FF00636E", pale: "FFD4EAEE" }
 };
 
 const PALETTE_KEYS = Object.keys(PALETTE);

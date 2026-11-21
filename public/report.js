@@ -284,7 +284,98 @@ function steelBaySheet(sheets) {
   };
 }
 
-function summarySheet({ generatedAt, range, filters, jobs, printer, steelBay }) {
+// The stock take, one row per item counted. The counts hold only item ids, so
+// the catalogue is what turns them back into names — an item renamed since the
+// count still reads correctly, which is the whole point of keeping the two
+// apart.
+function stockSheet(stock) {
+  const header = [
+    "Date", "Shift", "Group", "Item", "Unit", "Location",
+    "Count", "Re-order point", "Below", "To order", "Note"
+  ];
+  const byId = new Map((stock.catalogue || []).map((item) => [item.id, item]));
+  const body = [];
+
+  // Newest shift first: the figures people want are the latest ones.
+  (stock.counts || []).forEach((take) => {
+    const entries = take.counts && typeof take.counts === "object" ? take.counts : {};
+    // Catalogue order within a shift, so the rows read in rack order rather
+    // than whatever order the object happens to hold.
+    (stock.catalogue || []).forEach((item) => {
+      const entry = entries[item.id];
+      if (!entry) {
+        return;
+      }
+      const qty = Number(entry.qty);
+      const point = Number(item.reorderPoint);
+      const hasQty = String(entry.qty ?? "").trim() !== "" && Number.isFinite(qty);
+      const hasPoint = item.reorderPoint !== null && item.reorderPoint !== "" && Number.isFinite(point);
+      body.push([
+        { date: take.dayKey },
+        shiftName(take.shift),
+        item.group || "",
+        item.name || "",
+        item.unit || "",
+        item.location || "",
+        hasQty ? qty : String(entry.qty ?? ""),
+        hasPoint ? point : "",
+        hasQty && hasPoint && qty <= point ? "ORDER" : "",
+        numeric(entry.order),
+        String(entry.note ?? "")
+      ]);
+    });
+    // An item counted but no longer on the list still has to show up, or the
+    // workbook quietly loses a figure someone wrote down.
+    Object.keys(entries).forEach((id) => {
+      if (byId.has(id)) {
+        return;
+      }
+      const entry = entries[id];
+      body.push([
+        { date: take.dayKey },
+        shiftName(take.shift),
+        "",
+        `Removed item (${id})`,
+        "", "",
+        numeric(entry?.qty),
+        "", "",
+        numeric(entry?.order),
+        String(entry?.note ?? "")
+      ]);
+    });
+  });
+
+  if (body.length === 0) {
+    return {
+      name: "Stock take",
+      key: "stock",
+      rows: [header, ["No stock take recorded for these days."]],
+      boldRows: [0],
+      headRows: [0]
+    };
+  }
+
+  // No totals row: counts of different items in different units don't add up.
+  return { name: "Stock take", key: "stock", rows: [header, ...body], boldRows: [0], headRows: [0] };
+}
+
+// A figure typed into a box: a number if it reads as one, so the column adds
+// up in Excel, and otherwise the text as typed rather than a silent 0.
+function numeric(value) {
+  const text = String(value ?? "").trim();
+  if (text === "") {
+    return "";
+  }
+  const number = Number(text);
+  return Number.isFinite(number) ? number : text;
+}
+
+function shiftName(shift) {
+  const name = String(shift ?? "");
+  return name ? `${name.charAt(0).toUpperCase()}${name.slice(1)}` : "";
+}
+
+function summarySheet({ generatedAt, range, filters, jobs, printer, steelBay, stock }) {
   const visible = jobs.filter((job) => !job.hidden);
   const metres = visible.reduce(
     (sum, job) => sum + (isWalls(job) ? Number(job.metres) || 0 : Number(job.totalUnits) || 0),
@@ -348,6 +439,32 @@ function summarySheet({ generatedAt, range, filters, jobs, printer, steelBay }) 
   line("Cut (mm)", cut);
   line("Waste (mm)", waste);
 
+  gap();
+  head("Stock take");
+  const takes = (stock && stock.counts) || [];
+  line("Shifts counted", takes.length);
+  if (takes.length > 0) {
+    // The latest count is the one that says what to order now; the earlier
+    // ones in the period are history, and summing them would be meaningless.
+    const latest = takes[0];
+    const entries = latest.counts && typeof latest.counts === "object" ? latest.counts : {};
+    const low = (stock.catalogue || []).filter((item) => {
+      const qty = Number(entries[item.id]?.qty);
+      const point = Number(item.reorderPoint);
+      return (
+        String(entries[item.id]?.qty ?? "").trim() !== "" &&
+        Number.isFinite(qty) &&
+        item.reorderPoint !== null &&
+        item.reorderPoint !== "" &&
+        Number.isFinite(point) &&
+        qty <= point
+      );
+    }).length;
+    line("Latest count", `${shiftName(latest.shift)} ${latest.dayKey}`);
+    line("Items counted", Object.keys(entries).length);
+    line("At or below re-order", low);
+  }
+
   // Row 0 is the report's own title, so it takes the band; the rest of the
   // headings in here are sub-headings of it.
   return {
@@ -373,7 +490,8 @@ export function buildReport(data) {
     jobsSheet("Walls", "walls", jobs.filter(isWalls), namesById, true),
     workersSheet(data.jobs, data.workers || []),
     printerSheet(data.printer),
-    steelBaySheet(data.steelBay || [])
+    steelBaySheet(data.steelBay || []),
+    stockSheet(data.stock || {})
   ];
 
   const rows = [];

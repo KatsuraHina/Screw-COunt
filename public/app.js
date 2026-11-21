@@ -9,6 +9,8 @@ import {
   loadAdminRecords,
   loadJobRecords,
   loadSteelBaySheets,
+  loadStockCatalogue,
+  loadStockCounts,
   renameWorkerRecord,
   loadWorkerRecords,
   logoutCurrentUser,
@@ -73,6 +75,7 @@ import {
 } from "./printer-stats.js";
 import { exportReport } from "./report.js";
 import { initSteelBay, renderSteelBay, setSteelBayUser } from "./steel-bay.js";
+import { initStockTake, renderStockTake, setStockTakeUser } from "./steel-stock.js";
 import {
   clearHistoryOutputs,
   getElements,
@@ -607,8 +610,9 @@ function renderApp() {
     elements.activeTabLabel.textContent = "Steel bay";
     elements.tabTitle.textContent = "Cut breakdown";
     elements.tabDescription.textContent =
-      "Cut lengths, leftovers and waste, by job.";
+      "Cut lengths, leftovers and waste, by job — and this shift's stock take.";
     renderSteelBay();
+    renderStockTake();
     return;
   }
 
@@ -1871,6 +1875,19 @@ async function handleExportReport() {
       console.error(error);
     }
 
+    // The stock take, likewise: the item list and the shifts counted inside the
+    // period. Already newest first, which is the order the sheet wants.
+    let stock = { catalogue: [], counts: [] };
+    try {
+      const [catalogue, counts] = await Promise.all([loadStockCatalogue(), loadStockCounts()]);
+      stock = {
+        catalogue: catalogue || [],
+        counts: counts.filter((take) => take.dayKey >= startKey && take.dayKey <= endKey)
+      };
+    } catch (error) {
+      console.error(error);
+    }
+
     exportReport({
       generatedAt: new Date().toLocaleString("en-AU"),
       generatedKey: formatDateKey(new Date()),
@@ -1890,7 +1907,8 @@ async function handleExportReport() {
       jobs: getFilteredWorkerHistoryJobs(),
       workers: state.workers,
       printer: getPrinterSnapshot(),
-      steelBay
+      steelBay,
+      stock
     });
     button.textContent = "Downloaded ✓";
   } catch (error) {
@@ -2408,6 +2426,7 @@ function handleAuthChanged(user) {
   // The cut breakdown is shared, not per-user: the bay writes it, the office
   // reads it, so it takes the account and whether that account may edit.
   setSteelBayUser(user || null, Boolean(user) && (state.isAdmin || state.isSteelBay));
+  setStockTakeUser(user || null, Boolean(user) && (state.isAdmin || state.isSteelBay));
 
   // Re-render so admin-specific panel visibility (hidden trusses/screw charts) applies.
   renderApp();
@@ -3002,6 +3021,7 @@ function init() {
   initExtraDelivery(elements);
   initPrinterStats(elements);
   initSteelBay(elements);
+  initStockTake(elements);
   // Imports are restored per-user once auth resolves (see syncImportsForUser),
   // so nothing is loaded here.
   renderAuthState(elements, null);
