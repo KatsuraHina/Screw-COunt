@@ -159,6 +159,14 @@ export function stockAsTsv() {
   return lines.join("\n");
 }
 
+function progressText() {
+  const progress = stockProgress();
+  return (
+    `${progress.counted} of ${progress.total} counted` +
+    (progress.low > 0 ? ` · ${progress.low} at or below re-order point` : "")
+  );
+}
+
 export function stockProgress() {
   const counted = catalogue.filter((item) => isCounted(item.id)).length;
   const low = catalogue.filter((item) => belowReorder(item, entryFor(item.id).qty)).length;
@@ -610,11 +618,8 @@ export function renderStockTake() {
   }
 
   const items = visibleItems();
-  const progress = stockProgress();
   if (elements.stockProgress) {
-    elements.stockProgress.textContent =
-      `${progress.counted} of ${progress.total} counted` +
-      (progress.low > 0 ? ` · ${progress.low} at or below re-order point` : "");
+    elements.stockProgress.textContent = progressText();
   }
 
   if (items.length === 0) {
@@ -670,11 +675,8 @@ function refreshRow(id) {
   if (row && item) {
     row.classList.toggle("stock-low", belowReorder(item, entryFor(id).qty));
   }
-  const progress = stockProgress();
   if (elements.stockProgress) {
-    elements.stockProgress.textContent =
-      `${progress.counted} of ${progress.total} counted` +
-      (progress.low > 0 ? ` · ${progress.low} at or below re-order point` : "");
+    elements.stockProgress.textContent = progressText();
   }
 }
 
@@ -825,7 +827,8 @@ export function initStockTake(els) {
     }
     // New items land in the group being looked at, which is usually the one
     // the missing item belongs to.
-    const last = visibleItems()[visibleItems().length - 1] || catalogue[catalogue.length - 1];
+    const visible = visibleItems();
+    const last = visible[visible.length - 1] || catalogue[catalogue.length - 1];
     catalogue.push({
       id: nextItemId(),
       group: last?.group ?? "",
