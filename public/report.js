@@ -4,7 +4,7 @@
 // Everything here is plain data in, sheet definitions out, so the numbers can
 // be checked without a browser.
 
-import { SHIFT_BANDS } from "./printer-stats.js";
+import { ALL_SHIFTS, SHIFT_BANDS, narrowSummary } from "./printer-stats.js";
 import { downloadXlsx } from "./xlsx.js";
 
 const SHIFT_LABELS = { morning: "Morning", afternoon: "Afternoon", night: "Night" };
@@ -164,10 +164,29 @@ function workersSheet(jobs, workers) {
   };
 }
 
-// Days with something in them, each kept apart. The one after the chosen day
-// can only have its night as far as midnight, so it says so rather than
-// pretending to a full night.
-const printerDays = (printer) => (printer?.days || []).filter((day) => day.summary?.grand > 0);
+// Days with something in them, each kept apart, and narrowed to whichever
+// shift the tab is showing — so the workbook reads like the tab it was
+// exported from, each line's own figures narrowed by the same rule. The day
+// after the chosen one can only have its night as far as midnight, so it says
+// so rather than pretending to a full night.
+const printerDays = (printer) => {
+  const shift = printer?.shift ?? ALL_SHIFTS;
+  return (printer?.days || [])
+    .map((day) => ({
+      ...day,
+      summary: narrowSummary(day.summary || { operators: [], lines: [], shiftTotals: [], grand: 0 }, shift),
+      byLine: (day.byLine || []).map((entry) => ({
+        ...entry,
+        summary: narrowSummary(entry.summary, shift)
+      }))
+    }))
+    .filter((day) => day.summary.grand > 0)
+    .map((day) => ({ ...day, byLine: day.byLine.filter((entry) => entry.summary.grand > 0) }));
+};
+
+// The shift the printer figures were taken under, for the heading that says so.
+const printerShiftLabel = (printer) =>
+  SHIFT_BANDS.find((band) => band.key === printer?.shift)?.label ?? "";
 
 function printerSheet(printer) {
   const rows = [];
@@ -175,10 +194,23 @@ function printerSheet(printer) {
   const heads = [];
   const bands = [];
   const days = printerDays(printer);
+  const shiftLabel = printerShiftLabel(printer);
+  const nightShowing = !shiftLabel || printer?.shift === "night";
 
   if (days.length === 0) {
-    rows.push(["No CSVs loaded on the Printer stats tab."]);
+    rows.push([
+      shiftLabel
+        ? `Nothing ran on the ${shiftLabel.toLowerCase()} shift of the days loaded.`
+        : "No CSVs loaded on the Printer stats tab."
+    ]);
     return { name: "Printer stats", key: "printer", rows, boldRows: bold };
+  }
+
+  // Say which shift these figures are, so a filtered sheet is never mistaken
+  // for a whole day's.
+  if (shiftLabel) {
+    bold.push(rows.length);
+    rows.push([`${shiftLabel} shift only`]);
   }
 
   // A blank line between tables, but not between a day's heading and the
@@ -191,7 +223,7 @@ function printerSheet(printer) {
     underHeading = false;
     bold.push(rows.length);
     heads.push(rows.length);
-    rows.push([title, ...SHIFT_BANDS.map((band) => band.label), "Total"]);
+    rows.push([title, ...totalsRow.bands.map((band) => band.label), "Total"]);
     entries.forEach((entry) => rows.push([entry.name, ...entry.values, entry.total]));
     bold.push(rows.length);
     rows.push([totalsLabel, ...totalsRow.shiftTotals, totalsRow.grand]);
@@ -205,7 +237,8 @@ function printerSheet(printer) {
     bands.push(rows.length);
     rows.push([
       day.dateKey ? { date: day.dateKey } : "Day",
-      day.partialNight ? "night to midnight only" : ""
+      // Only a night that is actually on the sheet can be a short one.
+      day.partialNight && nightShowing ? "night to midnight only" : ""
     ]);
     underHeading = true;
 
@@ -421,13 +454,20 @@ function summarySheet({ generatedAt, range, filters, jobs, printer, steelBay, st
   gap();
   head("Printer stats");
   const days = printerDays(printer);
+  const printerShift = printerShiftLabel(printer);
+  if (printerShift) {
+    line("Shift", `${printerShift} only`);
+  }
   if (days.length === 0) {
-    line("Metres run", "No CSVs loaded");
+    line("Metres run", printerShift ? `Nothing ran on the ${printerShift.toLowerCase()}` : "No CSVs loaded");
   }
   days.forEach((day) => {
-    // Each day on its own, and its metres split across the shifts that ran.
-    line(day.dateKey ? { date: day.dateKey } : "Day", day.partialNight ? "night to midnight only" : "");
-    SHIFT_BANDS.forEach((band, index) => line(band.label, day.summary.shiftTotals[index]));
+    // Each day on its own, and its metres split across the shifts on the sheet.
+    line(
+      day.dateKey ? { date: day.dateKey } : "Day",
+      day.partialNight && (!printerShift || printer?.shift === "night") ? "night to midnight only" : ""
+    );
+    day.summary.bands.forEach((band, index) => line(band.label, day.summary.shiftTotals[index]));
     line("Metres run", day.summary.grand);
   });
 

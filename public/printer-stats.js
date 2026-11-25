@@ -19,6 +19,33 @@ export const SHIFT_BANDS = [
   { key: "night", label: "Night", hint: "10pm–6am" }
 ];
 
+// "No filter": every shift side by side, which is how the tab opens.
+export const ALL_SHIFTS = "all";
+
+// Everything a table needs for the shift or shifts on screen. With no filter
+// that is the three bands as before; with one picked it is that column alone,
+// re-ranked by it and without the operators who didn't work it — which is the
+// whole point of picking one. Kept here, not in the renderer, so the shared
+// workbook narrows by exactly the same rule.
+export function narrowSummary(summary, shiftKey) {
+  const index = SHIFT_BANDS.findIndex((band) => band.key === shiftKey);
+  if (index < 0) {
+    return { ...summary, bands: SHIFT_BANDS };
+  }
+  const pick = (rows) =>
+    rows
+      .map((row) => ({ name: row.name, values: [row.values[index]], total: row.values[index] }))
+      .filter((row) => row.total > 0);
+  return {
+    operators: pick(summary.operators).sort((a, b) => b.total - a.total),
+    // Lines stay in their own order, E1 through E5, rather than being ranked.
+    lines: pick(summary.lines).sort((a, b) => a.name.localeCompare(b.name)),
+    shiftTotals: [summary.shiftTotals[index]],
+    grand: summary.shiftTotals[index],
+    bands: [SHIFT_BANDS[index]]
+  };
+}
+
 // Which shift an hour belongs to. A shift belongs to the day it starts on, the
 // same way the job log dates one: the night shift of the 12th runs 10pm on the
 // 12th through 6am on the 13th. `fromNextDay` marks rows read out of the
@@ -240,7 +267,7 @@ let pendingSlot = null;
 // files, every other day stays saved, and the file loaded as one day's "next
 // day" is already there when you go to that day.
 // { "2026-11-12": { E1: {name, rows}, … }, … }
-const emptyState = () => ({ workDate: "", days: {} });
+const emptyState = () => ({ workDate: "", days: {}, shift: ALL_SHIFTS });
 
 // Days are small (a few hundred hourly rows), but they are kept forever
 // otherwise; the oldest go first once there are more than this.
@@ -273,6 +300,12 @@ function restore() {
       return;
     }
     state.workDate = typeof stored.workDate === "string" ? stored.workDate : "";
+    // An unknown shift (an older save, or a band since renamed) falls back to
+    // showing them all rather than an empty tab.
+    state.shift =
+      stored.shift === ALL_SHIFTS || SHIFT_BANDS.some((band) => band.key === stored.shift)
+        ? stored.shift
+        : ALL_SHIFTS;
 
     if (stored.days && typeof stored.days === "object") {
       Object.entries(stored.days).forEach(([dateKey, lines]) => {
@@ -356,7 +389,13 @@ export function getPrinterSnapshot() {
       }
     });
   });
-  return { workDate: state.workDate, days: summariseDays(state.workDate, rowsFor), files };
+  return {
+    workDate: state.workDate,
+    days: summariseDays(state.workDate, rowsFor),
+    // The workbook follows the picker, so the sheet reads like the tab did.
+    shift: state.shift,
+    files
+  };
 }
 
 export function setPrinterStatsUser(uid) {
@@ -495,20 +534,23 @@ function renderSlots() {
   });
 }
 
-function table(caption, rows, firstHeading, totals, grand) {
+function table(caption, rows, firstHeading, totals, grand, bands) {
   const head =
     `<tr><th>${escapeHtml(firstHeading)}</th>` +
-    SHIFT_BANDS.map((s) => `<th>${escapeHtml(s.label)}<span>${escapeHtml(s.hint)}</span></th>`).join("") +
+    bands.map((s) => `<th>${escapeHtml(s.label)}<span>${escapeHtml(s.hint)}</span></th>`).join("") +
     `<th>Total</th></tr>`;
 
-  const body = rows
-    .map(
-      (row) =>
-        `<tr><td>${escapeHtml(row.name)}</td>` +
-        row.values.map((v) => `<td>${v > 0 ? fmt(v) : "—"}</td>`).join("") +
-        `<td class="is-total">${fmt(row.total)}</td></tr>`
-    )
-    .join("");
+  const body =
+    rows.length > 0
+      ? rows
+          .map(
+            (row) =>
+              `<tr><td>${escapeHtml(row.name)}</td>` +
+              row.values.map((v) => `<td>${v > 0 ? fmt(v) : "—"}</td>`).join("") +
+              `<td class="is-total">${fmt(row.total)}</td></tr>`
+          )
+          .join("")
+      : `<tr><td class="is-none" colspan="${bands.length + 2}">Nobody on this shift.</td></tr>`;
 
   const foot =
     `<tr class="is-foot"><td>All</td>` +
@@ -523,18 +565,44 @@ function table(caption, rows, firstHeading, totals, grand) {
   );
 }
 
+// The chips, and which one is on.
+function renderShiftFilter() {
+  const wrap = elements.printerShiftFilter;
+  if (!wrap) {
+    return;
+  }
+  wrap.querySelectorAll("[data-printer-shift]").forEach((chip) => {
+    chip.setAttribute("aria-pressed", String(chip.dataset.printerShift === state.shift));
+  });
+}
+
+const shiftName = (key) => SHIFT_BANDS.find((band) => band.key === key)?.label ?? "";
+
 function renderResults() {
   const days = state.workDate ? summariseDays(state.workDate, rowsFor) : [];
-  const showing = days.filter((day) => day.summary.grand > 0);
+  const showing = days
+    .map((day) => ({ ...day, summary: narrowSummary(day.summary, state.shift) }))
+    // With a shift picked, a day that ran nothing on it drops out entirely
+    // rather than showing an empty table.
+    .filter((day) => day.summary.grand > 0);
 
   if (showing.length === 0) {
+    const picked = shiftName(state.shift);
     elements.printerResults.innerHTML = `<p class="entry-empty">${
-      state.workDate
-        ? `Nothing loaded for ${escapeHtml(dayLabel(state.workDate))} yet.`
-        : "Pick a day, then upload a line's CSV."
+      !state.workDate
+        ? "Pick a day, then upload a line's CSV."
+        : picked
+          ? `Nothing ran on the ${escapeHtml(picked.toLowerCase())} shift of ${escapeHtml(
+              dayLabel(state.workDate)
+            )}.`
+          : `Nothing loaded for ${escapeHtml(dayLabel(state.workDate))} yet.`
     }</p>`;
     return;
   }
+
+  // The night's tail lives in the next day's file, so the warning only means
+  // something while the night is on screen.
+  const nightShowing = state.shift === ALL_SHIFTS || state.shift === "night";
 
   elements.printerResults.innerHTML = showing
     .map(({ dateKey, partialNight, summary }) => {
@@ -544,10 +612,10 @@ function renderResults() {
         `<h3 class="day-block-title">${escapeHtml(heading)}` +
         // Its night can't be finished without the following day's file, so the
         // figure is only the evening half and must not read as a full night.
-        (partialNight ? `<span>night to midnight only</span>` : "") +
+        (partialNight && nightShowing ? `<span>night to midnight only</span>` : "") +
         `</h3>` +
-        table("Metres per operator", summary.operators, "Operator", summary.shiftTotals, summary.grand) +
-        table("Metres per line", summary.lines, "Line", summary.shiftTotals, summary.grand) +
+        table("Metres per operator", summary.operators, "Operator", summary.shiftTotals, summary.grand, summary.bands) +
+        table("Metres per line", summary.lines, "Line", summary.shiftTotals, summary.grand, summary.bands) +
         `</section>`
       );
     })
@@ -592,6 +660,7 @@ function renderLoadedDays() {
 export function renderPrinterStats() {
   elements.printerDate.value = state.workDate;
   renderSlots();
+  renderShiftFilter();
   renderResults();
   renderLoadedDays();
 }
@@ -613,6 +682,14 @@ export function initPrinterStats(els) {
     if (file && target) {
       loadFile(file, target.line, target.dateKey);
     }
+  });
+
+  elements.printerShiftFilter?.querySelectorAll("[data-printer-shift]").forEach((chip) => {
+    chip.addEventListener("click", () => {
+      state.shift = chip.dataset.printerShift;
+      persist();
+      renderPrinterStats();
+    });
   });
 
   // Clears the day on screen, not the lot: every other day stays where it is.

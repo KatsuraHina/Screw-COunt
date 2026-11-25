@@ -219,6 +219,7 @@ export function getElements() {
     printerSlots: document.getElementById("printerSlots"),
     printerFileInput: document.getElementById("printerFileInput"),
     printerStatus: document.getElementById("printerStatus"),
+    printerShiftFilter: document.getElementById("printerShiftFilter"),
     printerResults: document.getElementById("printerResults"),
     printerClearButton: document.getElementById("printerClearButton"),
     printerDays: document.getElementById("printerDays"),

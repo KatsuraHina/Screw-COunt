@@ -656,6 +656,12 @@
 
     <div class="card" id="printerResultsCard">
       <h2 class="section-title">Who ran what</h2>
+      <div id="printerShiftFilter" class="shift-filter" role="group" aria-label="Which shift to show">
+        <button class="filter-chip" type="button" data-printer-shift="all" aria-pressed="true">All shifts</button>
+        <button class="filter-chip" type="button" data-printer-shift="morning" aria-pressed="false">Morning</button>
+        <button class="filter-chip" type="button" data-printer-shift="afternoon" aria-pressed="false">Afternoon</button>
+        <button class="filter-chip" type="button" data-printer-shift="night" aria-pressed="false">Night</button>
+      </div>
       <div id="printerResults"></div>
     </div>
 
@@ -736,9 +742,9 @@
           <input id="stockSearch" type="search" placeholder="Item, rack or group" autocomplete="off">
         </div>
         <div id="stockFilters" class="stock-filters">
-          <button class="stock-chip" type="button" data-stock-filter="all" aria-pressed="true">All</button>
-          <button class="stock-chip" type="button" data-stock-filter="low" aria-pressed="false">Below re-order</button>
-          <button class="stock-chip" type="button" data-stock-filter="todo" aria-pressed="false">Not counted</button>
+          <button class="filter-chip" type="button" data-stock-filter="all" aria-pressed="true">All</button>
+          <button class="filter-chip" type="button" data-stock-filter="low" aria-pressed="false">Below re-order</button>
+          <button class="filter-chip" type="button" data-stock-filter="todo" aria-pressed="false">Not counted</button>
         </div>
       </div>
 
