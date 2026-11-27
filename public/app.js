@@ -2070,7 +2070,16 @@ function startEditJob(job) {
   editedDraft.entries = Array.isArray(job.entries) ? job.entries.map((entry) => ({ ...entry })) : [];
 
   state.drafts[targetTab] = editedDraft;
-  state.editingJob = { id: job.id, jobType: targetTab, originalStrapMinutes: Number(job.strapMinutes) || 0 };
+  state.editingJob = {
+    id: job.id,
+    jobType: targetTab,
+    originalStrapMinutes: Number(job.strapMinutes) || 0,
+    // A wall job's lineal metres come from the panel rows that were ticked off
+    // the import list, and the saved job keeps the total but not the rows. So
+    // an edit has nothing to re-tick, and without this the metres would save
+    // as 0 (see createPendingJob).
+    originalMetres: Number(job.metres) || 0
+  };
 
   if (targetTab !== state.activeTab) {
     if (JOB_TYPES[state.activeTab]) {
@@ -2230,6 +2239,14 @@ function createPendingJob() {
     // strapStart/strapEnd, so there's nothing to re-populate the fields with.
     strapMinutes = state.editingJob.originalStrapMinutes;
   }
+  // Same reasoning for a wall job's lineal metres: they come from the ticked
+  // import rows, which the saved job doesn't keep, so an edit opens with
+  // nothing ticked. Keep what was saved unless rows are ticked now — editing
+  // the date or the bench must not quietly wipe the metres.
+  let importMetres = getTickedImportMetres();
+  if (editing && importMetres === 0) {
+    importMetres = state.editingJob.originalMetres;
+  }
   const config = getActiveConfig();
   const actionLabel = editing ? "saving your changes" : "ending and saving a job";
 
@@ -2293,7 +2310,7 @@ function createPendingJob() {
     strapStartValue: draft.strapStart,
     strapEndValue: draft.strapEnd,
     totalAmount,
-    importMetres: getTickedImportMetres(),
+    importMetres,
     entries,
     assignedWorkers: resolveAssignedWorkers(draft.assignedWorkerIds),
     // Tag the job with its number (e.g. "512621") so it can be identified and
